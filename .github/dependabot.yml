@@ -9,9 +9,9 @@ updates:
       time: "09:00"
     open-pull-requests-limit: 10
     reviewers:
-      - "your-github-username"
+      - "Abega1642"
     assignees:
-      - "your-github-username"
+      - "Abega1642"
     commit-message:
       prefix: "deps"
       include: "scope"
