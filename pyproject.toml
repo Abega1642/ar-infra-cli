@@ -26,7 +26,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "typer[all]>=0.20.0",
+    "typer[all]>=0.20.1",
     "click>=8.3.1",
     "rich>=14.2.0",
     "questionary>=2.1.1",
@@ -82,10 +82,10 @@ dev = [
 ar_infra = "ar_infra.cli.app:main"
 
 [project.urls]
-Homepage = "https://github.com/Abega1642/ar_infra-cli"
-Documentation = "https://ar_infra-cli.readthedocs.io"
-Repository = "https://github.com/Abega1642/ar_infra-cli"
-Issues = "https://github.com/Abega1642/ar_infra-cli/issues"
+Homepage = "https://github.com/Abega1642/ar-infra-cli"
+Documentation = ""
+Repository = "https://github.com/Abega1642/ar-infra-cli"
+Issues = "https://github.com/Abega1642/ar-infra-cli/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -158,6 +158,9 @@ ignore = [
     "S101",    # use of assert (OK in tests)
     "PLR0913", # too many arguments
     "PLR2004", # magic value comparison
+    "TRY003",  # Avoid specifying long messages outside exception class
+    "EM101",   # Exception must not use string literal
+    "EM102",   # Exception must not use f-string literal
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -169,7 +172,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["ar_infra"]
+known-first-party = ["src"]
 force-single-line = false
 force-sort-within-sections = false
 lines-after-imports = 2
@@ -208,9 +211,10 @@ force_grid_wrap = 0
 use_parentheses = true
 ensure_newline_before_comments = true
 split_on_trailing_comma = true
-known_first_party = ["ar_infra"]
+known_first_party = ["src"]
 skip_gitignore = true
 skip = [".git", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".venv", "build", "dist"]
+src_paths = ["src", "tests"]
 
 
 [tool.mypy]
