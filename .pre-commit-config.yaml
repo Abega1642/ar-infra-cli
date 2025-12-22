@@ -106,7 +106,7 @@ repos:
       - id: pydocstyle
         args:
           - --convention=google
-          - --add-ignore=D100,D104,D105,D107,D212
+          - --add-ignore=D100,D102,D104,D105,D107,D212
         exclude: ^tests/
 
 ci:

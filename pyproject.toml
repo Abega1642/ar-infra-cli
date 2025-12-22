@@ -154,6 +154,8 @@ select = [
     "RUF",   # ruff-specific rules
 ]
 ignore = [
+    "COM812",
+    "ISC001",
     "E501",    # line too long (handled by formatter)
     "S101",    # use of assert (OK in tests)
     "PLR0913", # too many arguments

@@ -1,77 +1,17 @@
 """GroupId value object - represents a Maven/Gradle group identifier."""
 
-import re
 from dataclasses import dataclass
-from typing import Final, final
+from typing import final
 
 from pathvalidate import ValidationError, validate_filename
 
-from src.ar_infra.domain.exceptions.validation_error import InvalidGroupIdError
-
-
-JAVA_RESERVED_KEYWORDS: Final[set[str]] = {
-    "abstract",
-    "assert",
-    "boolean",
-    "break",
-    "byte",
-    "case",
-    "catch",
-    "char",
-    "class",
-    "const",
-    "continue",
-    "default",
-    "do",
-    "double",
-    "else",
-    "enum",
-    "extends",
-    "final",
-    "finally",
-    "float",
-    "for",
-    "goto",
-    "if",
-    "implements",
-    "import",
-    "instanceof",
-    "int",
-    "interface",
-    "long",
-    "native",
-    "new",
-    "package",
-    "private",
-    "protected",
-    "public",
-    "return",
-    "short",
-    "static",
-    "strictfp",
-    "super",
-    "switch",
-    "synchronized",
-    "this",
-    "throw",
-    "throws",
-    "transient",
-    "try",
-    "void",
-    "volatile",
-    "while",
-    "true",
-    "false",
-    "null",
-}
-
-MAX_GROUP_ID_LENGTH: Final[int] = 255
-MAX_SEGMENT_LENGTH: Final[int] = 50
-
-
-VALID_SEGMENT_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+from src.ar_infra.domain.constant import (
+    JAVA_RESERVED_KEYWORDS,
+    MAX_GROUP_ID_LENGTH,
+    MAX_SEGMENT_LENGTH,
+    VALID_SEGMENT_PATTERN,
 )
+from src.ar_infra.domain.exceptions.validation_error import InvalidGroupIdError
 
 
 def _validate_segment(segment: str) -> None:
@@ -152,37 +92,31 @@ class GroupId:
         Raises:
             InvalidGroupIdError: If the group ID is invalid.
         """
-        # Check if empty
         if not self.value or not self.value.strip():
             raise InvalidGroupIdError("Group ID cannot be empty")
 
-        # Security: Check length to prevent DoS
         if len(self.value) > MAX_GROUP_ID_LENGTH:
             raise InvalidGroupIdError(
                 f"Group ID is too long (max {MAX_GROUP_ID_LENGTH} characters)",
             )
 
-        # Security: Detect path traversal attempts
         if ".." in self.value or "/" in self.value or "\\" in self.value:
             raise InvalidGroupIdError(
                 "Group ID contains invalid path characters (possible path traversal)",
             )
 
-        # Security: Detect command injection attempts
         dangerous_chars = [";", "&", "|", "`", "$", "(", ")", "<", ">", "\n", "\r"]
         if any(char in self.value for char in dangerous_chars):
             raise InvalidGroupIdError(
                 "Group ID contains potentially dangerous characters",
             )
 
-        # Check for valid structure
         if self.value.startswith(".") or self.value.endswith("."):
             raise InvalidGroupIdError("Group ID cannot start or end with a dot")
 
         if ".." in self.value:
             raise InvalidGroupIdError("Group ID cannot contain consecutive dots")
 
-        # Split into segments and validate each
         segments = self.value.split(".")
 
         if len(segments) < 2:
