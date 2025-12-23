@@ -12,6 +12,7 @@ from src.ar_infra.domain.entities.gradle_dependency import (
     GradleConfiguration,
     GradleDependency,
 )
+from src.ar_infra.domain.exceptions.validation_error import InvalidGroupIdError
 from src.ar_infra.domain.value_objects.group_id import GroupId
 from src.ar_infra.domain.value_objects.version import Version
 from src.ar_infra.infrastructure.gradle.gradle_exception import (
@@ -156,8 +157,6 @@ class TestGradleWriter:
     def test_domain_validation_prevents_malicious_group(
         self, writer: GradleWriter, sample_build_file: Path
     ) -> None:
-        from src.ar_infra.domain.exceptions.validation_error import InvalidGroupIdError
-
         with pytest.raises(InvalidGroupIdError):
             GroupId("com.example'; System.exit(0); //'")
 
@@ -184,7 +183,6 @@ dependencies {
 """
         build_file.write_text(malicious_content)
 
-        # Attempting any update should detect the malicious pattern in the updated content
         with pytest.raises(MaliciousContentError):
             writer.update_version(build_file, Version("2.0.0"))
 
