@@ -1,9 +1,16 @@
 """Secure Gradle build file parser."""
 
-import re
 from pathlib import Path
-from typing import Final
 
+from src.ar_infra.domain.constant import (
+    DEPENDENCY_PATTERN,
+    GROUP_PATTERN,
+    JAVA_VERSION_PATTERN,
+    MALICIOUS_PATTERNS,
+    MAX_FILE_SIZE,
+    PLUGIN_PATTERN,
+    VERSION_PATTERN,
+)
 from src.ar_infra.domain.entities.gradle_dependency import (
     GradleConfiguration,
     GradleDependency,
@@ -11,35 +18,6 @@ from src.ar_infra.domain.entities.gradle_dependency import (
 from src.ar_infra.infrastructure.gradle.gradle_exception import (
     GradleParseError,
     MaliciousContentError,
-)
-
-
-MAX_FILE_SIZE: Final[int] = 5 * 1024 * 1024
-
-MALICIOUS_PATTERNS: Final[list[re.Pattern[str]]] = [
-    re.compile(r"System\.exit\("),
-    re.compile(r"Runtime\.getRuntime\(\)"),
-    re.compile(r"ProcessBuilder"),
-    re.compile(r"\.\.\/\.\.\/"),
-    re.compile(r"exec\("),
-    re.compile(r"`[^`]+`"),
-    re.compile(r"\$\([^\)]+\)"),
-]
-
-GROUP_PATTERN: Final[re.Pattern[str]] = re.compile(r"group\s*=\s*['\"]([^'\"]+)['\"]")
-VERSION_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"version\s*=\s*['\"]([^'\"]+)['\"]",
-)
-JAVA_VERSION_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"sourceCompatibility\s*=\s*['\"]?(\d+)['\"]?",
-)
-PLUGIN_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"id\s+['\"]([^'\"]+)['\"]\s*(?:version\s+['\"]([^'\"]+)['\"])?",
-)
-DEPENDENCY_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"(implementation|testImplementation|runtimeOnly|compileOnly|"
-    r"annotationProcessor|testRuntimeOnly)\s*\(?\s*['\"]([^'\"]+)['\"]",
-    re.MULTILINE | re.DOTALL,
 )
 
 

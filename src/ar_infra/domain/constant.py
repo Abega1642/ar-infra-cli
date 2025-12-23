@@ -64,6 +64,8 @@ MAX_GROUP_ID_LENGTH: Final[int] = 255
 MAX_SEGMENT_LENGTH: Final[int] = 50
 MAX_ARTIFACT_ID_LENGTH: Final[int] = 50
 MIN_ARTIFACT_ID_LENGTH: Final[int] = 3
+MAX_FILE_SIZE: Final[int] = 5 * 1024 * 1024
+
 
 VALID_SEGMENT_PATTERN = re.compile(
     r"^[a-z][a-z0-9_]*$",
@@ -78,3 +80,33 @@ SEMANTIC_VERSION_PATTERN: Final[re.Pattern[str]] = re.compile(
 )
 
 DANGEROUS_CHARACTERS = [";", "&", "|", "`", "$", "(", ")", "<", ">", "\n", "\r"]
+
+MALICIOUS_PATTERNS: Final[list[re.Pattern[str]]] = [
+    re.compile(r"System\.exit\("),
+    re.compile(r"Runtime\.getRuntime\(\)"),
+    re.compile(r"ProcessBuilder"),
+    re.compile(r"\.\.\/\.\.\/"),
+    re.compile(r"exec\("),
+    re.compile(r"`[^`]+`"),
+    re.compile(r"\$\([^\)]+\)"),
+]
+
+DEPENDENCY_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"(implementation|testImplementation|runtimeOnly|compileOnly|"
+    r"annotationProcessor|testRuntimeOnly)\s*\(?\s*['\"]([^'\"]+)['\"]",
+    re.MULTILINE | re.DOTALL,
+)
+
+PLUGIN_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"id\s+['\"]([^'\"]+)['\"]\s*(?:version\s+['\"]([^'\"]+)['\"])?",
+)
+
+JAVA_VERSION_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"sourceCompatibility\s*=\s*['\"]?(\d+)['\"]?",
+)
+
+VERSION_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"version\s*=\s*['\"]([^'\"]+)['\"]",
+)
+
+GROUP_PATTERN: Final[re.Pattern[str]] = re.compile(r"group\s*=\s*['\"]([^'\"]+)['\"]")
