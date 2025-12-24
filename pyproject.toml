@@ -163,6 +163,8 @@ ignore = [
     "TRY003",  # Avoid specifying long messages outside exception class
     "EM101",   # Exception must not use string literal
     "EM102",   # Exception must not use f-string literal
+    "TRY301",  # Abstract raise to inner function
+    "SIM105",  # Use contextlib.suppress
 ]
 
 [tool.ruff.lint.per-file-ignores]

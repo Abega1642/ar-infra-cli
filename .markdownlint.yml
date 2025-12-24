@@ -1,0 +1,4 @@
+MD033: false # allow inline HTML
+MD041: false # allow non-H1 first line
+MD013: false # ignore line length
+MD045: false # allow images without alt text

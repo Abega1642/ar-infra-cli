@@ -30,7 +30,6 @@
 
 ---
 
-
 ## 1. Introduction
 
 The **ar‑infra‑cli** is a command‑line tool designed to generate **production‑ready Spring Boot applications**. It leverages the [ar‑infra‑template](https://github.com/Abega1642/ar-infra-template.git) as its foundation, ensuring that every generated project starts with a complete, enterprise‑grade infrastructure.
@@ -43,16 +42,16 @@ This CLI automates the creation of new backend services, eliminating the repetit
 
 **ar‑infra** refers to the architecture and infrastructure baseline defined by this ecosystem. It represents a structured, production‑ready backend stack that includes:
 
-- Messaging (RabbitMQ)  
-- Storage (S3‑compatible bucket)  
-- Database (PostgreSQL with Flyway migrations)  
-- Email service  
-- Security configuration  
-- Health check endpoints  
-- Integration testing with Testcontainers  
-- CI/CD workflows  
-- Dockerized runtime environment  
-- OpenAPI documentation with Swagger UI  
+- Messaging (RabbitMQ)
+- Storage (S3‑compatible bucket)
+- Database (PostgreSQL with Flyway migrations)
+- Email service
+- Security configuration
+- Health check endpoints
+- Integration testing with Testcontainers
+- CI/CD workflows
+- Dockerized runtime environment
+- OpenAPI documentation with Swagger UI
 
 This architecture is designed to be reliable, maintainable, and secure, suitable for enterprise‑scale applications.
 
@@ -60,7 +59,7 @@ This architecture is designed to be reliable, maintainable, and secure, suitable
 
 ## 3. What is ar‑infra‑template?
 
-The [ar‑infra‑template](https://github.com/Abega1642/ar-infra-template.git) is the **base template** that implements the ar‑infra architecture. It provides the full project structure, configurations, validators, health endpoints, and CI/CD pipelines.  
+The [ar‑infra‑template](https://github.com/Abega1642/ar-infra-template.git) is the **base template** that implements the ar‑infra architecture. It provides the full project structure, configurations, validators, health endpoints, and CI/CD pipelines.
 
 It is not intended to be cloned and customized manually. Instead, it serves as the **foundation** for generated projects, ensuring that every new application starts with the same solid infrastructure.
 
@@ -70,10 +69,10 @@ It is not intended to be cloned and customized manually. Instead, it serves as t
 
 The **ar‑infra‑cli** is the tool that makes ar‑infra practical. It generates new Spring Boot projects based on the ar‑infra‑template, with customization options such as:
 
-- **groupId** and **artifactId**  
-- **Dependencies** (add or remove as needed)  
-- **Target location**: generate locally on your computer, or both locally and directly in your GitHub account  
-- **Configuration options** for tailoring the generated project to your team’s needs  
+- **groupId** and **artifactId**
+- **Dependencies** (add or remove as needed)
+- **Target location**: generate locally on your computer, or both locally and directly in your GitHub account
+- **Configuration options** for tailoring the generated project to your team’s needs
 
 By running a single command, developers can bootstrap a fully configured, production‑ready Spring Boot application without manual setup.
 
@@ -81,12 +80,13 @@ By running a single command, developers can bootstrap a fully configured, produc
 
 ## 5. Current Status
 
-The **ar‑infra‑cli** project is **under active development**.  
+The **ar‑infra‑cli** project is **under active development**.
 
 Future documentation will include:
-- How to download and install the CLI  
-- How to use it to generate projects  
-- Examples of customization options  
+
+- How to download and install the CLI
+- How to use it to generate projects
+- Examples of customization options
 
 At this stage, the README serves to explain the purpose and scope of the tool. Usage instructions will be added once the CLI reaches a stable release.
 
@@ -94,6 +94,6 @@ At this stage, the README serves to explain the purpose and scope of the tool. U
 
 ## 6. Conclusion
 
-The **ar‑infra‑cli** is the entry point for teams adopting the ar‑infra architecture. By combining the solid foundation of **ar‑infra‑template** with the automation of a CLI tool, it enables developers to start new backend projects quickly, consistently, and securely.  
+The **ar‑infra‑cli** is the entry point for teams adopting the ar‑infra architecture. By combining the solid foundation of **ar‑infra‑template** with the automation of a CLI tool, it enables developers to start new backend projects quickly, consistently, and securely.
 
 This ecosystem demonstrates readiness for enterprise projects, ensuring that every generated application is production‑ready from day one.
