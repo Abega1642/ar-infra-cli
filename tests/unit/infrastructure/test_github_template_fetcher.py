@@ -108,7 +108,7 @@ class TestGitHubTemplateFetcher:
         template_dir = tmp_path / "template"
         template_dir.mkdir()
 
-        with pytest.raises(InvalidTemplateError, match="build.gradle not found"):
+        with pytest.raises(InvalidTemplateError, match=r"build\.gradle not found"):
             fetcher._validate_template_structure(template_dir)
 
     def test_reject_template_without_src_structure(
@@ -118,7 +118,7 @@ class TestGitHubTemplateFetcher:
         template_dir.mkdir()
         (template_dir / "build.gradle").write_text("test")
 
-        with pytest.raises(InvalidTemplateError, match="src/main/java directory not found"):
+        with pytest.raises(InvalidTemplateError, match=r"src/main/java directory not found"):
             fetcher._validate_template_structure(template_dir)
 
     def test_reject_malicious_urls(self, fetcher: GitHubTemplateFetcher, tmp_path: Path) -> None:

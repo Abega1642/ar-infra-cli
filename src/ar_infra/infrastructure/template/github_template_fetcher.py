@@ -18,7 +18,7 @@ from src.ar_infra.infrastructure.template.exception import (
 BLOCKED_HOSTS: Final[set[str]] = {
     "localhost",
     "127.0.0.1",
-    "0.0.0.0",  # noqa: S104
+    "0.0.0.0",  # nosec B104
     "169.254.169.254",
 }
 
@@ -88,7 +88,7 @@ class GitHubTemplateFetcher:
         for path in src_main_java.rglob("*"):
             if path.is_dir() and self._looks_like_base_package(path):
                 relative = path.relative_to(src_main_java)
-                return str(relative).replace("/", ".")
+                return relative.as_posix().replace("/", ".")
 
         raise InvalidTemplateError(
             "Could not detect placeholder package in template. "
