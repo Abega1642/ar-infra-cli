@@ -43,5 +43,5 @@ rich==14.2.0
 # File Operations
 toml==0.10.2
 # CLI Framework
-typer[all]==0.20.1
+typer[all]==0.21.0
 validators==0.35.0
