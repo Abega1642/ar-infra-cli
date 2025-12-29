@@ -91,7 +91,6 @@ class TestProjectSignature:
             version=Version("1.0.0"),
         )
 
-        # Should be parseable as ISO format
         parsed = datetime.fromisoformat(signature.generated_at)
         assert parsed.tzinfo is not None
 

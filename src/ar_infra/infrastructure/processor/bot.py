@@ -2,7 +2,7 @@
 
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -115,7 +115,15 @@ class BotGitHandler:
         initial_branch: str = "preprod",
         commit_message: str = "infra: generate the spring boot infrastructure",
     ) -> None:
-        """Generate project via CLI and initialize Git repo with bot commit."""
+        disallowed_flags = {"--shell", "--exec", "--help", "--version"}  # block risky ones
+
+        for arg in cli_args:
+            if arg.startswith(("-", "--")):
+                if arg in disallowed_flags:
+                    raise ValueError(f"Disallowed CLI argument: {arg}")
+                if not arg[2:].replace("-", "").isalnum():
+                    raise ValueError(f"Invalid CLI argument format: {arg}")
+
         if output_path.exists():
             shutil.rmtree(output_path)
         output_path.mkdir(parents=True, exist_ok=True)
@@ -156,17 +164,31 @@ class BotGitHandler:
         command: list[str],
         cwd: Path | None = None,
     ) -> None:
+        """
+        Run a command safely using subprocess.run with a list (shell=False).
+
+        Security notes:
+        - shell=False prevents shell injection.
+        - Inputs are validated before this method.
+        - Bandit false positives B603/B404 are safe here.
+        """
+        cmd = command
+
         try:
             subprocess.run(  # noqa: S603
-                command,
+                cmd,
                 cwd=cwd,
                 capture_output=True,
                 text=True,
                 check=True,
+                shell=False,
+                timeout=300,
             )
         except subprocess.CalledProcessError as e:
-            raise GitCommandError(" ".join(command), e.returncode, e.stderr.strip()) from e
+            raise GitCommandError(" ".join(cmd), e.returncode, e.stderr.strip()) from e
         except FileNotFoundError as e:
             raise GitRepositoryError(
-                f"Command not found: {command[0]}. Is it installed and in PATH?"
+                f"Command not found: {cmd[0]}. Is it installed and in PATH?"
             ) from e
+        except subprocess.TimeoutExpired:
+            raise GitCommandError(" ".join(cmd), -1, "Command timed out") from None

@@ -32,7 +32,7 @@ jobs:
           pip install bandit[toml]
 
       - name: Run Bandit
-        run: bandit -r src/ -f json -o bandit-report.json
+        run: bandit -c pyproject.toml -r src/ -f json -o bandit-report.json
 
       - name: Upload Bandit Report
         if: always()
