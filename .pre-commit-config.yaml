@@ -91,7 +91,7 @@ repos:
         args:
           - --max-line-length=100
           - --disable=C0114,C0115,C0116
-          - --disable=R0903,E0401
+          - --disable=R0903,E0401,R0902,R0913,R0917
         exclude: ^tests/
 
   - repo: https://github.com/commitizen-tools/commitizen
