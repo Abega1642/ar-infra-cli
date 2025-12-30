@@ -1,0 +1,23 @@
+{
+  "name": "ar-infra-cli-assets",
+  "version": "1.0.0",
+  "description": "TypeScript assets for AR-INFRA CLI banner generation",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "generate-banner": "tsx scripts/generate-logo.ts",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "oh-my-logo": "^0.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "tsx": "^4.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

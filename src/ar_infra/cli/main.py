@@ -5,6 +5,7 @@ from pathlib import Path
 import click
 
 from src.ar_infra.cli.command.init import InitCommand, InitCommandArgs
+from src.ar_infra.cli.ui.banner import Banner
 
 
 def load_help_text() -> str:
@@ -15,10 +16,15 @@ def load_help_text() -> str:
     return "AR-INFRA - Spring Boot Project Generator"
 
 
-@click.group()
+@click.group(invoke_without_command=True)
 @click.version_option(version="1.0.0", prog_name="ar-infra")
-def cli() -> None:
+@click.pass_context
+def cli(ctx: click.Context) -> None:
     """AR-INFRA - Spring Boot Project Generator with Superpowers."""
+    if ctx.invoked_subcommand is None:
+        Banner.show()
+        click.echo(ctx.get_help())
+        ctx.exit()
 
 
 @cli.command(help=load_help_text())
@@ -42,6 +48,10 @@ def init(
     no_cache: bool,
 ) -> None:
     """Initialize a new Spring Boot project."""
+    Banner.show()
+
+    input()
+
     command = InitCommand()
 
     args = InitCommandArgs(
@@ -59,4 +69,4 @@ def init(
 
 
 if __name__ == "__main__":
-    cli()
+    cli()  # pylint: disable=no-value-for-parameter
