@@ -28,7 +28,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
-          cache: "npm"
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -45,70 +44,8 @@ jobs:
       - name: Install Node.js dependencies
         run: npm install
 
-      - name: Generate banner
-        run: make setup-banner
-
-      - name: Verify banner generation
-        shell: bash
-        run: |
-          echo "=== Checking banner file exists ==="
-          if [ ! -f "src/ar_infra/cli/resources/banner.txt" ]; then
-            echo "ERROR: Banner file not generated"
-            exit 1
-          fi
-          echo "Banner file exists"
-
-          echo -e "\n=== Checking banner file is not empty ==="
-          if [ ! -s "src/ar_infra/cli/resources/banner.txt" ]; then
-            echo "ERROR: Banner file is empty"
-            exit 1
-          fi
-          FILESIZE=$(wc -c < "src/ar_infra/cli/resources/banner.txt")
-          echo "Banner file size: ${FILESIZE} bytes"
-
-          echo -e "\n=== Checking for ANSI escape codes ==="
-          if ! grep -q $'\x1b\[' "src/ar_infra/cli/resources/banner.txt"; then
-            echo "ERROR: Banner file does not contain ANSI color codes"
-            cat src/ar_infra/cli/resources/banner.txt
-            exit 1
-          fi
-          echo "Banner contains ANSI color codes"
-
-          echo -e "\n=== Checking for expected color codes (ocean palette) ==="
-          # Ocean palette uses colors like 38;5;105, 38;5;104, 38;5;103, etc.
-          if ! grep -q "38;5;10" "src/ar_infra/cli/resources/banner.txt"; then
-            echo "ERROR: Expected ocean palette color codes not found"
-            exit 1
-          fi
-          echo "Ocean palette colors detected"
-
-          echo -e "\n=== Banner content preview (first 200 bytes) ==="
-          head -c 200 src/ar_infra/cli/resources/banner.txt | od -A x -t x1z -v
-
-          echo -e "\n=== Banner visual preview ==="
-          cat src/ar_infra/cli/resources/banner.txt
-
-      - name: Test banner import in Python
-        run: |
-          python -c "
-          import sys
-          from pathlib import Path
-          sys.path.insert(0, 'src')
-          from ar_infra.cli.ui.banner import Banner
-
-          # Load banner
-          banner = Banner._load_banner()
-
-          # Verify it's loaded
-          assert banner, 'Banner is empty'
-          assert len(banner) > 100, f'Banner too short: {len(banner)} chars'
-          assert '\x1b[' in banner, 'Banner missing ANSI codes'
-          assert '38;5;10' in banner, 'Banner missing expected colors'
-
-          print(f'Banner loaded successfully: {len(banner)} characters')
-          print(f'Contains ANSI codes: True')
-          print('All Python import tests passed')
-          "
+      - name: Setup and verify banner
+        run: make test-banner
 
       - name: Run pytest
         run: pytest tests/ -v --cov=src/ar_infra --cov-report=xml --cov-report=html --cov-report=term-missing --junitxml=junit.xml

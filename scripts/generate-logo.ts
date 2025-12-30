@@ -50,6 +50,14 @@ async function generateLogo(): Promise<void> {
 
     process.env.FORCE_COLOR = '3';
     process.env.COLORTERM = 'truecolor';
+    process.env.TERM = 'xterm-256color';
+
+    const originalIsTTY = process.stdout.isTTY;
+    Object.defineProperty(process.stdout, 'isTTY', {
+      value: true,
+      configurable: true,
+      writable: true,
+    });
 
     const capture = new StdoutCapture();
     const originalWrite = process.stdout.write.bind(process.stdout);
@@ -65,6 +73,12 @@ async function generateLogo(): Promise<void> {
     });
 
     process.stdout.write = originalWrite;
+
+    Object.defineProperty(process.stdout, 'isTTY', {
+      value: originalIsTTY,
+      configurable: true,
+      writable: true,
+    });
 
     const logo = capture.getOutput();
 

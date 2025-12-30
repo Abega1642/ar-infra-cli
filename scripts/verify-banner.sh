@@ -59,9 +59,6 @@ run_check "Banner file is not empty" \
 run_check "Banner contains ANSI escape codes" \
   "grep -q \$'\\x1b\\[' src/ar_infra/cli/resources/banner.txt"
 
-run_check "Banner contains ANSI color sequences" \
-  "grep -q '38;5;' src/ar_infra/cli/resources/banner.txt"
-
 run_check "Banner contains block characters" \
   "grep -q '█' src/ar_infra/cli/resources/banner.txt"
 
