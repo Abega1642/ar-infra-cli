@@ -15,6 +15,28 @@ from src.ar_infra.infrastructure.gradle.gradle_exception import (
 )
 
 
+DEP_REG = r"(dependencies\s*\{)(.*?)(\n\})"
+CONFIGURATIONS = [
+    "implementation",
+    "testImplementation",
+    "runtimeOnly",
+    "compileOnly",
+    "api",
+]
+DEP_PATTERN = re.compile(
+    r"^\s*(implementation|testImplementation|runtimeOnly|compileOnly|api)\s*"
+    r"[\(\[]?\s*['\"]([^'\"]+)['\"]",
+    re.IGNORECASE,
+)
+GROUP_PATTERN = re.compile(r"group\s*=\s*['\"][^'\"]*['\"]")
+VERSION_PATTERN = re.compile(r"version\s*=\s*['\"][^'\"]*['\"]")
+SETTINGS_NAME_PATTERN = re.compile(r"rootProject\.name\s*=\s*['\"][^'\"]*['\"]")
+JAVA_BLOCK_WITH_GROUP_PATTERN = re.compile(
+    r"(java\s*\{[^}]*group\s*=\s*['\"][^'\"]*['\"])",
+    re.DOTALL,
+)
+
+
 class GradleWriter:
     """Secure writer for modifying Gradle build files."""
 
@@ -22,11 +44,7 @@ class GradleWriter:
         self._validate_file(build_file)
         content = build_file.read_text(encoding="utf-8")
 
-        updated = re.sub(
-            r"group\s*=\s*['\"][^'\"]*['\"]",
-            f"group = '{group.value}'",
-            content,
-        )
+        updated = GROUP_PATTERN.sub(f"group = '{group.value}'", content)
 
         self._detect_malicious_content(updated)
         self._atomic_write(build_file, updated)
@@ -35,41 +53,17 @@ class GradleWriter:
         self._validate_file(build_file)
         content = build_file.read_text(encoding="utf-8")
 
-        pattern = r"version\s*=\s*['\"][^'\"]*['\"]"
-        if re.search(pattern, content):
-            updated = re.sub(pattern, f"version = '{version.value}'", content)
-        else:
-            java_block_pattern = r"(java\s*\{[^}]*group\s*=\s*['\"][^'\"]*['\"])"
-            match = re.search(java_block_pattern, content, re.DOTALL)
-
-            if match:
-                insertion_point = match.end()
-                updated = (
-                    content[:insertion_point]
-                    + f"\n    version = '{version.value}'"
-                    + content[insertion_point:]
-                )
-            else:
-                plugins_end = content.find("}\n", content.find("plugins {"))
-                if plugins_end != -1:
-                    updated = (
-                        content[: plugins_end + 2]
-                        + f"\nversion = '{version.value}'\n"
-                        + content[plugins_end + 2 :]
-                    )
-                else:
-                    raise GradleWriteError("Cannot find suitable location for version")
+        updated = self._replace_or_insert_version(content, version.value)
 
         self._detect_malicious_content(updated)
         self._atomic_write(build_file, updated)
 
     def update_settings_gradle(self, settings_file: Path, artifact: ArtifactId) -> None:
-        """Update rootProject.name in settings.gradle ."""
+        """Update rootProject.name in settings.gradle."""
         self._validate_file(settings_file)
         content = settings_file.read_text(encoding="utf-8")
 
-        updated = re.sub(
-            r"rootProject\.name\s*=\s*['\"][^'\"]*['\"]",
+        updated = SETTINGS_NAME_PATTERN.sub(
             f"rootProject.name = '{artifact.value}'",
             content,
         )
@@ -81,36 +75,8 @@ class GradleWriter:
         self._validate_file(build_file)
         content = build_file.read_text(encoding="utf-8")
 
-        updated = re.sub(
-            r"group\s*=\s*['\"][^'\"]*['\"]",
-            f"group = '{group.value}'",
-            content,
-        )
-
-        version_pattern = r"version\s*=\s*['\"][^'\"]*['\"]"
-        if re.search(version_pattern, updated):
-            updated = re.sub(version_pattern, f"version = '{version.value}'", updated)
-        else:
-            java_block_pattern = r"(java\s*\{[^}]*group\s*=\s*['\"][^'\"]*['\"])"
-            match = re.search(java_block_pattern, updated, re.DOTALL)
-
-            if match:
-                insertion_point = match.end()
-                updated = (
-                    updated[:insertion_point]
-                    + f"\n    version = '{version.value}'"
-                    + updated[insertion_point:]
-                )
-            else:
-                plugins_end = updated.find("}\n", updated.find("plugins {"))
-                if plugins_end != -1:
-                    updated = (
-                        updated[: plugins_end + 2]
-                        + f"\nversion = '{version.value}'\n"
-                        + updated[plugins_end + 2 :]
-                    )
-                else:
-                    raise GradleWriteError("Cannot find suitable location for version")
+        updated = GROUP_PATTERN.sub(f"group = '{group.value}'", content)
+        updated = self._replace_or_insert_version(updated, version.value)
 
         self._detect_malicious_content(updated)
         self._atomic_write(build_file, updated)
@@ -133,37 +99,45 @@ class GradleWriter:
         self._atomic_write(build_file, updated)
 
     def remove_dependencies_except(self, build_file: Path, allowed_dependencies: list[str]) -> None:
-        """Remove all dependencies except those in the allowed list.
-
-        Args:
-            build_file: Path to build.gradle file
-            allowed_dependencies: List of dependency notations (e.g., 'org.postgresql:postgresql')
-        """
+        """Remove all dependencies except those in the allowed list."""
         self._validate_file(build_file)
         content = build_file.read_text(encoding="utf-8")
 
         allowed_set = set(allowed_dependencies)
-
-        dependencies_pattern = re.compile(
-            r"(dependencies\s*\{)(.*?)(\n\})",
-            re.DOTALL,
-        )
+        dependencies_pattern = re.compile(DEP_REG, re.DOTALL)
 
         match = dependencies_pattern.search(content)
         if not match:
             return
 
-        opening = match.group(1)
-        deps_content = match.group(2)
-        closing = match.group(3)
-
+        opening, deps_content, closing = match.groups()
         filtered_lines = self._filter_dependency_lines(deps_content, allowed_set)
 
-        if filtered_lines:
-            updated_deps = f"{opening}\n{filtered_lines}{closing}"
-        else:
-            updated_deps = f"{opening}{closing}"
+        updated_deps = (
+            f"{opening}\n{filtered_lines}{closing}" if filtered_lines else f"{opening}{closing}"
+        )
+        updated_content = content[: match.start()] + updated_deps + content[match.end() :]
 
+        self._detect_malicious_content(updated_content)
+        self._atomic_write(build_file, updated_content)
+
+    def remove_dependency(self, build_file: Path, dependency_notation: str) -> None:
+        """Remove a specific dependency from build.gradle."""
+        self._validate_file(build_file)
+        content = build_file.read_text(encoding="utf-8")
+
+        dependencies_pattern = re.compile(DEP_REG, re.DOTALL)
+        match = dependencies_pattern.search(content)
+        if not match:
+            return
+
+        opening, deps_content, closing = match.groups()
+        filtered_lines = [
+            line for line in deps_content.split("\n") if dependency_notation not in line
+        ]
+
+        updated_deps_content = "\n".join(filtered_lines)
+        updated_deps = f"{opening}{updated_deps_content}{closing}"
         updated_content = content[: match.start()] + updated_deps + content[match.end() :]
 
         self._detect_malicious_content(updated_content)
@@ -174,78 +148,65 @@ class GradleWriter:
         lines = deps_content.split("\n")
         filtered = []
 
-        dep_pattern = re.compile(
-            r"^\s*(implementation|testImplementation|runtimeOnly|compileOnly|api)\s*"
-            r"[\(\[]?\s*['\"]([^'\"]+)['\"]",
-            re.IGNORECASE,
-        )
-
         for line in lines:
-            match = dep_pattern.match(line)
-            if match:
-                full_notation = match.group(2)
-                parts = full_notation.split(":")
-                if len(parts) >= 2:
-                    group_artifact = f"{parts[0]}:{parts[1]}"
-
-                    if group_artifact in allowed_set or full_notation in allowed_set:
-                        filtered.append(line)
-            elif line.strip() and not line.strip().startswith("//"):
-                if not any(
-                    conf in line
-                    for conf in [
-                        "implementation",
-                        "testImplementation",
-                        "runtimeOnly",
-                        "compileOnly",
-                        "api",
-                    ]
-                ):
-                    filtered.append(line)
-            elif line.strip().startswith("//") or not line.strip():
+            if (
+                self._is_allowed_dependency(line, allowed_set)
+                or self._is_non_dependency_line(line)
+                or self._is_comment_or_empty(line)
+            ):
                 filtered.append(line)
 
         return "\n".join(filtered)
 
-    def remove_dependency(self, build_file: Path, dependency_notation: str) -> None:
-        """Remove a specific dependency from build.gradle.
-
-        Args:
-            build_file: Path to build.gradle file
-            dependency_notation: Dependency notation (e.g., 'org.postgresql:postgresql')
-        """
-        self._validate_file(build_file)
-        content = build_file.read_text(encoding="utf-8")
-
-        dependencies_pattern = re.compile(
-            r"(dependencies\s*\{)(.*?)(\n\})",
-            re.DOTALL,
-        )
-
-        match = dependencies_pattern.search(content)
+    def _is_allowed_dependency(self, line: str, allowed_set: set[str]) -> bool:
+        match = DEP_PATTERN.match(line)
         if not match:
-            return
+            return False
 
-        opening = match.group(1)
-        deps_content = match.group(2)
-        closing = match.group(3)
+        full_notation = match.group(2)
+        parts = full_notation.split(":")
+        if len(parts) < 2:
+            return False
 
-        lines = deps_content.split("\n")
-        filtered_lines = []
+        group_artifact = f"{parts[0]}:{parts[1]}"
+        return group_artifact in allowed_set or full_notation in allowed_set
 
-        for line in lines:
-            if dependency_notation not in line:
-                filtered_lines.append(line)
-            else:
-                continue
+    def _is_non_dependency_line(self, line: str) -> bool:
+        stripped = line.strip()
+        if not stripped:
+            return False
+        if stripped.startswith("//"):
+            return False
+        return not any(conf in line for conf in CONFIGURATIONS)
 
-        updated_deps_content = "\n".join(filtered_lines)
-        updated_deps = f"{opening}{updated_deps_content}{closing}"
+    def _is_comment_or_empty(self, line: str) -> bool:
+        stripped = line.strip()
+        return stripped.startswith("//") or not stripped
 
-        updated_content = content[: match.start()] + updated_deps + content[match.end() :]
+    def _replace_or_insert_version(self, content: str, version_value: str) -> str:
+        """Replace existing version or insert it in the right place."""
+        if VERSION_PATTERN.search(content):
+            return VERSION_PATTERN.sub(f"version = '{version_value}'", content)
 
-        self._detect_malicious_content(updated_content)
-        self._atomic_write(build_file, updated_content)
+        match = JAVA_BLOCK_WITH_GROUP_PATTERN.search(content)
+        if match:
+            insertion_point = match.end()
+            return (
+                content[:insertion_point]
+                + f"\n    version = '{version_value}'"
+                + content[insertion_point:]
+            )
+
+        plugins_start = content.find("plugins {")
+        plugins_end = content.find("}\n", plugins_start) if plugins_start != -1 else -1
+        if plugins_end != -1:
+            return (
+                content[: plugins_end + 2]
+                + f"\nversion = '{version_value}'\n"
+                + content[plugins_end + 2 :]
+            )
+
+        raise GradleWriteError("Cannot find suitable location for version")
 
     def _dependency_exists(self, content: str, dependency: GradleDependency) -> bool:
         pattern = re.compile(
@@ -258,31 +219,21 @@ class GradleWriter:
         return f"    {dependency.configuration.value} '{notation}'"
 
     def _add_to_existing_dependencies(self, content: str, dependency_line: str) -> str:
-        dependencies_pattern = re.compile(
-            r"(dependencies\s*\{)(.*?)(\n\})",
-            re.DOTALL,
-        )
-
+        dependencies_pattern = re.compile(DEP_REG, re.DOTALL)
         match = dependencies_pattern.search(content)
         if not match:
             raise GradleWriteError("Could not locate dependencies block")
 
-        opening = match.group(1)
-        deps_content = match.group(2)
-        closing = match.group(3)
-
+        opening, deps_content, closing = match.groups()
         updated_deps = f"{opening}{deps_content}\n{dependency_line}{closing}"
-
         return content[: match.start()] + updated_deps + content[match.end() :]
 
     def _create_dependencies_block(self, content: str, dependency_line: str) -> str:
-        dependencies_block = f"\ndependencies {{\n{dependency_line}\n}}\n"
-        return content + dependencies_block
+        return content + f"\ndependencies {{\n{dependency_line}\n}}\n"
 
     def _validate_file(self, file_path: Path) -> None:
         if not file_path.exists():
             raise GradleWriteError(f"File does not exist: {file_path}")
-
         if not file_path.is_file():
             raise GradleWriteError(f"Not a file: {file_path}")
 
@@ -295,15 +246,17 @@ class GradleWriter:
 
     def _atomic_write(self, file_path: Path, content: str) -> None:
         backup_path = file_path.with_suffix(".gradle.bak")
-
         try:
             shutil.copy2(file_path, backup_path)
 
             file_path.write_text(content, encoding="utf-8")
 
             backup_path.unlink()
-        except Exception as e:
+        except OSError as e:
             if backup_path.exists():
-                shutil.copy2(backup_path, file_path)
-                backup_path.unlink()
+                try:
+                    shutil.copy2(backup_path, file_path)
+                    backup_path.unlink()
+                except OSError:
+                    pass
             raise GradleWriteError(f"Failed to write file: {e}") from e
