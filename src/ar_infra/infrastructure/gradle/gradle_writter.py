@@ -258,5 +258,7 @@ class GradleWriter:
                     shutil.copy2(backup_path, file_path)
                     backup_path.unlink()
                 except OSError:
+                    # Rollback failed - original error is more important to surface
+                    # File may be in inconsistent state but original exception provides context
                     pass
             raise GradleWriteError(f"Failed to write file: {e}") from e

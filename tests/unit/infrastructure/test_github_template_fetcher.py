@@ -194,9 +194,7 @@ class TestGitHubTemplateFetcher:
         url = "https://github.com/user/repo.git"
         destination = tmp_path / "template"
 
-        try:
+        with pytest.raises(TemplateFetchError):
             fetcher.fetch(url, destination)
-        except TemplateFetchError:
-            pass
 
         assert not destination.exists()

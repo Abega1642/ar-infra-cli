@@ -156,4 +156,6 @@ class PackageRenamer:
                     try:
                         directory.rmdir()
                     except OSError:
+                        # Best-effort cleanup - ignore if directory cannot be removed
+                        # (e.g., permissions, race condition, or already removed)
                         pass

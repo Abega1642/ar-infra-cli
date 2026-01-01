@@ -26,12 +26,12 @@ class TestInteractivePrompt:
         prompt: InteractivePrompt,
         tmp_path: Path,
     ) -> None:
-        test_path = tmp_path / "test"
         mock_text.return_value.ask.side_effect = [
             "com.example",
             "my-app",
             "1.0.0",
-            str(test_path),
+            str(tmp_path),
+            "my-app",
         ]
         mock_checkbox.return_value.ask.return_value = ["postgresql", "email"]
         mock_confirm.return_value.ask.return_value = True
@@ -41,7 +41,8 @@ class TestInteractivePrompt:
         assert result["group_id"] == "com.example"
         assert result["artifact_id"] == "my-app"
         assert result["version"] == "1.0.0"
-        assert isinstance(result["destination"], Path)
+        assert result["destination"] == tmp_path
+        assert result["project_dir_name"] == "my-app"
         assert result["enabled_features"] == {"postgresql", "email"}
         assert result["use_template_cache"] is True
 
@@ -56,12 +57,12 @@ class TestInteractivePrompt:
         prompt: InteractivePrompt,
         tmp_path: Path,
     ) -> None:
-        test_path = tmp_path / "backend-test"
         mock_text.return_value.ask.side_effect = [
             "dev.razafindratelo",
             "backend-api",
             "2.0.0",
-            str(test_path),
+            str(tmp_path),
+            "backend-api",
         ]
         mock_checkbox.return_value.ask.return_value = []
         mock_confirm.return_value.ask.return_value = False
@@ -71,6 +72,8 @@ class TestInteractivePrompt:
         assert result["group_id"] == "dev.razafindratelo"
         assert result["artifact_id"] == "backend-api"
         assert result["version"] == "2.0.0"
+        assert result["destination"] == tmp_path
+        assert result["project_dir_name"] == "backend-api"
         assert result["enabled_features"] == set()
         assert result["use_template_cache"] is False
 
@@ -83,12 +86,14 @@ class TestInteractivePrompt:
         mock_checkbox: Mock,
         mock_text: Mock,
         prompt: InteractivePrompt,
+        tmp_path: Path,
     ) -> None:
         mock_text.return_value.ask.side_effect = [
             "com.company",
             "full-app",
             "1.0.0",
-            "./",
+            str(tmp_path),
+            "full-app",
         ]
         mock_checkbox.return_value.ask.return_value = [
             "postgresql",
@@ -105,6 +110,34 @@ class TestInteractivePrompt:
         assert "rabbitmq" in result["enabled_features"]
         assert "s3_bucket" in result["enabled_features"]
         assert "email" in result["enabled_features"]
+        assert result["project_dir_name"] == "full-app"
+
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
+    def test_collect_inputs_custom_project_dir_name(
+        self,
+        mock_confirm: Mock,
+        mock_checkbox: Mock,
+        mock_text: Mock,
+        prompt: InteractivePrompt,
+        tmp_path: Path,
+    ) -> None:
+        mock_text.return_value.ask.side_effect = [
+            "com.example",
+            "my-app",
+            "1.0.0",
+            str(tmp_path),
+            "custom-project-name",
+        ]
+        mock_checkbox.return_value.ask.return_value = ["postgresql"]
+        mock_confirm.return_value.ask.return_value = True
+
+        result = prompt.collect_inputs()
+
+        assert result["artifact_id"] == "my-app"
+        assert result["project_dir_name"] == "custom-project-name"
+        assert result["destination"] == tmp_path
 
     def test_prompt_has_validators(self, prompt: InteractivePrompt) -> None:
         assert prompt.validators is not None
@@ -112,3 +145,8 @@ class TestInteractivePrompt:
         assert hasattr(prompt.validators, "artifact_id")
         assert hasattr(prompt.validators, "version")
         assert hasattr(prompt.validators, "path")
+
+    def test_prompt_has_security_validator(self, prompt: InteractivePrompt) -> None:
+        assert prompt.security_validator is not None
+        assert hasattr(prompt.security_validator, "validate_destination_path")
+        assert hasattr(prompt.security_validator, "validate_project_directory_name")

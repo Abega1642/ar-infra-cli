@@ -32,6 +32,7 @@ def cli(ctx: click.Context) -> None:
 @click.option("--artifact", type=str, help="Gradle artifact ID")
 @click.option("--version", type=str, help="Project version")
 @click.option("--path", type=str, help="Destination directory")
+@click.option("--project-dir", type=str, help="Project directory name")
 @click.option("--features", type=str, help="Comma-separated features to enable")
 @click.option("--no-features", type=str, help="Comma-separated features to disable")
 @click.option("--template-url", type=str, help="Custom template repository URL")
@@ -41,6 +42,7 @@ def init(
     artifact: str | None,
     version: str | None,
     path: str | None,
+    project_dir: str | None,
     features: str | None,
     no_features: str | None,
     template_url: str | None,
@@ -50,8 +52,6 @@ def init(
     """Initialize a new Spring Boot project."""
     Banner.show()
 
-    input()
-
     command = InitCommand()
 
     args = InitCommandArgs(
@@ -59,6 +59,7 @@ def init(
         artifact=artifact,
         version=version,
         path=path,
+        project_dir=project_dir,
         features=features,
         no_features=no_features,
         template_url=template_url,

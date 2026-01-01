@@ -113,7 +113,6 @@ class GenerateProjectUseCase:
     def _update_settings_gradle(self, input_dto: GenerateProjectInput) -> None:
         settings_file = input_dto.destination / "settings.gradle"
         if settings_file.exists():
-            # Always overwrite with artifact_id
             self._gradle_writer.update_settings_gradle(settings_file, input_dto.artifact_id)
         else:
             settings_file.write_text(

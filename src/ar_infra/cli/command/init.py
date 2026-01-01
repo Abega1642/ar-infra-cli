@@ -1,4 +1,4 @@
-"""Init command implementation."""
+"""Init command implementation with enhanced security."""
 
 import sys
 from dataclasses import dataclass
@@ -12,6 +12,12 @@ from src.ar_infra.cli.prompt.interactive_prompt import InteractivePrompt
 from src.ar_infra.cli.ui.banner import Banner
 from src.ar_infra.cli.ui.message import Messages
 from src.ar_infra.cli.ui.progress import ProgressIndicator
+from src.ar_infra.domain.entities.path_resolver import (
+    DangerousPathError,
+    PathSecurityError,
+    PathSecurityValidator,
+    SafeProjectPathResolver,
+)
 from src.ar_infra.domain.enums.template_feature import TemplateFeature
 from src.ar_infra.domain.exceptions.validation_error import (
     InvalidArtifactIdError,
@@ -37,6 +43,7 @@ class InitCommandArgs:
     artifact: str | None
     version: str | None
     path: str | None
+    project_dir: str | None
     features: str | None
     no_features: str | None
     template_url: str | None
@@ -51,6 +58,7 @@ class InitCommand:
     def __init__(self) -> None:
         self.use_case = self._create_use_case()
         self.interactive_prompt = InteractivePrompt()
+        self.security_validator = PathSecurityValidator()
 
     def _create_use_case(self) -> GenerateProjectUseCase:
         return GenerateProjectUseCase(
@@ -73,6 +81,7 @@ class InitCommand:
                 args.artifact,
                 args.version,
                 args.path,
+                args.project_dir,
                 args.features,
                 args.no_features,
             )
@@ -84,65 +93,149 @@ class InitCommand:
             self._execute_cli(args)
 
     def _execute_interactive(self) -> None:
+        """Execute interactive mode."""
         Messages.welcome()
-
         try:
             inputs = self.interactive_prompt.collect_inputs()
 
-            project_input = GenerateProjectInput(
-                group_id=GroupId(inputs["group_id"]),
-                artifact_id=ArtifactId(inputs["artifact_id"]),
-                version=Version(inputs["version"]),
-                destination=inputs["destination"],
-                enabled_features=self._convert_features(inputs["enabled_features"]),
+            self._execute_common(
+                group_id=inputs["group_id"],
+                artifact_id=inputs["artifact_id"],
+                version=inputs["version"],
+                destination=str(inputs["destination"]),
+                project_dir_name=inputs["project_dir_name"],
+                enabled_features=set(inputs["enabled_features"] or []),
                 template_url=self.DEFAULT_TEMPLATE_URL,
                 use_template_cache=inputs["use_template_cache"],
             )
 
-            self._generate_project(project_input)
-
         except KeyboardInterrupt:
             Messages.warning("\n\nOperation cancelled by user.")
             sys.exit(0)
-        except (InvalidGroupIdError, InvalidArtifactIdError, InvalidVersionError) as exc:
-            Messages.error(f"Validation error: {exc}")
-            sys.exit(1)
-        except OSError as exc:
-            Messages.error(f"I/O error: {exc}")
-            sys.exit(1)
 
     def _execute_cli(self, args: InitCommandArgs) -> None:
+        """Execute CLI mode with enhanced security."""
         if not args.group:
-            Messages.error("--group is required when not using interactive mode")
-            sys.exit(1)
-
+            self._abort("--group is required when not using interactive mode")
         if not args.artifact:
-            Messages.error("--artifact is required when not using interactive mode")
-            sys.exit(1)
+            self._abort("--artifact is required when not using interactive mode")
+        if not args.project_dir:
+            self._abort(
+                "--project-dir is required when not using interactive mode. "
+                "This is the name of the directory where your project will be generated."
+            )
+
+        assert args.group is not None
+        assert args.artifact is not None
+        assert args.project_dir is not None
 
         try:
             enabled_features = self._parse_features(args.features, args.no_features)
 
-            project_input = GenerateProjectInput(
-                group_id=GroupId(args.group),
-                artifact_id=ArtifactId(args.artifact),
-                version=Version(args.version or "1.0.0"),
-                destination=Path(args.path or ".").expanduser().resolve(),
-                enabled_features=self._convert_features(enabled_features),
+            self._execute_common(
+                group_id=args.group,
+                artifact_id=args.artifact,
+                version=args.version or "1.0.0",
+                destination=args.path or ".",
+                project_dir_name=args.project_dir,
+                enabled_features=enabled_features,
                 template_url=args.template_url or self.DEFAULT_TEMPLATE_URL,
                 use_template_cache=not args.no_cache,
+            )
+
+        except KeyboardInterrupt:
+            Messages.warning("\n\nOperation cancelled by user.")
+            sys.exit(0)
+
+    def _execute_common(
+        self,
+        group_id: str,
+        artifact_id: str,
+        version: str,
+        destination: str,
+        project_dir_name: str,
+        enabled_features: set[str],
+        template_url: str,
+        *,
+        use_template_cache: bool,
+    ) -> None:
+        """Shared execution logic for CLI and interactive modes."""
+        try:
+            validated_destination = self._validate_destination_path(destination)
+            validated_project_name = self._validate_project_directory_name(project_dir_name)
+
+            if not validated_destination.exists():
+                self._abort(
+                    f"Destination directory '{validated_destination}' does not exist.\n"
+                    "Please create it first or use an existing directory."
+                )
+
+            project_dir = self._resolve_project_dir(validated_destination, validated_project_name)
+
+            project_input = GenerateProjectInput(
+                group_id=GroupId(group_id),
+                artifact_id=ArtifactId(artifact_id),
+                version=Version(version),
+                destination=project_dir,
+                enabled_features=self._convert_features(enabled_features),
+                template_url=template_url,
+                use_template_cache=use_template_cache,
             )
 
             self._generate_project(project_input)
 
         except (InvalidGroupIdError, InvalidArtifactIdError, InvalidVersionError) as exc:
-            Messages.error(f"Validation error: {exc}")
-            sys.exit(1)
+            self._abort(f"Validation error: {exc}")
         except OSError as exc:
-            Messages.error(f"I/O error: {exc}")
+            self._abort(f"I/O error: {exc}")
+
+    def _abort(self, message: str) -> None:
+        """Abort execution with error message."""
+        Messages.error(message)
+        sys.exit(1)
+
+    def _validate_destination_path(self, destination_path: str) -> Path:
+        """Validate destination path with security checks."""
+        try:
+            return self.security_validator.validate_destination_path(destination_path)
+        except DangerousPathError as exc:
+            Messages.error(
+                f"SECURITY WARNING: {exc}\n"
+                "Cannot proceed with this destination for security reasons."
+            )
+            sys.exit(1)
+        except PathSecurityError as exc:
+            Messages.error(f"Security error: {exc}")
+            sys.exit(1)
+
+    def _validate_project_directory_name(self, project_dir_name: str) -> str:
+        """Validate project directory name."""
+        try:
+            return self.security_validator.validate_project_directory_name(project_dir_name)
+        except ValueError as exc:
+            Messages.error(f"Invalid project directory name: {exc}")
+            sys.exit(1)
+
+    def _resolve_project_dir(
+        self, validated_destination: Path, validated_project_name: str
+    ) -> Path:
+        """Resolve and validate complete project path."""
+        try:
+            resolver = SafeProjectPathResolver(
+                destination_path=str(validated_destination),
+                project_dir_name=validated_project_name,
+                security_validator=self.security_validator,
+            )
+            return resolver.resolve()
+        except PathSecurityError as exc:
+            Messages.error(f"Security error: {exc}")
+            sys.exit(1)
+        except (ValueError, FileExistsError, PermissionError) as exc:
+            Messages.error(str(exc))
             sys.exit(1)
 
     def _generate_project(self, project_input: GenerateProjectInput) -> None:
+        """Generate the project with proper error handling."""
         Messages.project_summary(
             group=project_input.group_id.value,
             artifact=project_input.artifact_id.value,
@@ -158,7 +251,7 @@ class InitCommand:
             result = self.use_case.execute(project_input)
 
             if result.success:
-                progress.update(task, completed=7, description="✓ Complete!")
+                progress.update(task, completed=7, description="Complete!")
                 Messages.success(f"\n{result.message}")
                 Messages.info(f"Project created at: {result.project_path}")
                 if result.has_signature:
@@ -172,6 +265,7 @@ class InitCommand:
         features: str | None,
         no_features: str | None,
     ) -> set[str]:
+        """Parse feature flags from command line arguments."""
         all_features = {"postgresql", "rabbitmq", "s3_bucket", "email"}
 
         if features is not None:
@@ -186,6 +280,7 @@ class InitCommand:
         return all_features
 
     def _convert_features(self, feature_names: set[str]) -> set[TemplateFeature]:
+        """Convert feature name strings to TemplateFeature enums."""
         feature_map = {
             "postgresql": TemplateFeature.POSTGRESQL,
             "rabbitmq": TemplateFeature.RABBITMQ,

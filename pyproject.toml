@@ -155,6 +155,7 @@ select = [
 ignore = [
     "COM812",
     "ISC001",
+    "T201",
     "E501",    # line too long (handled by formatter)
     "S101",    # use of assert (OK in tests)
     "PLR0913", # too many arguments
