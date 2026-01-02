@@ -1,6 +1,7 @@
 """Tests for the DevelopmentArtifactCleaner class."""
 
 import logging
+import platform
 import re
 from pathlib import Path
 
@@ -275,6 +276,7 @@ class TestCleanEmptyParentDirectories:
 class TestErrorHandling:
     """Test error handling and edge cases."""
 
+    @pytest.mark.skipif(platform.system() == "Windows", reason="Windows-specific tests")
     def test_remove_artifact_with_permission_error(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path
     ) -> None:

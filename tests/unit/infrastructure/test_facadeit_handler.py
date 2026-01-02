@@ -16,18 +16,22 @@ public abstract class FacadeIT {
   private static final BucketConf BUCKET_CONF = new BucketConf();
   private static final EmailConf EMAIL_CONF = new EmailConf();
 
+  @BeforeAll
   static void beforeAll() {
     POSTGRES_CONF.start();
     RABBITMQ_CONF.start();
     BUCKET_CONF.start();
     EMAIL_CONF.start();
-  }
 
-  static void shutdown() {
-    POSTGRES_CONF.stop();
-    RABBITMQ_CONF.stop();
-    BUCKET_CONF.stop();
-    EMAIL_CONF.stop();
+    getRuntime()
+        .addShutdownHook(
+            new Thread(
+                () -> {
+                  POSTGRES_CONF.stop();
+                  RABBITMQ_CONF.stop();
+                  BUCKET_CONF.stop();
+                  EMAIL_CONF.stop();
+                }));
   }
 
   static void configure(DynamicPropertyRegistry registry) {
@@ -92,6 +96,17 @@ class TestFacadeITHandler:
         assert "RabbitMQConf" in content
         assert "BucketConf" in content
         assert "EmailConf" in content
+
+    def test_before_all_removed_when_no_features_enabled(self, facade_path: Path) -> None:
+        FacadeITHandler().apply_feature_selection(
+            facade_path.parents[5],
+            set(),
+        )
+
+        content = self._read(facade_path)
+
+        assert "@BeforeAll" not in content
+        assert "static void beforeAll" not in content
 
     def test_no_features_enabled(self, facade_path: Path) -> None:
         FacadeITHandler().apply_feature_selection(

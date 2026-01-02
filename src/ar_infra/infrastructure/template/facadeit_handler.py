@@ -38,6 +38,9 @@ class FacadeITHandler:
         lines = facade_path.read_text(encoding="utf-8").splitlines()
         filtered = self._remove_disabled_feature_lines(lines, disabled_tokens)
 
+        if not enabled_features:
+            filtered = self._remove_empty_before_all(filtered)
+
         facade_path.write_text("\n".join(filtered) + "\n", encoding="utf-8")
 
     @staticmethod
@@ -61,5 +64,33 @@ class FacadeITHandler:
             if any(token in stripped for token in disabled_tokens):
                 continue
             result.append(line)
+
+        return result
+
+    @staticmethod
+    def _remove_empty_before_all(lines: list[str]) -> list[str]:
+        result: list[str] = []
+        i = 0
+
+        while i < len(lines):
+            line = lines[i].strip()
+
+            if line == "@BeforeAll":
+                # Skip until the closing brace of the method
+                i += 1
+                brace_depth = 0
+                while i < len(lines):
+                    if "{" in lines[i]:
+                        brace_depth += 1
+                    if "}" in lines[i]:
+                        brace_depth -= 1
+                        if brace_depth <= 0:
+                            i += 1
+                            break
+                    i += 1
+                continue
+
+            result.append(lines[i])
+            i += 1
 
         return result
