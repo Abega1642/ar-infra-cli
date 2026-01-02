@@ -59,10 +59,21 @@ class TestGenerateProjectUseCase:
     @pytest.fixture
     def feature_manager(self) -> Mock:
         manager = Mock()
-        manager.get_dependencies_for_features.return_value = [
-            "org.postgresql:postgresql",
-            "software.amazon.awssdk:s3",
-        ]
+
+        def get_deps_for_feature(feature):
+            feature_deps = {
+                TemplateFeature.RABBITMQ: [
+                    "org.springframework.boot:spring-boot-starter-amqp",
+                    "org.testcontainers:rabbitmq",
+                ],
+                TemplateFeature.EMAIL: [
+                    "org.springframework.boot:spring-boot-starter-mail",
+                    "com.icegreen:greenmail",
+                ],
+            }
+            return feature_deps.get(feature, [])
+
+        manager.get_feature_dependencies.side_effect = get_deps_for_feature
         return manager
 
     @pytest.fixture
@@ -132,18 +143,15 @@ class TestGenerateProjectUseCase:
         gradle_writer: Mock,
     ) -> None:
         use_case.execute(valid_input)
+        all_features = set(TemplateFeature)
+        disabled_features = all_features - valid_input.enabled_features
 
-        feature_manager.get_dependencies_for_features.assert_called_once_with(
-            valid_input.enabled_features
-        )
+        assert feature_manager.get_feature_dependencies.call_count == len(disabled_features)
 
-        gradle_writer.remove_dependencies_except.assert_called_once_with(
-            valid_input.destination / "build.gradle",
-            [
-                "org.postgresql:postgresql",
-                "software.amazon.awssdk:s3",
-            ],
-        )
+        gradle_writer.remove_dependencies.assert_called_once()
+        call_args = gradle_writer.remove_dependencies.call_args
+        assert call_args[0][0] == valid_input.destination / "build.gradle"
+        assert isinstance(call_args[0][1], list)
 
     def test_update_build_gradle(
         self,

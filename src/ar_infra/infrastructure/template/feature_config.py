@@ -28,6 +28,7 @@ FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
         ],
         files=[
             SRC_PACKAGE + "endpoint/rest/controller/health/HealthRepositoryController.java",
+            SRC_PACKAGE + "service/health/HealthRepositoryService.java",
             TEST_PACKAGE + "conf/PostgresConf.java",
             TEST_PACKAGE + "endpoint/rest/controller/health/HealthRepositoryControllerIT.java",
         ],
@@ -40,14 +41,14 @@ FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
         ],
     ),
     TemplateFeature.RABBITMQ: FeatureFiles(
-        directories=[
-            SRC_PACKAGE + "event",
-        ],
+        directories=[SRC_PACKAGE + "event", SRC_PACKAGE + "datastructure"],
         files=[
             SRC_PACKAGE + "config/RabbitConfig.java",
+            SRC_PACKAGE + "datastructure/ListGrouper.java",
+            SRC_PACKAGE + "service/health/HealthEventService.java",
             SRC_PACKAGE + "endpoint/rest/controller/health/HealthEventController.java",
             TEST_PACKAGE + "conf/RabbitMQConf.java",
-            TEST_PACKAGE + "service/health/HealthEventService.java",
+            TEST_PACKAGE + "service/health/HealthEventServiceIT.java",
             TEST_PACKAGE + "endpoint/rest/controller/health/HealthEventControllerIT.java",
         ],
         dependencies=[
@@ -64,9 +65,9 @@ FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
             SRC_PACKAGE + "config/BucketConf.java",
             SRC_PACKAGE + "file/BucketComponent.java",
             SRC_PACKAGE + "endpoint/rest/controller/health/HealthBucketController.java",
+            SRC_PACKAGE + "service/health/HealthBucketService.java",
             TEST_PACKAGE + "conf/BucketConf.java",
             TEST_PACKAGE + "file/BucketComponentIT.java",
-            SRC_PACKAGE + "service/health/HealthBucketService.java",
             TEST_PACKAGE + "service/health/HealthBucketServiceIT.java",
             TEST_PACKAGE + "endpoint/rest/controller/health/HealthBucketControllerIT.java",
         ],
@@ -83,11 +84,12 @@ FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
         ],
         files=[
             SRC_PACKAGE + "config/EmailConf.java",
+            SRC_PACKAGE + "service/health/HealthEmailService.java",
             SRC_PACKAGE + "exception/EmailSendException.java",
             SRC_PACKAGE + "exception/health/EmailHealthCheckException.java",
             SRC_PACKAGE + "endpoint/rest/controller/health/HealthEmailController.java",
             TEST_PACKAGE + "conf/EmailConf.java",
-            TEST_PACKAGE + "service/health/HealthEmailService.java",
+            TEST_PACKAGE + "service/health/HealthEmailServiceIT.java",
             TEST_PACKAGE + "endpoint/rest/controller/health/HealthEmailControllerIT.java",
         ],
         dependencies=[

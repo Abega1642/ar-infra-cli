@@ -2,9 +2,12 @@
 
 from pathlib import Path
 
+from safety.constants import CLI_VERSION
+
 from src.ar_infra.application.use_cases.exception import GenerateProjectError
 from src.ar_infra.application.use_cases.input_dto import GenerateProjectInput
 from src.ar_infra.application.use_cases.output_dto import GenerateProjectOutput
+from src.ar_infra.domain.enums.template_feature import TemplateFeature
 from src.ar_infra.domain.value_objects.package_name import PackageName
 from src.ar_infra.infrastructure.gradle import GradleWriter
 from src.ar_infra.infrastructure.processor import GitRepositoryInitializer, PackageRenamer
@@ -84,11 +87,17 @@ class GenerateProjectUseCase:
             raise GenerateProjectError("Failed to apply features") from exc
 
     def _remove_unwanted_dependencies(self, input_dto: GenerateProjectInput) -> None:
-        enabled_dependencies = self._feature_manager.get_dependencies_for_features(
-            input_dto.enabled_features
-        )
-        build_gradle = input_dto.destination / "build.gradle"
-        self._gradle_writer.remove_dependencies_except(build_gradle, enabled_dependencies)
+        """Remove dependencies for features that are NOT enabled."""
+        all_features = set(TemplateFeature)
+        features_to_remove = all_features - input_dto.enabled_features
+
+        dependencies_to_remove = []
+        for feature in features_to_remove:
+            dependencies_to_remove.extend(self._feature_manager.get_feature_dependencies(feature))
+
+        if dependencies_to_remove:
+            build_gradle = input_dto.destination / "build.gradle"
+            self._gradle_writer.remove_dependencies(build_gradle, dependencies_to_remove)
 
     def _update_build_gradle(self, input_dto: GenerateProjectInput) -> None:
         build_gradle = input_dto.destination / "build.gradle"
@@ -146,5 +155,5 @@ class GenerateProjectUseCase:
         self._git_initializer.initialize_repository(
             project_path=input_dto.destination,
             initial_branch="preprod",
-            commit_message="infra: generate the spring boot infrastructure",
+            commit_message=f"infra: ar-infra[v{CLI_VERSION}]: generate ar-infra project",
         )
