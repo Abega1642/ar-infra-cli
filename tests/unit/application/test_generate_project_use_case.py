@@ -26,6 +26,7 @@ def use_case(template_fetcher, feature_manager, gradle_writer, package_renamer):
     fake_git_initializer = Mock()
     fake_annotation_writer = Mock()
     fake_artifact_cleaner = Mock()
+    fake_format_runner = Mock()
     fake_artifact_cleaner.clean.return_value = 8
     fake_artifact_cleaner.clean_empty_parent_directories.return_value = 1
 
@@ -37,6 +38,7 @@ def use_case(template_fetcher, feature_manager, gradle_writer, package_renamer):
         git_initializer=fake_git_initializer,
         annotation_writer=fake_annotation_writer,
         artifact_cleaner=fake_artifact_cleaner,
+        format_script_runner=fake_format_runner,
     )
 
 
@@ -279,6 +281,15 @@ class TestGenerateProjectUseCase:
         use_case.execute(valid_input)
 
         assert call_order == ["cleaner", "git"]
+
+    def test_format_script_runner_called(
+        self,
+        use_case: GenerateProjectUseCase,
+        valid_input: GenerateProjectInput,
+    ) -> None:
+        use_case.execute(valid_input)
+
+        use_case._format_script_runner.run.assert_called_once_with(valid_input.destination)
 
 
 class TestArtifactCleanerIntegration:

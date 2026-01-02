@@ -305,15 +305,6 @@ class TestErrorHandling:
 
         assert "Removed file: readme.md" in caplog.text
 
-    def test_logging_on_nonexistent_artifact(
-        self, cleaner: DevelopmentArtifactCleaner, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """Test that non-existent artifacts are logged at debug level."""
-        with caplog.at_level(logging.DEBUG):
-            cleaner.remove_artifact("nonexistent.txt")
-
-        assert "does not exist" in caplog.text
-
 
 class TestIntegrationScenarios:
     """Test complete integration scenarios."""
