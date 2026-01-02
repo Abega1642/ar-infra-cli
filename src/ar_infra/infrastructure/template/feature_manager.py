@@ -5,14 +5,20 @@ from pathlib import Path
 
 from src.ar_infra.domain.enums.template_feature import TemplateFeature
 from src.ar_infra.infrastructure.template.env_handler import EnvHandler
+from src.ar_infra.infrastructure.template.facadeit_handler import FacadeITHandler
 from src.ar_infra.infrastructure.template.feature_config import FEATURE_MAPPINGS
 
 
 class FeatureManager:
     """Manage template features - remove unwanted features and their files."""
 
-    def __init__(self, env_handler: EnvHandler | None = None) -> None:
+    def __init__(
+        self,
+        env_handler: EnvHandler | None = None,
+        facadeit_handler: FacadeITHandler | None = None,
+    ) -> None:
         self._env_handler = env_handler or EnvHandler()
+        self._facadeit_handler = facadeit_handler or FacadeITHandler()
 
     def apply_feature_selection(
         self,
@@ -25,6 +31,11 @@ class FeatureManager:
 
         for feature in features_to_remove:
             self.remove_feature(template_dir, feature)
+
+        self._facadeit_handler.apply_feature_selection(
+            template_dir,
+            enabled_features,
+        )
 
         self._remove_env_variables_for_disabled_features(template_dir, features_to_remove)
 
