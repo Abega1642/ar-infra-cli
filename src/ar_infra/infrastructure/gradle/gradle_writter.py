@@ -22,10 +22,15 @@ CONFIGURATIONS = [
     "runtimeOnly",
     "compileOnly",
     "api",
+    "annotationProcessor",
+    "testAnnotationProcessor",
+    "testCompileOnly",
+    "testRuntimeOnly",
 ]
 DEP_PATTERN = re.compile(
-    r"^\s*(implementation|testImplementation|runtimeOnly|compileOnly|api)\s*"
-    r"[\(\[]?\s*['\"]([^'\"]+)['\"]",
+    r"^\s*(implementation|testImplementation|runtimeOnly|compileOnly|api|"
+    r"annotationProcessor|testAnnotationProcessor|testCompileOnly|testRuntimeOnly)\s*"
+    r"[(\[]?\s*['\"]([^'\"]+)['\"]",
     re.IGNORECASE,
 )
 GROUP_PATTERN = re.compile(r"group\s*=\s*['\"][^'\"]*['\"]")
@@ -98,12 +103,12 @@ class GradleWriter:
         self._detect_malicious_content(updated)
         self._atomic_write(build_file, updated)
 
-    def remove_dependencies_except(self, build_file: Path, allowed_dependencies: list[str]) -> None:
-        """Remove all dependencies except those in the allowed list."""
+    def remove_dependencies(self, build_file: Path, dependencies_to_remove: list[str]) -> None:
+        """Remove only the specified dependencies from build.gradle."""
         self._validate_file(build_file)
         content = build_file.read_text(encoding="utf-8")
 
-        allowed_set = set(allowed_dependencies)
+        to_remove_set = set(dependencies_to_remove)
         dependencies_pattern = re.compile(DEP_REG, re.DOTALL)
 
         match = dependencies_pattern.search(content)
@@ -111,11 +116,9 @@ class GradleWriter:
             return
 
         opening, deps_content, closing = match.groups()
-        filtered_lines = self._filter_dependency_lines(deps_content, allowed_set)
+        filtered_lines = self._remove_matching_dependencies(deps_content, to_remove_set)
 
-        updated_deps = (
-            f"{opening}\n{filtered_lines}{closing}" if filtered_lines else f"{opening}{closing}"
-        )
+        updated_deps = f"{opening}{filtered_lines}{closing}"
         updated_content = content[: match.start()] + updated_deps + content[match.end() :]
 
         self._detect_malicious_content(updated_content)
@@ -143,22 +146,27 @@ class GradleWriter:
         self._detect_malicious_content(updated_content)
         self._atomic_write(build_file, updated_content)
 
-    def _filter_dependency_lines(self, deps_content: str, allowed_set: set[str]) -> str:
-        """Filter dependency lines, keeping only allowed ones."""
+    def _remove_matching_dependencies(self, deps_content: str, to_remove_set: set[str]) -> str:
+        """Remove only lines that match dependencies in to_remove_set."""
         lines = deps_content.split("\n")
         filtered = []
 
         for line in lines:
-            if (
-                self._is_allowed_dependency(line, allowed_set)
-                or self._is_non_dependency_line(line)
-                or self._is_comment_or_empty(line)
-            ):
+            if self._is_comment_or_empty(line):
+                filtered.append(line)
+                continue
+
+            if self._is_non_dependency_line(line):
+                filtered.append(line)
+                continue
+
+            if not self._should_remove_dependency(line, to_remove_set):
                 filtered.append(line)
 
         return "\n".join(filtered)
 
-    def _is_allowed_dependency(self, line: str, allowed_set: set[str]) -> bool:
+    def _should_remove_dependency(self, line: str, to_remove_set: set[str]) -> bool:
+        """Check if this dependency line should be removed."""
         match = DEP_PATTERN.match(line)
         if not match:
             return False
@@ -169,7 +177,7 @@ class GradleWriter:
             return False
 
         group_artifact = f"{parts[0]}:{parts[1]}"
-        return group_artifact in allowed_set or full_notation in allowed_set
+        return group_artifact in to_remove_set or full_notation in to_remove_set
 
     def _is_non_dependency_line(self, line: str) -> bool:
         stripped = line.strip()
