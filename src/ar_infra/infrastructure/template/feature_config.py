@@ -12,11 +12,12 @@ TEST_PACKAGE = "src/test/java/com/example/arinfra/"
 
 @dataclass(frozen=True)
 class FeatureFiles:
-    """Files and dependencies associated with a feature."""
+    """Files, dependencies, and environment variables associated with a feature."""
 
     directories: list[str]
     files: list[str]
     dependencies: list[str]
+    env_variables: list[str]
 
 
 FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
@@ -39,9 +40,17 @@ FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
             "org.flywaydb:flyway-database-postgresql",
             "org.testcontainers:postgresql",
         ],
+        env_variables=[
+            "SPRING_DATASOURCE_URL",
+            "SPRING_DATASOURCE_USERNAME",
+            "SPRING_DATASOURCE_PASSWORD",
+        ],
     ),
     TemplateFeature.RABBITMQ: FeatureFiles(
-        directories=[SRC_PACKAGE + "event", SRC_PACKAGE + "datastructure"],
+        directories=[
+            SRC_PACKAGE + "event",
+            SRC_PACKAGE + "datastructure",
+        ],
         files=[
             SRC_PACKAGE + "config/RabbitConfig.java",
             SRC_PACKAGE + "datastructure/ListGrouper.java",
@@ -55,6 +64,17 @@ FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
             "org.springframework.boot:spring-boot-starter-amqp",
             "org.springframework.amqp:spring-rabbit-test",
             "org.testcontainers:rabbitmq",
+        ],
+        env_variables=[
+            "SPRING_RABBITMQ_HOST",
+            "SPRING_RABBITMQ_USERNAME",
+            "SPRING_RABBITMQ_PASSWORD",
+            "SPRING_RABBITMQ_VHOST",
+            "SPRING_RABBITMQ_QUEUE",
+            "SPRING_RABBITMQ_EXCHANGE",
+            "SPRING_RABBITMQ_ROUTING_KEY",
+            "SPRING_RABBITMQ_PORT",
+            "APP_RABBITMQ_SSL",
         ],
     ),
     TemplateFeature.S3_BUCKET: FeatureFiles(
@@ -76,6 +96,15 @@ FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
             "software.amazon.awssdk:s3-transfer-manager",
             "org.testcontainers:localstack",
         ],
+        env_variables=[
+            "B2_KEY_ID",
+            "B2_APPLICATION_KEY",
+            "B2_BUCKET_NAME",
+            "B2_ENDPOINT",
+            "B2_ENDPOINT_PREFIX",
+            "B2_ENDPOINT_SUFFIX",
+            "B2_REGION",
+        ],
     ),
     TemplateFeature.EMAIL: FeatureFiles(
         directories=[
@@ -96,6 +125,13 @@ FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
             "org.springframework.boot:spring-boot-starter-mail",
             "com.icegreen:greenmail",
             "com.icegreen:greenmail-junit5",
+        ],
+        env_variables=[
+            "SPRING_MAIL_HOST",
+            "SPRING_MAIL_USERNAME",
+            "SPRING_MAIL_PASSWORD",
+            "SPRING_MAIL_FROM_EMAIL",
+            "SPRING_MAIL_PORT",
         ],
     ),
 }

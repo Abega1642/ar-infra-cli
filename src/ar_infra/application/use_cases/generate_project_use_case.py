@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-from safety.constants import CLI_VERSION
-
 from src.ar_infra.application.use_cases.exception import GenerateProjectError
 from src.ar_infra.application.use_cases.input_dto import GenerateProjectInput
 from src.ar_infra.application.use_cases.output_dto import GenerateProjectOutput
@@ -16,12 +14,11 @@ from src.ar_infra.infrastructure.template.project_signature import (
     InfraGeneratedAnnotationWriter,
     ProjectSignature,
 )
+from src.ar_infra.properties import CLI_VERSION
 
 
 class GenerateProjectUseCase:
     """Orchestrates the entire project generation workflow."""
-
-    CLI_VERSION = "1.0.0"
 
     def __init__(
         self,
@@ -136,7 +133,7 @@ class GenerateProjectUseCase:
             group_id=input_dto.group_id,
             artifact_id=input_dto.artifact_id,
             version=input_dto.version,
-            cli_version=self.CLI_VERSION,
+            cli_version=CLI_VERSION,
         )
         annotation_file = self._find_infra_generated_annotation(input_dto.destination)
         if annotation_file:

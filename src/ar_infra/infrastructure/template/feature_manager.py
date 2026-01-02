@@ -4,11 +4,15 @@ import shutil
 from pathlib import Path
 
 from src.ar_infra.domain.enums.template_feature import TemplateFeature
+from src.ar_infra.infrastructure.template.env_handler import EnvHandler
 from src.ar_infra.infrastructure.template.feature_config import FEATURE_MAPPINGS
 
 
 class FeatureManager:
     """Manage template features - remove unwanted features and their files."""
+
+    def __init__(self, env_handler: EnvHandler | None = None) -> None:
+        self._env_handler = env_handler or EnvHandler()
 
     def apply_feature_selection(
         self,
@@ -21,6 +25,8 @@ class FeatureManager:
 
         for feature in features_to_remove:
             self.remove_feature(template_dir, feature)
+
+        self._remove_env_variables_for_disabled_features(template_dir, features_to_remove)
 
     def remove_feature(
         self,
@@ -47,12 +53,25 @@ class FeatureManager:
         feature_files = FEATURE_MAPPINGS.get(feature)
         return feature_files.dependencies if feature_files else []
 
-    def get_dependencies_for_features(
+    def get_feature_env_variables(self, feature: TemplateFeature) -> list[str]:
+        """Get list of environment variables for a feature."""
+        feature_files = FEATURE_MAPPINGS.get(feature)
+        return feature_files.env_variables if feature_files else []
+
+    def _remove_env_variables_for_disabled_features(
         self,
-        enabled_features: set[TemplateFeature],
-    ) -> list[str]:
-        """Get all dependencies for enabled features."""
-        all_deps: list[str] = []
-        for feature in enabled_features:
-            all_deps.extend(self.get_feature_dependencies(feature))
-        return all_deps
+        template_dir: Path,
+        features_to_remove: set[TemplateFeature],
+    ) -> None:
+        """Remove environment variables for disabled features."""
+        env_file = template_dir / ".env.template"
+        if not env_file.exists():
+            return
+
+        env_variable_mappings = {
+            feature: self.get_feature_env_variables(feature) for feature in TemplateFeature
+        }
+
+        self._env_handler.remove_feature_env_variables(
+            env_file, features_to_remove, env_variable_mappings
+        )
