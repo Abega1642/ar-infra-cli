@@ -9,6 +9,7 @@ from src.ar_infra.domain.enums.template_feature import TemplateFeature
 from src.ar_infra.domain.value_objects.package_name import PackageName
 from src.ar_infra.infrastructure.gradle import GradleWriter
 from src.ar_infra.infrastructure.processor import GitRepositoryInitializer, PackageRenamer
+from src.ar_infra.infrastructure.processor.format_script_runner import FormatScriptRunner
 from src.ar_infra.infrastructure.template import FeatureManager, GitHubTemplateFetcher
 from src.ar_infra.infrastructure.template.development_artifact_remover import (
     DevelopmentArtifactCleaner,
@@ -32,6 +33,7 @@ class GenerateProjectUseCase:
         git_initializer: GitRepositoryInitializer | None = None,
         annotation_writer: InfraGeneratedAnnotationWriter | None = None,
         artifact_cleaner: DevelopmentArtifactCleaner | None = None,
+        format_script_runner: FormatScriptRunner | None = None,
     ) -> None:
         self._template_fetcher = template_fetcher
         self._feature_manager = feature_manager
@@ -40,6 +42,7 @@ class GenerateProjectUseCase:
         self._git_initializer = git_initializer or GitRepositoryInitializer()
         self._annotation_writer = annotation_writer or InfraGeneratedAnnotationWriter()
         self._artifact_cleaner = artifact_cleaner
+        self._format_script_runner = format_script_runner or FormatScriptRunner()
 
     def execute(self, input_dto: GenerateProjectInput) -> GenerateProjectOutput:
         """Execute project generation workflow."""
@@ -52,6 +55,7 @@ class GenerateProjectUseCase:
             self._update_settings_gradle(input_dto)
             signature = self._update_infra_generated_annotation(input_dto)
             self._clean_development_artifacts(input_dto)
+            self._run_formatter(input_dto)
             self._initialize_git_repository(input_dto)
 
             return GenerateProjectOutput(
@@ -169,6 +173,12 @@ class GenerateProjectUseCase:
 
         except Exception as exc:
             raise GenerateProjectError("Failed to clean development artifacts") from exc
+
+    def _run_formatter(self, input_dto: GenerateProjectInput) -> None:
+        try:
+            self._format_script_runner.run(input_dto.destination)
+        except Exception as exc:
+            raise GenerateProjectError("Failed to format generated project") from exc
 
     def _initialize_git_repository(self, input_dto: GenerateProjectInput) -> None:
         self._git_initializer.initialize_repository(
