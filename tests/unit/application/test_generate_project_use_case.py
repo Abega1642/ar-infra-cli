@@ -1,7 +1,7 @@
 """Tests for GenerateProjectUseCase."""
 
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -25,6 +25,10 @@ def mock_bot_env(monkeypatch):
 def use_case(template_fetcher, feature_manager, gradle_writer, package_renamer):
     fake_git_initializer = Mock()
     fake_annotation_writer = Mock()
+    fake_artifact_cleaner = Mock()
+    fake_artifact_cleaner.clean.return_value = 8
+    fake_artifact_cleaner.clean_empty_parent_directories.return_value = 1
+
     return GenerateProjectUseCase(
         template_fetcher=template_fetcher,
         feature_manager=feature_manager,
@@ -32,6 +36,7 @@ def use_case(template_fetcher, feature_manager, gradle_writer, package_renamer):
         package_renamer=package_renamer,
         git_initializer=fake_git_initializer,
         annotation_writer=fake_annotation_writer,
+        artifact_cleaner=fake_artifact_cleaner,
     )
 
 
@@ -243,3 +248,239 @@ class TestGenerateProjectUseCase:
         result = use_case.execute(valid_input)
 
         assert result.success is False
+
+    def test_artifact_cleaner_handles_errors(
+        self,
+        use_case: GenerateProjectUseCase,
+        valid_input: GenerateProjectInput,
+    ) -> None:
+        """Test that cleaner failures are wrapped in GenerateProjectError."""
+        use_case._artifact_cleaner.clean.side_effect = OSError("Permission denied")
+
+        result = use_case.execute(valid_input)
+
+        assert result.success is False
+        assert "Failed to clean development artifacts" in result.message
+
+    def test_artifact_cleaner_called_before_git_init(
+        self,
+        use_case: GenerateProjectUseCase,
+        valid_input: GenerateProjectInput,
+    ) -> None:
+        """Test that artifact cleaning happens before git initialization."""
+        call_order = []
+        use_case._artifact_cleaner.clean.side_effect = (
+            lambda *args: call_order.append("cleaner") or 8
+        )
+        use_case._git_initializer.initialize_repository.side_effect = (
+            lambda *args, **kwargs: call_order.append("git")
+        )
+
+        use_case.execute(valid_input)
+
+        assert call_order == ["cleaner", "git"]
+
+
+class TestArtifactCleanerIntegration:
+    """Integration tests with real artifact cleaner."""
+
+    @pytest.fixture
+    def template_fetcher_with_artifacts(self, tmp_path: Path) -> Mock:
+        """Template fetcher that creates development artifacts."""
+        fetcher = Mock()
+
+        def create_template_with_artifacts(url, destination, use_cache=False):
+            destination.mkdir(parents=True, exist_ok=True)
+
+            settings_file = destination / "settings.gradle"
+            settings_file.write_text("rootProject.name = 'arinfra'\n", encoding="utf-8")
+
+            build_gradle = destination / "build.gradle"
+            build_gradle.write_text("group = 'com.example'\nversion = '0.0.1'\n", encoding="utf-8")
+
+            github_dir = destination / ".github"
+            github_dir.mkdir()
+            (github_dir / "dependabot.yml").write_text("version: 2")
+            (github_dir / "CODEOWNERS").write_text("* @owner")
+            (destination / "readme.md").write_text("# README")
+            (destination / "licence").write_text("MIT License")
+            (destination / "contributing.md").write_text("# Contributing")
+            (destination / "security.md").write_text("# Security")
+            (destination / "code_of_conduct.md").write_text("# Code of Conduct")
+            (destination / "ar-infra-logo.png").write_bytes(b"fake image")
+
+            return "com.example.arinfra"
+
+        fetcher.fetch.side_effect = create_template_with_artifacts
+        return fetcher
+
+    @pytest.fixture
+    def feature_manager_simple(self) -> Mock:
+        """Simple feature manager for integration tests."""
+        manager = Mock()
+        manager.get_feature_dependencies.return_value = []
+        return manager
+
+    @pytest.fixture
+    def gradle_writer_simple(self) -> Mock:
+        """Simple gradle writer for integration tests."""
+        return Mock()
+
+    @pytest.fixture
+    def package_renamer_simple(self) -> Mock:
+        """Simple package renamer for integration tests."""
+        return Mock()
+
+    def test_development_artifacts_are_removed_end_to_end(
+        self,
+        template_fetcher_with_artifacts: Mock,
+        feature_manager_simple: Mock,
+        gradle_writer_simple: Mock,
+        package_renamer_simple: Mock,
+        tmp_path: Path,
+    ) -> None:
+        """Test that development artifacts are actually removed from generated project."""
+        fake_git_initializer = Mock()
+        fake_annotation_writer = Mock()
+
+        # Create use case WITHOUT artifact cleaner (will create real one)
+        use_case = GenerateProjectUseCase(
+            template_fetcher=template_fetcher_with_artifacts,
+            feature_manager=feature_manager_simple,
+            gradle_writer=gradle_writer_simple,
+            package_renamer=package_renamer_simple,
+            git_initializer=fake_git_initializer,
+            annotation_writer=fake_annotation_writer,
+            artifact_cleaner=None,  # Let it create a real cleaner
+        )
+
+        input_dto = GenerateProjectInput(
+            group_id=GroupId("dev.razafindratelo"),
+            artifact_id=ArtifactId("backend-api"),
+            version=Version("1.0.0"),
+            destination=tmp_path / "my-project",
+            enabled_features=set(),
+            template_url="https://github.com/Abega1642/ar-infra-template.git",
+            use_template_cache=False,
+        )
+
+        result = use_case.execute(input_dto)
+
+        assert result.success is True
+
+        project_path = input_dto.destination
+        assert not (project_path / ".github" / "dependabot.yml").exists()
+        assert not (project_path / ".github" / "CODEOWNERS").exists()
+        assert not (project_path / ".github").exists()  # Empty dir removed
+        assert not (project_path / "readme.md").exists()
+        assert not (project_path / "licence").exists()
+        assert not (project_path / "contributing.md").exists()
+        assert not (project_path / "security.md").exists()
+        assert not (project_path / "code_of_conduct.md").exists()
+        assert not (project_path / "ar-infra-logo.png").exists()
+
+        assert (project_path / "build.gradle").exists()
+        assert (project_path / "settings.gradle").exists()
+
+    def test_partial_artifact_removal_succeeds(
+        self,
+        feature_manager_simple: Mock,
+        gradle_writer_simple: Mock,
+        package_renamer_simple: Mock,
+        tmp_path: Path,
+    ) -> None:
+        """Test that generation succeeds even if some artifacts don't exist."""
+        fetcher = Mock()
+
+        def create_partial_template(url, destination, use_cache=False):
+            destination.mkdir(parents=True, exist_ok=True)
+            (destination / "build.gradle").write_text("group = 'com.example'\n", encoding="utf-8")
+            (destination / "settings.gradle").write_text(
+                "rootProject.name = 'app'\n", encoding="utf-8"
+            )
+            (destination / "readme.md").write_text("# README")
+            (destination / "licence").write_text("MIT")
+            return "com.example.arinfra"
+
+        fetcher.fetch.side_effect = create_partial_template
+
+        fake_git_initializer = Mock()
+        fake_annotation_writer = Mock()
+
+        use_case = GenerateProjectUseCase(
+            template_fetcher=fetcher,
+            feature_manager=feature_manager_simple,
+            gradle_writer=gradle_writer_simple,
+            package_renamer=package_renamer_simple,
+            git_initializer=fake_git_initializer,
+            annotation_writer=fake_annotation_writer,
+            artifact_cleaner=None,
+        )
+
+        input_dto = GenerateProjectInput(
+            group_id=GroupId("dev.razafindratelo"),
+            artifact_id=ArtifactId("backend-api"),
+            version=Version("1.0.0"),
+            destination=tmp_path / "my-project",
+            enabled_features=set(),
+            template_url="https://github.com/Abega1642/ar-infra-template.git",
+            use_template_cache=False,
+        )
+
+        result = use_case.execute(input_dto)
+
+        assert result.success is True
+
+        project_path = input_dto.destination
+        assert not (project_path / "readme.md").exists()
+        assert not (project_path / "licence").exists()
+
+        assert (project_path / "build.gradle").exists()
+        assert (project_path / "settings.gradle").exists()
+
+    def test_use_case_creates_cleaner_when_not_provided(
+        self,
+        template_fetcher_with_artifacts: Mock,
+        feature_manager_simple: Mock,
+        gradle_writer_simple: Mock,
+        package_renamer_simple: Mock,
+        tmp_path: Path,
+    ) -> None:
+        """Test that use case creates cleaner instance when not injected."""
+        fake_git_initializer = Mock()
+        fake_annotation_writer = Mock()
+
+        use_case = GenerateProjectUseCase(
+            template_fetcher=template_fetcher_with_artifacts,
+            feature_manager=feature_manager_simple,
+            gradle_writer=gradle_writer_simple,
+            package_renamer=package_renamer_simple,
+            git_initializer=fake_git_initializer,
+            annotation_writer=fake_annotation_writer,
+            artifact_cleaner=None,
+        )
+
+        input_dto = GenerateProjectInput(
+            group_id=GroupId("dev.razafindratelo"),
+            artifact_id=ArtifactId("backend-api"),
+            version=Version("1.0.0"),
+            destination=tmp_path / "my-project",
+            enabled_features=set(),
+            template_url="https://github.com/Abega1642/ar-infra-template.git",
+            use_template_cache=False,
+        )
+
+        with patch(
+            "src.ar_infra.application.use_cases.generate_project_use_case.DevelopmentArtifactCleaner"
+        ) as mock_cleaner_class:
+            mock_cleaner_instance = Mock()
+            mock_cleaner_instance.clean.return_value = 8
+            mock_cleaner_instance.clean_empty_parent_directories.return_value = 1
+            mock_cleaner_class.return_value = mock_cleaner_instance
+
+            result = use_case.execute(input_dto)
+
+            assert result.success is True
+            mock_cleaner_class.assert_called_with(input_dto.destination)
+            mock_cleaner_instance.clean.assert_called_once()
+            assert mock_cleaner_instance.clean_empty_parent_directories.call_count == 2

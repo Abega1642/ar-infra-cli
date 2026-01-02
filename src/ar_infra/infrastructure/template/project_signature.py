@@ -9,6 +9,7 @@ from pathlib import Path
 from src.ar_infra.domain.value_objects.artifact_id import ArtifactId
 from src.ar_infra.domain.value_objects.group_id import GroupId
 from src.ar_infra.domain.value_objects.version import Version
+from src.ar_infra.properties import CLI_VERSION
 
 
 @dataclass(frozen=True)
@@ -25,7 +26,7 @@ class ProjectSignature:
         group_id: GroupId,
         artifact_id: ArtifactId,
         version: Version,
-        cli_version: str = "1.0.0",
+        cli_version: str = CLI_VERSION,
     ) -> "ProjectSignature":
         project_hash = cls._compute_project_hash(group_id, artifact_id, version)
         signature = f"ar-infra-cli:{project_hash}"

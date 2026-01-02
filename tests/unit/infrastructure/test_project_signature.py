@@ -12,6 +12,7 @@ from src.ar_infra.infrastructure.template.project_signature import (
     InfraGeneratedAnnotationWriter,
     ProjectSignature,
 )
+from src.ar_infra.properties import CLI_VERSION
 
 
 class TestProjectSignature:
@@ -74,14 +75,14 @@ class TestProjectSignature:
         assert signature.version == "2.5.0"
 
     def test_default_cli_version(self) -> None:
-        """Test that default CLI version is 1.0.0."""
+        """Test default CLI version"""
         signature = ProjectSignature.generate(
             group_id=GroupId("com.test"),
             artifact_id=ArtifactId("myapp"),
             version=Version("1.0.0"),
         )
 
-        assert signature.version == "1.0.0"
+        assert signature.version == CLI_VERSION
 
     def test_generated_at_is_iso_format(self) -> None:
         """Test that generated_at is in ISO 8601 format."""
