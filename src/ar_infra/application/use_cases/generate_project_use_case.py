@@ -10,6 +10,9 @@ from src.ar_infra.domain.value_objects.package_name import PackageName
 from src.ar_infra.infrastructure.gradle import GradleWriter
 from src.ar_infra.infrastructure.processor import GitRepositoryInitializer, PackageRenamer
 from src.ar_infra.infrastructure.template import FeatureManager, GitHubTemplateFetcher
+from src.ar_infra.infrastructure.template.development_artifact_remover import (
+    DevelopmentArtifactCleaner,
+)
 from src.ar_infra.infrastructure.template.project_signature import (
     InfraGeneratedAnnotationWriter,
     ProjectSignature,
@@ -28,6 +31,7 @@ class GenerateProjectUseCase:
         package_renamer: PackageRenamer,
         git_initializer: GitRepositoryInitializer | None = None,
         annotation_writer: InfraGeneratedAnnotationWriter | None = None,
+        artifact_cleaner: DevelopmentArtifactCleaner | None = None,
     ) -> None:
         self._template_fetcher = template_fetcher
         self._feature_manager = feature_manager
@@ -35,6 +39,7 @@ class GenerateProjectUseCase:
         self._package_renamer = package_renamer
         self._git_initializer = git_initializer or GitRepositoryInitializer()
         self._annotation_writer = annotation_writer or InfraGeneratedAnnotationWriter()
+        self._artifact_cleaner = artifact_cleaner
 
     def execute(self, input_dto: GenerateProjectInput) -> GenerateProjectOutput:
         """Execute project generation workflow."""
@@ -46,6 +51,7 @@ class GenerateProjectUseCase:
             self._rename_packages(input_dto, placeholder_package)
             self._update_settings_gradle(input_dto)
             signature = self._update_infra_generated_annotation(input_dto)
+            self._clean_development_artifacts(input_dto)
             self._initialize_git_repository(input_dto)
 
             return GenerateProjectOutput(
@@ -147,6 +153,22 @@ class GenerateProjectUseCase:
         for annotation_file in java_dir.rglob("InfraGenerated.java"):
             return annotation_file
         return None
+
+    def _clean_development_artifacts(self, input_dto: GenerateProjectInput) -> None:
+        """Remove development artifacts from the generated project."""
+        try:
+            cleaner = self._artifact_cleaner or DevelopmentArtifactCleaner(input_dto.destination)
+
+            if self._artifact_cleaner is None:
+                cleaner = DevelopmentArtifactCleaner(input_dto.destination)
+
+            cleaner.clean()
+
+            cleaner.clean_empty_parent_directories(".github/dependabot.yml")
+            cleaner.clean_empty_parent_directories(".github/CODEOWNERS")
+
+        except Exception as exc:
+            raise GenerateProjectError("Failed to clean development artifacts") from exc
 
     def _initialize_git_repository(self, input_dto: GenerateProjectInput) -> None:
         self._git_initializer.initialize_repository(
