@@ -153,11 +153,13 @@ class PathSecurityValidator:
 
             # Handle Windows short names (e.g., RUNNER~1)
             # Try to get the long path name if possible
-            try:
-                if path.exists():
+            if path.exists():
+                try:
                     path_str = str(path.resolve()).lower().replace("/", "\\")
-            except (OSError, RuntimeError):
-                pass
+                except (OSError, RuntimeError):
+                    # If we can't resolve the path (e.g., broken symlink, permission issue),
+                    # fall back to using the original normalized path
+                    pass
         else:
             # For Unix/Linux/macOS, use forward slashes
             path_str = path_str.replace("\\", "/")

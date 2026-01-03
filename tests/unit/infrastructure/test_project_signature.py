@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from tests.fixtures.sample_infra_generated import INFRA_GENERATED_SAMPLE
 
 from src.ar_infra.domain.value_objects.artifact_id import ArtifactId
 from src.ar_infra.domain.value_objects.group_id import GroupId
@@ -128,23 +129,7 @@ class TestInfraGeneratedAnnotationWriter:
     @pytest.fixture
     def annotation_content(self) -> str:
         """Sample InfraGenerated.java content."""
-        return """package com.example.arinfra;
-
-import static java.lang.annotation.ElementType.*;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-
-@Documented
-@Retention(RUNTIME)
-@Target({TYPE, METHOD, CONSTRUCTOR})
-public @interface InfraGenerated {
-  String signature() default "ar-infra-cli";
-  String version() default "1.0.0";
-  String generatedAt() default "";
-}
-"""
+        return INFRA_GENERATED_SAMPLE
 
     @pytest.fixture
     def annotation_file(self, tmp_path: Path, annotation_content: str) -> Path:
