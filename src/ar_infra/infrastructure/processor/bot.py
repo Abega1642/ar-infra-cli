@@ -106,7 +106,7 @@ class BotGitHandler:
         self._stage_all_files(project_path)
         self._create_initial_commit(project_path, commit_message)
 
-        log.info("Git repository initialized with bot commit at: %s", project_path)
+        log.info("\nGit repository initialized with bot commit at: %s\n", project_path)
 
     def generate_and_initialize_repo(
         self,
@@ -133,7 +133,7 @@ class BotGitHandler:
 
         self.initialize_repository(output_path, initial_branch, commit_message)
 
-        log.info("Project generated and initial commit created by bot at: %s", output_path)
+        log.info("\nProject generated and initial commit created by bot at: %s\n", output_path)
 
     def _remove_existing_git_directory(self, path: Path) -> None:
         git_dir = path / ".git"
