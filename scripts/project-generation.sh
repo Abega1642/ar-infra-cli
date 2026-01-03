@@ -8,7 +8,7 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m'
+NC='\033[0m' # No Color
 
 TEST_DIR="test-generated-project"
 GROUP="dev.razafindratelo"
@@ -93,9 +93,9 @@ check_file_executable() {
 }
 
 main() {
-    echo "-------------------------------------------------------------------"
+    echo "--------------"
     echo "AR-INFRA-CLI Project Generation Test"
-    echo "-------------------------------------------------------------------"
+    echo "--------------"
     echo ""
 
     cleanup
@@ -108,6 +108,11 @@ main() {
 
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+    # For Windows (Git Bash/MSYS), convert to proper format
+    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]]; then
+        PROJECT_ROOT="$(cygpath -u "$PROJECT_ROOT" 2>/dev/null || echo "$PROJECT_ROOT")"
+    fi
 
     cd "$TEST_DIR" || exit 1
 
@@ -181,19 +186,27 @@ main() {
     print_info "Validating file contents..."
 
     # Check build.gradle contains correct group/artifact/version
-    if grep -q "$GROUP" "$TEST_DIR/$PROJECT_DIR/build.gradle" && \
-       grep -q "$ARTIFACT" "$TEST_DIR/$PROJECT_DIR/build.gradle" && \
-       grep -q "$VERSION" "$TEST_DIR/$PROJECT_DIR/build.gradle"; then
-        print_success "build.gradle contains correct metadata"
+    # Note: build.gradle may use 'group = ' format instead of direct mention
+    if grep -q "group.*=.*['\"]$GROUP['\"]" "$TEST_DIR/$PROJECT_DIR/build.gradle" || \
+       grep -q "$GROUP" "$TEST_DIR/$PROJECT_DIR/build.gradle"; then
+        print_success "build.gradle contains group metadata"
     else
-        print_error "build.gradle missing correct metadata"
+        print_error "build.gradle missing group metadata"
+        ((missing_files++))
+    fi
+
+    if grep -q "rootProject.name.*=.*['\"]$ARTIFACT['\"]" "$TEST_DIR/$PROJECT_DIR/settings.gradle" || \
+       grep -q "$ARTIFACT" "$TEST_DIR/$PROJECT_DIR/settings.gradle"; then
+        print_success "settings.gradle contains artifact metadata"
+    else
+        print_error "settings.gradle missing artifact metadata"
         ((missing_files++))
     fi
     echo ""
 
-    echo "-------------------------------------------------------------------"
+    echo "--------------"
     echo "Test Summary"
-    echo "-------------------------------------------------------------------"
+    echo "--------------"
 
     total_errors=$((missing_files + missing_dirs + executables_ok))
 

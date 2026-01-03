@@ -1,4 +1,4 @@
-name: CD - Project Generation
+name: CI - Project Generation
 
 on:
   push:
@@ -35,6 +35,10 @@ jobs:
 
       - name: Run project generation test (Unix)
         if: runner.os != 'Windows'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_ID: "123456789"
+          BOT_SLUG: "ar-infra-bot"
         run: |
           chmod +x scripts/project-generation.sh
           bash scripts/project-generation.sh
@@ -42,7 +46,14 @@ jobs:
       - name: Run project generation test (Windows)
         if: runner.os == 'Windows'
         shell: bash
-        run: bash scripts/project-generation.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_ID: ${{ secrets.BOT_ID }}
+          BOT_SLUG: ${{ secrets.BOT_SLUG }}
+        run: |
+          # Ensure Python can find the src module on Windows
+          export PYTHONPATH="${GITHUB_WORKSPACE}:${PYTHONPATH}"
+          bash scripts/project-generation.sh
 
       - name: Verify generated project structure (Unix)
         if: runner.os != 'Windows'

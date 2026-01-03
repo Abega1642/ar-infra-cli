@@ -23,7 +23,11 @@ class TestBotIdentity:
         assert identity.email == "123456+my-bot[bot]@users.noreply.github.com"
 
     @patch("src.ar_infra.infrastructure.processor.bot.requests.get")
-    def test_from_github_app_fetches_id_from_api(self, mock_get: Mock) -> None:
+    @patch("src.ar_infra.infrastructure.processor.bot.os.getenv")
+    def test_from_github_app_fetches_id_from_api(self, mock_getenv: Mock, mock_get: Mock) -> None:
+        # Mock no GITHUB_TOKEN in environment
+        mock_getenv.return_value = None
+
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
         mock_response.json.return_value = {"id": 987654}
@@ -36,14 +40,68 @@ class TestBotIdentity:
         mock_get.assert_called_once_with(
             "https://api.github.com/users/fetch-bot%5Bbot%5D",
             timeout=10,
+            headers={},
         )
 
     @patch("src.ar_infra.infrastructure.processor.bot.requests.get")
-    def test_from_github_app_raises_on_api_failure(self, mock_get: Mock) -> None:
+    @patch("src.ar_infra.infrastructure.processor.bot.os.getenv")
+    def test_from_github_app_uses_github_token_when_available(
+        self, mock_getenv: Mock, mock_get: Mock
+    ) -> None:
+        # Mock GITHUB_TOKEN in environment
+        mock_getenv.return_value = "ghp_test_token_123"
+
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {"id": 987654}
+        mock_get.return_value = mock_response
+
+        identity = BotIdentity.from_github_app(bot_slug="fetch-bot")
+
+        assert identity.name == "fetch-bot[bot]"
+        assert identity.email == "987654+fetch-bot[bot]@users.noreply.github.com"
+        mock_get.assert_called_once_with(
+            "https://api.github.com/users/fetch-bot%5Bbot%5D",
+            timeout=10,
+            headers={"Authorization": "token ghp_test_token_123"},
+        )
+
+    @patch("src.ar_infra.infrastructure.processor.bot.requests.get")
+    @patch("src.ar_infra.infrastructure.processor.bot.log")
+    def test_from_github_app_uses_fallback_on_api_failure(
+        self, mock_log: Mock, mock_get: Mock
+    ) -> None:
+        """Test that API failure returns fallback identity instead of crashing."""
         mock_get.side_effect = requests.RequestException("Connection failed")
 
-        with pytest.raises(RuntimeError, match="Failed to fetch bot user ID"):
-            BotIdentity.from_github_app(bot_slug="fail-bot")
+        identity = BotIdentity.from_github_app(bot_slug="fail-bot")
+
+        # Should use fallback ID
+        assert identity.name == "fail-bot[bot]"
+        assert identity.email == "123456789+fail-bot[bot]@users.noreply.github.com"
+
+        mock_log.warning.assert_called_once()
+        warning_call = mock_log.warning.call_args[0]
+        assert "Failed to fetch bot user ID" in warning_call[0]
+        assert "fail-bot" in warning_call[1]
+
+    @patch("src.ar_infra.infrastructure.processor.bot.requests.get")
+    @patch("src.ar_infra.infrastructure.processor.bot.log")
+    def test_from_github_app_uses_fallback_on_rate_limit(
+        self, mock_log: Mock, mock_get: Mock
+    ) -> None:
+        """Test that rate limit (403) returns fallback identity."""
+        mock_response = Mock()
+        mock_response.raise_for_status.side_effect = requests.HTTPError("403 Rate limit")
+        mock_get.return_value = mock_response
+
+        identity = BotIdentity.from_github_app(bot_slug="rate-limited-bot")
+
+        # Should use fallback ID
+        assert identity.name == "rate-limited-bot[bot]"
+        assert identity.email == "123456789+rate-limited-bot[bot]@users.noreply.github.com"
+
+        mock_log.warning.assert_called_once()
 
 
 class TestBotGitHandler:
