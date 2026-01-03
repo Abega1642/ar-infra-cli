@@ -3,6 +3,7 @@
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NoReturn
 
 from src.ar_infra.application.use_cases.generate_project_use_case import (
     GenerateProjectUseCase,
@@ -189,10 +190,10 @@ class InitCommand:
         except OSError as exc:
             self._abort(f"I/O error: {exc}")
 
-    def _abort(self, message: str) -> None:
+    def _abort(self, message: str) -> NoReturn:
         """Abort execution with error message."""
         Messages.error(message)
-        sys.exit(1)
+        raise SystemExit(1)
 
     def _validate_destination_path(self, destination_path: str) -> Path:
         """Validate destination path with security checks."""
@@ -203,10 +204,10 @@ class InitCommand:
                 f"SECURITY WARNING: {exc}\n"
                 "Cannot proceed with this destination for security reasons."
             )
-            sys.exit(1)
+            raise SystemExit(1) from exc
         except PathSecurityError as exc:
             Messages.error(f"Security error: {exc}")
-            sys.exit(1)
+            raise SystemExit(1) from exc
 
     def _validate_project_directory_name(self, project_dir_name: str) -> str:
         """Validate project directory name."""
@@ -214,7 +215,7 @@ class InitCommand:
             return self.security_validator.validate_project_directory_name(project_dir_name)
         except ValueError as exc:
             Messages.error(f"Invalid project directory name: {exc}")
-            sys.exit(1)
+            raise SystemExit(1) from exc
 
     def _resolve_project_dir(
         self, validated_destination: Path, validated_project_name: str
@@ -229,10 +230,10 @@ class InitCommand:
             return resolver.resolve()
         except PathSecurityError as exc:
             Messages.error(f"Security error: {exc}")
-            sys.exit(1)
+            raise SystemExit(1) from exc
         except (ValueError, FileExistsError, PermissionError) as exc:
             Messages.error(str(exc))
-            sys.exit(1)
+            raise SystemExit(1) from exc
 
     def _generate_project(self, project_input: GenerateProjectInput) -> None:
         """Generate the project with proper error handling."""

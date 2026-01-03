@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from _pytest.tmpdir import TempPathFactory
 
 import pytest
-from tests.fixtures.api_exception_handler_sample import API_EXCEPTION_HANDLER_SAMPLE
+from tests.fixtures.sample_api_exception_handler import API_EXCEPTION_HANDLER_SAMPLE
 
 from src.ar_infra.domain.enums.template_feature import TemplateFeature
 from src.ar_infra.infrastructure.template.rest_exception_manager import RestExceptionHandlerManager
