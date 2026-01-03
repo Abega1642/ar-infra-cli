@@ -108,11 +108,11 @@ class InteractivePrompt:
             try:
                 validated_path = self.security_validator.validate_destination_path(path_str)
                 return self._handle_validated_path(validated_path)
-            except DangerousPathError as exc:
-                if not self._handle_security_exception(exc, "SECURITY WARNING"):
-                    raise
-            except PathSecurityError as exc:
-                if not self._handle_security_exception(exc, "Security Error"):
+            except (DangerousPathError, PathSecurityError) as exc:
+                error_type = (
+                    "SECURITY WARNING" if isinstance(exc, DangerousPathError) else "Security Error"
+                )
+                if not self._handle_security_exception(exc, error_type):
                     raise
             except (ValueError, OSError) as exc:
                 if not self._handle_general_error(exc):
@@ -157,7 +157,7 @@ class InteractivePrompt:
         """Create directory at given path."""
         try:
             path.mkdir(parents=True, exist_ok=True)
-        except (OSError, PermissionError) as exc:
+        except OSError as exc:
             print(f"\nError: Cannot create directory: {exc}\nPlease choose a different path.\n")
             raise
 
@@ -217,21 +217,26 @@ class InteractivePrompt:
                 if not retry:
                     raise
 
-    def _handle_existing_directory(self, destination: Path, project_dir_name: str) -> Path:
+    def _handle_existing_directory(self, destination: Path, project_dir_name: str) -> None:
         """
         Handle the case where project directory already exists.
+
+        Raises appropriate exceptions if the directory cannot be used.
 
         Args:
             destination: Destination path
             project_dir_name: Project directory name
 
-        Returns:
-            Final destination path to use
+        Raises:
+            ValueError: If path exists but is not a directory
+            PermissionError: If directory cannot be accessed
+            FileExistsError: If directory exists and user chooses not to use it
+            KeyboardInterrupt: If user cancels the operation
         """
         project_path = destination / project_dir_name
 
         if not project_path.exists():
-            return destination
+            return
 
         if not project_path.is_dir():
             raise ValueError(
@@ -240,7 +245,7 @@ class InteractivePrompt:
 
         try:
             has_content = any(project_path.iterdir())
-        except (OSError, PermissionError) as exc:
+        except OSError as exc:
             raise PermissionError(f"Cannot access directory '{project_path}': {exc}") from exc
 
         if not has_content:
@@ -251,7 +256,7 @@ class InteractivePrompt:
             ).ask()
 
             if use_empty:
-                return destination
+                return
             raise FileExistsError(
                 f"Directory '{project_path}' already exists. "
                 "Please choose a different name or destination."

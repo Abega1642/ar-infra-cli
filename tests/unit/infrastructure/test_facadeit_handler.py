@@ -9,6 +9,10 @@ from src.ar_infra.infrastructure.template.facadeit_handler import FacadeITHandle
 
 
 FACADE_CONTENT = """
+@Slf4j
+@InfraGenerated
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc(addFilters = false)
 public abstract class FacadeIT {
 
   private static final PostgresConf POSTGRES_CONF = new PostgresConf();
@@ -34,11 +38,19 @@ public abstract class FacadeIT {
                 }));
   }
 
-  static void configure(DynamicPropertyRegistry registry) {
+  @SneakyThrows
+  @DynamicPropertySource
+  static void configureProperties(DynamicPropertyRegistry registry) {
     POSTGRES_CONF.configureProperties(registry);
     RABBITMQ_CONF.configureProperties(registry);
     BUCKET_CONF.configureProperties(registry);
     EMAIL_CONF.configureProperties(registry);
+
+    Class<?> envConfClazz = EnvConf.class;
+    var configureMethod =
+        envConfClazz.getDeclaredMethod("configureProperties", DynamicPropertyRegistry.class);
+    var envConfInstance = envConfClazz.getConstructor().newInstance();
+    configureMethod.invoke(envConfInstance, registry);
   }
 }
 """.lstrip()

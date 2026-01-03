@@ -433,22 +433,18 @@ class SafeProjectPathResolver:
         test_file = None
         try:
             test_file = self.destination / ".ar_infra_write_test"
-            with Path.open(test_file, "w", encoding="utf-8"):
-                pass
+            test_file.write_text("", encoding="utf-8")
         except OSError as err:
             raise PermissionError(
                 f"No write permission for destination directory '{self.destination}'"
             ) from err
         finally:
             if test_file and test_file.exists():
-                try:
-                    test_file.unlink()
-                except OSError:
-                    pass
+                test_file.unlink(missing_ok=True)
 
     def _directory_has_content(self, directory: Path) -> bool:
         """Check if directory has any content."""
         try:
             return any(directory.iterdir())
-        except (OSError, PermissionError):
+        except OSError:
             return True  # Assume has content if we can't check

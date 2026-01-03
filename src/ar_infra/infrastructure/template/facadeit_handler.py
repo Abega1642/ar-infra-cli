@@ -69,28 +69,39 @@ class FacadeITHandler:
 
     @staticmethod
     def _remove_empty_before_all(lines: list[str]) -> list[str]:
+        """Remove @BeforeAll annotated methods from the lines."""
         result: list[str] = []
         i = 0
 
         while i < len(lines):
-            line = lines[i].strip()
-
-            if line == "@BeforeAll":
-                # Skip until the closing brace of the method
-                i += 1
-                brace_depth = 0
-                while i < len(lines):
-                    if "{" in lines[i]:
-                        brace_depth += 1
-                    if "}" in lines[i]:
-                        brace_depth -= 1
-                        if brace_depth <= 0:
-                            i += 1
-                            break
-                    i += 1
+            if lines[i].strip() == "@BeforeAll":
+                i = FacadeITHandler._skip_before_all_method(lines, i)
                 continue
 
             result.append(lines[i])
             i += 1
 
         return result
+
+    @staticmethod
+    def _skip_before_all_method(lines: list[str], start_index: int) -> int:
+        """Skip past a @BeforeAll method and return the next index to process."""
+        i = start_index + 1
+        brace_depth = 0
+
+        while i < len(lines):
+            brace_depth = FacadeITHandler._update_brace_depth(lines[i], brace_depth)
+            i += 1
+
+            if brace_depth <= 0:
+                break
+
+        return i
+
+    @staticmethod
+    def _update_brace_depth(line: str, current_depth: int) -> int:
+        """Update brace depth based on braces in the line."""
+        depth = current_depth
+        depth += line.count("{")
+        depth -= line.count("}")
+        return depth
