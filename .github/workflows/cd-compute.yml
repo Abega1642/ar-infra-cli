@@ -1,0 +1,96 @@
+name: CD - Project Generation
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  compute:
+    name: Project Generation - Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: make install-dev
+
+      - name: Run project generation test (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x scripts/project-generation.sh
+          bash scripts/project-generation.sh
+
+      - name: Run project generation test (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: bash scripts/project-generation.sh
+
+      - name: Verify generated project structure (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          if [ -d "test-generated-project/demo" ]; then
+            echo "Project structure:"
+            ls -lah test-generated-project/demo/
+            echo ""
+            echo "Checking critical files..."
+            test -f test-generated-project/demo/build.gradle && echo "[PASS] build.gradle exists"
+            test -f test-generated-project/demo/Makefile && echo "[PASS] Makefile exists"
+            test -f test-generated-project/demo/Dockerfile && echo "[PASS] Dockerfile exists"
+            test -x test-generated-project/demo/gradlew && echo "[PASS] gradlew is executable"
+          else
+            echo "[FAIL] Generated project not found"
+            exit 1
+          fi
+
+      - name: Verify generated project structure (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          if [ -d "test-generated-project/demo" ]; then
+            echo "Project structure:"
+            ls -lah test-generated-project/demo/
+            echo ""
+            echo "Checking critical files..."
+            test -f test-generated-project/demo/build.gradle && echo "[PASS] build.gradle exists"
+            test -f test-generated-project/demo/Makefile && echo "[PASS] Makefile exists"
+            test -f test-generated-project/demo/Dockerfile && echo "[PASS] Dockerfile exists"
+          else
+            echo "[FAIL] Generated project not found"
+            exit 1
+          fi
+
+      - name: Upload generated project artifacts
+        if: always() && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-project-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: test-generated-project/
+          retention-days: 7
+
+      - name: Clean up test directory
+        if: always()
+        run: |
+          if [ -d "test-generated-project" ]; then
+            rm -rf test-generated-project
+            echo "Cleaned up test directory"
+          fi
+        shell: bash
