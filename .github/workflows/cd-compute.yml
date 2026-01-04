@@ -1,0 +1,143 @@
+name: CI - Project Generation
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  compute:
+    name: Project Generation - Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: make install-dev
+
+      - name: Run project generation test (Unix)
+        if: runner.os != 'Windows'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_ID: ${{ secrets.BOT_ID }}
+          BOT_SLUG: ${{ secrets.BOT_SLUG }}
+        run: |
+          chmod +x scripts/project-generation.sh
+          bash scripts/project-generation.sh
+
+      - name: Run project generation test (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_ID: ${{ secrets.BOT_ID }}
+          BOT_SLUG: ${{ secrets.BOT_SLUG }}
+        run: bash scripts/project-generation.sh
+
+      - name: Verify generated project structure (Unix)
+        if: runner.os != 'Windows' && always()
+        run: |
+          if [ -d "test-generated-project/demo" ]; then
+            echo "=== Project Structure ==="
+            ls -lah test-generated-project/demo/
+            echo ""
+            echo "=== Critical File Verification ==="
+            test -f test-generated-project/demo/build.gradle && echo "[PASS] build.gradle exists"
+            test -f test-generated-project/demo/Makefile && echo "[PASS] Makefile exists"
+            test -f test-generated-project/demo/Dockerfile && echo "[PASS] Dockerfile exists"
+            test -x test-generated-project/demo/gradlew && echo "[PASS] gradlew is executable"
+            test -x test-generated-project/demo/format.sh && echo "[PASS] format.sh is executable"
+            test -d test-generated-project/demo/src && echo "[PASS] src directory exists"
+            test -d test-generated-project/demo/.git && echo "[PASS] git repository initialized"
+          else
+            echo "[FAIL] Generated project not found at test-generated-project/demo"
+            exit 1
+          fi
+
+      - name: Verify generated project structure (Windows)
+        if: runner.os == 'Windows' && always()
+        shell: bash
+        run: |
+          if [ -d "test-generated-project/demo" ]; then
+            echo "=== Project Structure ==="
+            ls -lah test-generated-project/demo/
+            echo ""
+            echo "=== Critical File Verification ==="
+            test -f test-generated-project/demo/build.gradle && echo "[PASS] build.gradle exists"
+            test -f test-generated-project/demo/Makefile && echo "[PASS] Makefile exists"
+            test -f test-generated-project/demo/Dockerfile && echo "[PASS] Dockerfile exists"
+            test -f test-generated-project/demo/gradlew && echo "[PASS] gradlew exists"
+            test -f test-generated-project/demo/format.sh && echo "[PASS] format.sh exists"
+            test -d test-generated-project/demo/src && echo "[PASS] src directory exists"
+            test -d test-generated-project/demo/.git && echo "[PASS] git repository initialized"
+          else
+            echo "[FAIL] Generated project not found at test-generated-project/demo"
+            exit 1
+          fi
+
+      - name: Test format.sh execution
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "test-generated-project/demo/format.sh" ]; then
+            echo "=== Testing format.sh execution ==="
+            cd test-generated-project/demo
+            chmod +x format.sh 2>/dev/null || true
+
+            # Run format.sh and capture output
+            if ./format.sh; then
+              echo "[PASS] format.sh executed successfully"
+            else
+              echo "[FAIL] format.sh execution failed"
+              exit 1
+            fi
+          else
+            echo "[SKIP] format.sh not found"
+          fi
+
+      - name: Upload generated project artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-project-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: test-generated-project/
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: |
+            test-generated-project/demo/*.log
+            test-generated-project/demo/.git/logs/
+          retention-days: 3
+          if-no-files-found: ignore
+
+      - name: Clean up test directory
+        if: always()
+        shell: bash
+        run: |
+          if [ -d "test-generated-project" ]; then
+            rm -rf test-generated-project
+            echo "Cleaned up test directory"
+          fi

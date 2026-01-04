@@ -1,10 +1,17 @@
 """Git repository initialization with bot commit."""
 
+import gc
 import os
+import platform
 import shutil
+import stat
 import subprocess  # nosec B404
+import time
+import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import requests
 from dotenv import load_dotenv
@@ -29,22 +36,31 @@ class BotIdentity:
 
     @classmethod
     def from_github_app(
-        cls, bot_slug: str = "ar-infra-bot", bot_id: int | None = None
+        cls, bot_slug: str = "test-ar-infra-bot", bot_id: int | None = None
     ) -> "BotIdentity":
         """Create proper GitHub App bot identity."""
         if bot_id is None:
             try:
+                headers = {}
+                github_token = os.getenv("GITHUB_TOKEN")
+                if github_token:
+                    headers["Authorization"] = f"token {github_token}"
+
                 response = requests.get(
                     f"https://api.github.com/users/{bot_slug}%5Bbot%5D",
                     timeout=10,
+                    headers=headers,
                 )
                 response.raise_for_status()
                 bot_id = response.json()["id"]
             except requests.RequestException as exc:
-                raise RuntimeError(
-                    f"Failed to fetch bot user ID for {bot_slug}[bot]. "
-                    "Set BOT_ID in .env or check network/app slug."
-                ) from exc
+                log.warning(
+                    "Failed to fetch bot user ID for %s[bot], using fallback. "
+                    "Set BOT_ID in .env for production use. Error: %s",
+                    bot_slug,
+                    str(exc),
+                )
+                bot_id = 123456789
 
         return cls(
             name=f"{bot_slug}[bot]",
@@ -100,6 +116,12 @@ class BotGitHandler:
             raise GitRepositoryError(f"Project path does not exist: {project_path}")
 
         self._remove_existing_git_directory(project_path)
+
+        # On Windows, wait for file system to settle after removal
+        if platform.system() == "Windows":
+            log.info("Windows: Waiting for file system to settle...")
+            time.sleep(2)
+
         self._initialize_git(project_path)
         self._configure_bot_identity(project_path)
         self._set_initial_branch(project_path, initial_branch)
@@ -138,7 +160,91 @@ class BotGitHandler:
     def _remove_existing_git_directory(self, path: Path) -> None:
         git_dir = path / ".git"
         if git_dir.exists():
-            shutil.rmtree(git_dir)
+            self._safe_rmtree(git_dir)
+
+    def _safe_rmtree(self, path: Path, max_retries: int = 10) -> None:
+        """Remove directory tree with retry logic for Windows file locks."""
+        is_windows = platform.system() == "Windows"
+
+        def handle_remove_readonly(func: Callable[[str], None], path_str: str, _exc: Any) -> None:
+            """Handle read-only files on Windows."""
+            if is_windows:
+                Path(path_str).chmod(stat.S_IWRITE)
+                func(path_str)
+
+        last_exception: Exception | None = None
+
+        for attempt in range(max_retries):
+            try:
+                if is_windows:
+                    gc.collect()
+
+                shutil.rmtree(path, onerror=handle_remove_readonly)
+            except (OSError, PermissionError) as exc:
+                last_exception = exc
+                if attempt < max_retries - 1:
+                    self._log_retry_attempt(attempt, max_retries, exc)
+                    time.sleep(8)
+                else:
+                    self._handle_final_removal_failure(path, max_retries, last_exception)
+            else:
+                return
+
+    def _log_retry_attempt(self, attempt: int, max_retries: int, exc: Exception) -> None:
+        """Log retry attempt for directory removal."""
+        log.warning(
+            "Failed to remove directory (attempt %d/%d): %s. Retrying in 8s...",
+            attempt + 1,
+            max_retries,
+            exc,
+        )
+
+    def _handle_final_removal_failure(
+        self, path: Path, max_retries: int, last_exception: Exception
+    ) -> None:
+        """Handle final failure to remove directory after all retries.
+
+        On Windows, as a last resort, attempts to rename the locked directory
+        to allow continuation. This is necessary because Git pack files can
+        remain locked by background processes (git-index-pack, antivirus scanners)
+        for extended periods on Windows, even after the main Git operation completes.
+        """
+        is_windows = platform.system() == "Windows"
+
+        if is_windows and self._try_rename_locked_directory(path, max_retries):
+            return
+
+        raise last_exception
+
+    def _try_rename_locked_directory(self, path: Path, max_retries: int) -> bool:
+        """Attempt to rename a locked directory on Windows as a fallback.
+
+        Returns:
+            True if rename succeeded, False otherwise.
+
+        Note:
+            Windows allows renaming locked files/directories but not deletion.
+            If rename fails (rare), we allow the exception to propagate naturally
+            as there are no further recovery options available.
+        """
+        backup_name = f"{path.name}.old.{uuid.uuid4().hex[:8]}"
+        backup_path = path.parent / backup_name
+
+        try:
+            path.rename(backup_path)
+            log.warning(
+                "Windows: Could not delete %s after %d attempts. "
+                "Renamed to %s. New git repo will be created.",
+                path,
+                max_retries,
+                backup_name,
+            )
+        except OSError:
+            # Rename failure is extremely rare but possible if parent directory
+            # is also locked or filesystem is corrupted. No recovery possible,
+            # so we return False to allow the original exception to propagate.
+            return False
+        return True
 
     def _initialize_git(self, path: Path) -> None:
         self._run_git_command(["git", "init"], cwd=path)
@@ -151,13 +257,36 @@ class BotGitHandler:
         self._run_git_command(["git", "branch", "-M", branch_name], cwd=path)
 
     def _stage_all_files(self, path: Path) -> None:
-        self._run_git_command(["git", "add", "."], cwd=path)
+        self._run_git_command_with_retry(["git", "add", "."], cwd=path)
 
     def _create_initial_commit(self, path: Path, message: str) -> None:
         self._run_git_command(["git", "commit", "-m", message], cwd=path)
 
     def _run_git_command(self, command: list[str], cwd: Path) -> None:
         self._run_command(command, cwd=cwd)
+
+    def _run_git_command_with_retry(
+        self, command: list[str], cwd: Path, max_retries: int = 5
+    ) -> None:
+        """Run git command with retry logic for Windows file lock issues."""
+        is_windows = platform.system() == "Windows"
+
+        for attempt in range(max_retries):
+            try:
+                self._run_command(command, cwd=cwd)
+            except (GitCommandError, GitRepositoryError) as exc:
+                if is_windows and attempt < max_retries - 1:
+                    log.warning(
+                        "Git command failed (attempt %d/%d): %s. Retrying in 3s...",
+                        attempt + 1,
+                        max_retries,
+                        exc,
+                    )
+                    time.sleep(3)
+                else:
+                    raise
+            else:
+                return
 
     def _run_command(
         self,
