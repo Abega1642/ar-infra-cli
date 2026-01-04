@@ -73,8 +73,6 @@ class InitCommand:
 
     def execute(self, args: InitCommandArgs) -> None:
         """Execute the init command."""
-        Banner.show()
-
         is_interactive = all(
             param is None
             for param in (
@@ -95,6 +93,7 @@ class InitCommand:
 
     def _execute_interactive(self) -> None:
         """Execute interactive mode."""
+        Banner.show(wait_for_enter=True)
         Messages.welcome()
         try:
             inputs = self.interactive_prompt.collect_inputs()
@@ -114,6 +113,24 @@ class InitCommand:
             Messages.warning("\n\nOperation cancelled by user.")
             sys.exit(0)
 
+    def _generate_project(self, project_input: GenerateProjectInput) -> None:
+        """Generate the project with proper error handling."""
+        with ProgressIndicator.steps(7) as (progress, task):
+            progress.update(task, description="Fetching template...")
+            progress.advance(task)
+
+            result = self.use_case.execute(project_input)
+
+            if result.success:
+                progress.update(task, completed=7, description="Complete!")
+                Messages.success(f"\n{result.message}")
+                Messages.info(f"Project created at: {result.project_path}")
+                if result.has_signature:
+                    Messages.info(f"Project signature: {result.signature}")
+            else:
+                Messages.error(f"\n{result.message}")
+                sys.exit(1)
+
     def _execute_cli(self, args: InitCommandArgs) -> None:
         """Execute CLI mode with enhanced security."""
         if not args.group:
@@ -132,6 +149,17 @@ class InitCommand:
 
         try:
             enabled_features = self._parse_features(args.features, args.no_features)
+
+            destination_path = Path(args.path or ".").resolve()
+            project_path = destination_path / args.project_dir
+
+            Messages.project_summary(
+                group=args.group,
+                artifact=args.artifact,
+                version=args.version or "1.0.0",
+                path=project_path,
+                features=list(enabled_features),
+            )
 
             self._execute_common(
                 group_id=args.group,
@@ -234,32 +262,6 @@ class InitCommand:
         except (ValueError, FileExistsError, PermissionError) as exc:
             Messages.error(str(exc))
             raise SystemExit(1) from exc
-
-    def _generate_project(self, project_input: GenerateProjectInput) -> None:
-        """Generate the project with proper error handling."""
-        Messages.project_summary(
-            group=project_input.group_id.value,
-            artifact=project_input.artifact_id.value,
-            version=project_input.version.value,
-            path=project_input.destination,
-            features=[f.value for f in project_input.enabled_features],
-        )
-
-        with ProgressIndicator.steps(7) as (progress, task):
-            progress.update(task, description="Fetching template...")
-            progress.advance(task)
-
-            result = self.use_case.execute(project_input)
-
-            if result.success:
-                progress.update(task, completed=7, description="Complete!")
-                Messages.success(f"\n{result.message}")
-                Messages.info(f"Project created at: {result.project_path}")
-                if result.has_signature:
-                    Messages.info(f"Project signature: {result.signature}")
-            else:
-                Messages.error(f"\n{result.message}")
-                sys.exit(1)
 
     def _parse_features(
         self,

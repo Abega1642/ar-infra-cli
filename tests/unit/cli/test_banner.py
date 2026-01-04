@@ -2,6 +2,7 @@
 
 import re
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -13,16 +14,39 @@ class TestBanner:
 
     def test_show_banner(self, capsys):
         """Test that banner can be displayed."""
-        Banner.show()
+        Banner.show(wait_for_enter=False)
         captured = capsys.readouterr()
         assert len(captured.out) > 0, "Banner should produce output"
 
     def test_banner_contains_text(self, capsys):
         """Test that banner contains expected text."""
-        Banner.show()
+        Banner.show(wait_for_enter=False)
         captured = capsys.readouterr()
         text_only = re.sub(r"\x1b\[[0-9;]*m", "", captured.out)
         assert "AR" in text_only or "INFRA" in text_only, "Banner should contain AR-INFRA text"
+
+    def test_banner_waits_for_enter(self, capsys):
+        """Test that banner waits for Enter key when wait_for_enter=True."""
+        with patch("builtins.input", return_value=""):
+            Banner.show(wait_for_enter=True)
+            captured = capsys.readouterr()
+            assert "Press Enter to continue" in captured.out
+
+    def test_banner_handles_keyboard_interrupt(self, capsys):
+        """Test that banner handles keyboard interrupt gracefully."""
+        with patch("builtins.input", side_effect=KeyboardInterrupt):
+            with pytest.raises(KeyboardInterrupt, match="Banner display cancelled by user"):
+                Banner.show(wait_for_enter=True)
+            captured = capsys.readouterr()
+            assert "Operation cancelled" in captured.out
+
+    def test_banner_handles_eof_error(self, capsys):
+        """Test that banner handles EOF error gracefully."""
+        with patch("builtins.input", side_effect=EOFError):
+            with pytest.raises(KeyboardInterrupt, match="Banner display cancelled by user"):
+                Banner.show(wait_for_enter=True)
+            captured = capsys.readouterr()
+            assert "Operation cancelled" in captured.out
 
     def test_banner_has_ansi_codes(self):
         """Test that banner contains ANSI escape codes."""

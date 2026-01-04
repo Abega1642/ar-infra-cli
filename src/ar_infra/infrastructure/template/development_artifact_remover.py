@@ -96,17 +96,15 @@ class DevelopmentArtifactCleaner:
         validated_target = self._validate_path(target)
 
         if not validated_target.exists():
-            logger.debug("Artifact does not exist, skipping: %s", relative_path)
+            logger.debug("Template Artifact does not exist, skipping: %s", relative_path)
             return False
 
         try:
             if validated_target.is_file() or validated_target.is_symlink():
                 validated_target.unlink()
-                logger.info("Removed file: %s", relative_path)
                 removed = True
             elif validated_target.is_dir():
                 self._remove_directory_recursive(validated_target)
-                logger.info("Removed directory: %s", relative_path)
                 removed = True
             else:
                 logger.warning("Unknown artifact type, skipping: %s", relative_path)
@@ -153,14 +151,16 @@ class DevelopmentArtifactCleaner:
         artifacts_to_remove = artifacts if artifacts is not None else self.DEFAULT_ARTIFACTS
         removed_count = 0
 
-        logger.info("Starting cleanup of %d artifacts", len(artifacts_to_remove))
+        logger.info("Starting cleanup of %d template artifacts", len(artifacts_to_remove))
 
         for artifact in artifacts_to_remove:
             if self.remove_artifact(artifact):
                 removed_count += 1
 
         logger.info(
-            "Cleanup complete. Removed %d/%d artifacts", removed_count, len(artifacts_to_remove)
+            "Cleanup complete. Removed %d/%d template artifacts",
+            removed_count,
+            len(artifacts_to_remove),
         )
 
         return removed_count
@@ -190,9 +190,6 @@ class DevelopmentArtifactCleaner:
             try:
                 if current.exists() and current.is_dir() and not any(current.iterdir()):
                     current.rmdir()
-                    logger.info(
-                        "Removed empty directory: %s", current.relative_to(self._project_root)
-                    )
                     removed_count += 1
                     current = current.parent
                 else:

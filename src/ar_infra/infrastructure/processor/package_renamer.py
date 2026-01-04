@@ -131,13 +131,14 @@ class PackageRenamer:
         new_package: PackageName,
     ) -> str:
         pattern = re.compile(
-            rf"^import\s+{re.escape(old_package.value)}(\.[a-zA-Z0-9.*]+)?;",
+            rf"^import\s+(?:static\s+)?{re.escape(old_package.value)}(\.[a-zA-Z0-9.*]+)?;",
             re.MULTILINE,
         )
 
         def replace_import(match: re.Match[str]) -> str:
+            static_keyword = "static " if "static" in match.group(0) else ""
             suffix = match.group(1) or ""
-            return f"import {new_package.value}{suffix};"
+            return f"import {static_keyword}{new_package.value}{suffix};"
 
         return pattern.sub(replace_import, content)
 

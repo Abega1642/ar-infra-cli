@@ -6,6 +6,7 @@ import click
 
 from src.ar_infra.cli.command.init import InitCommand, InitCommandArgs
 from src.ar_infra.cli.ui.banner import Banner
+from src.ar_infra.properties import CLI_VERSION
 
 
 def load_help_text() -> str:
@@ -17,7 +18,7 @@ def load_help_text() -> str:
 
 
 @click.group(invoke_without_command=True)
-@click.version_option(version="1.0.0", prog_name="ar-infra")
+@click.version_option(version=CLI_VERSION, prog_name="ar-infra-cli")
 @click.pass_context
 def cli(ctx: click.Context) -> None:
     """AR-INFRA - Spring Boot Project Generator with Superpowers."""
@@ -50,10 +51,7 @@ def init(
     no_cache: bool,
 ) -> None:
     """Initialize a new Spring Boot project."""
-    Banner.show()
-
     command = InitCommand()
-
     args = InitCommandArgs(
         group=group,
         artifact=artifact,
@@ -65,7 +63,6 @@ def init(
         template_url=template_url,
         no_cache=no_cache,
     )
-
     command.execute(args)
 
 

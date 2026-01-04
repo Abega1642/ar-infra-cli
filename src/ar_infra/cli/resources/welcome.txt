@@ -1,6 +1,11 @@
-Welcome to AR-INFRA!
+Welcome to AR-INFRA CLI!
 
 Let's create your Spring Boot project together.
 Answer a few questions, and we'll generate a production-ready codebase.
+
+Developed by Abegà Razafindratelo
+email: a.razafindratelo@gmail.com
+Github: https://github.com/Abega1642
+
 
 Press Ctrl+C at any time to cancel.

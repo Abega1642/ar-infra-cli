@@ -12,6 +12,7 @@ from questionary import (
 )
 
 from src.ar_infra.cli.prompt.validator import Validators
+from src.ar_infra.cli.ui.message import Messages
 from src.ar_infra.domain.entities.path_resolver import (
     DangerousPathError,
     PathSecurityError,
@@ -44,47 +45,29 @@ class InteractivePrompt:
 
     def collect_inputs(self) -> dict[str, Any]:
         """Collect all inputs interactively with security checks."""
-        group_id = text(
-            "Gradle/Maven Group ID:",
-            default="com.example",
-            style=PROMPT_STYLE,
-            validate=lambda val: self.validators.group_id(val) is None,
-        ).ask()
+        while True:
+            inputs = self._collect_all_prompts()
 
-        artifact_id = text(
-            "Gradle/Maven Artifact ID (project name):",
-            default="my-app",
-            style=PROMPT_STYLE,
-            validate=lambda val: self.validators.artifact_id(val) is None,
-        ).ask()
+            if self._confirm_and_proceed(inputs):
+                return inputs
 
-        version = text(
-            "Project Version:",
-            default="1.0.0",
-            style=PROMPT_STYLE,
-            validate=lambda val: self.validators.version(val) is None,
-        ).ask()
+            if not self._ask_to_start_over():
+                raise KeyboardInterrupt("Configuration cancelled by user")
 
+            print("\n")  # Add spacing before restarting
+
+    def _collect_all_prompts(self) -> dict[str, Any]:
+        """Collect all prompt inputs from user."""
+        group_id = self._prompt_group_id()
+        artifact_id = self._prompt_artifact_id()
+        version = self._prompt_version()
         destination = self._prompt_destination_path()
         project_dir_name = self._prompt_project_directory_name(artifact_id)
+
         self._handle_existing_directory(destination, project_dir_name)
 
-        features = checkbox(
-            "Select Features to Include:",
-            choices=[
-                {"name": "PostgreSQL Database", "value": "postgresql"},
-                {"name": "RabbitMQ Message Broker", "value": "rabbitmq"},
-                {"name": "AWS S3 Storage", "value": "s3_bucket"},
-                {"name": "Email Support", "value": "email"},
-            ],
-            style=PROMPT_STYLE,
-        ).ask()
-
-        use_cache = confirm(
-            "Use cached template (faster)?",
-            default=True,
-            style=PROMPT_STYLE,
-        ).ask()
+        features = self._prompt_features()
+        use_cache = self._prompt_use_cache()
 
         return {
             "group_id": group_id,
@@ -95,6 +78,85 @@ class InteractivePrompt:
             "enabled_features": set(features),
             "use_template_cache": use_cache,
         }
+
+    def _prompt_group_id(self) -> str:
+        """Prompt for group ID."""
+        result: str = text(
+            "Gradle/Maven Group ID:",
+            default="com.example",
+            style=PROMPT_STYLE,
+            validate=lambda val: self.validators.group_id(val) is None,
+        ).ask()
+        return result
+
+    def _prompt_artifact_id(self) -> str:
+        """Prompt for artifact ID."""
+        result: str = text(
+            "Gradle/Maven Artifact ID (project name):",
+            default="my-app",
+            style=PROMPT_STYLE,
+            validate=lambda val: self.validators.artifact_id(val) is None,
+        ).ask()
+        return result
+
+    def _prompt_version(self) -> str:
+        """Prompt for version."""
+        result: str = text(
+            "Project Version:",
+            default="1.0.0",
+            style=PROMPT_STYLE,
+            validate=lambda val: self.validators.version(val) is None,
+        ).ask()
+        return result
+
+    def _prompt_features(self) -> list[str]:
+        """Prompt for feature selection."""
+        result: list[str] = checkbox(
+            "Select Features to Include:",
+            choices=[
+                {"name": "PostgreSQL Database", "value": "postgresql"},
+                {"name": "RabbitMQ Message Broker", "value": "rabbitmq"},
+                {"name": "AWS S3 Storage", "value": "s3_bucket"},
+                {"name": "Email Support", "value": "email"},
+            ],
+            style=PROMPT_STYLE,
+        ).ask()
+        return result
+
+    def _prompt_use_cache(self) -> bool:
+        """Prompt for template cache usage."""
+        result: bool = confirm(
+            "Use cached template (faster)?",
+            default=True,
+            style=PROMPT_STYLE,
+        ).ask()
+        return result
+
+    def _confirm_and_proceed(self, inputs: dict[str, Any]) -> bool:
+        """Show summary and ask for confirmation to proceed."""
+        Messages.project_summary(
+            group=inputs["group_id"],
+            artifact=inputs["artifact_id"],
+            version=inputs["version"],
+            path=inputs["destination"] / inputs["project_dir_name"],
+            features=list(inputs["enabled_features"]) if inputs["enabled_features"] else [],
+        )
+
+        result: bool = confirm(
+            "Would you like to proceed with this configuration?",
+            default=True,
+            style=PROMPT_STYLE,
+        ).ask()
+        return result
+
+    def _ask_to_start_over(self) -> bool:
+        """Ask if user wants to start over with different values."""
+        result: bool = confirm(
+            "Would you like to start over with different values?",
+            default=True,
+            style=PROMPT_STYLE,
+        ).ask()
+        return result
 
     def _prompt_destination_path(self) -> Path:
         """
@@ -149,7 +211,17 @@ class InteractivePrompt:
 
         if not create:
             print("\nPlease provide an existing directory.\n")
-            raise ValueError("User declined to create directory.")
+
+            retry = confirm(
+                "Would you like to try a different path?",
+                default=True,
+                style=PROMPT_STYLE,
+            ).ask()
+
+            if not retry:
+                raise KeyboardInterrupt("Operation cancelled by user")
+
+            return self._prompt_destination_path()
 
         return self._create_directory(path)
 

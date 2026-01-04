@@ -29,6 +29,7 @@ class TestPackageRenamer:
             """package com.example.demo;
 
 import com.example.demo.service.UserService;
+import static com.example.demo.service.UserService.getAll;
 import org.springframework.boot.SpringApplication;
 
 public class Application {

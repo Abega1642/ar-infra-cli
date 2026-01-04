@@ -15,6 +15,7 @@ class TestInteractivePrompt:
     def prompt(self) -> InteractivePrompt:
         return InteractivePrompt()
 
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
@@ -23,6 +24,7 @@ class TestInteractivePrompt:
         mock_confirm: Mock,
         mock_checkbox: Mock,
         mock_text: Mock,
+        mock_messages: Mock,
         prompt: InteractivePrompt,
         tmp_path: Path,
     ) -> None:
@@ -34,7 +36,8 @@ class TestInteractivePrompt:
             "my-app",
         ]
         mock_checkbox.return_value.ask.return_value = ["postgresql", "email"]
-        mock_confirm.return_value.ask.return_value = True
+        # First confirm: use_cache=True, Second confirm: proceed=True
+        mock_confirm.return_value.ask.side_effect = [True, True]
 
         result = prompt.collect_inputs()
 
@@ -46,6 +49,10 @@ class TestInteractivePrompt:
         assert result["enabled_features"] == {"postgresql", "email"}
         assert result["use_template_cache"] is True
 
+        # Verify summary was shown
+        mock_messages.project_summary.assert_called_once()
+
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
@@ -54,6 +61,7 @@ class TestInteractivePrompt:
         mock_confirm: Mock,
         mock_checkbox: Mock,
         mock_text: Mock,
+        mock_messages: Mock,
         prompt: InteractivePrompt,
         tmp_path: Path,
     ) -> None:
@@ -65,7 +73,8 @@ class TestInteractivePrompt:
             "backend-api",
         ]
         mock_checkbox.return_value.ask.return_value = []
-        mock_confirm.return_value.ask.return_value = False
+        # First confirm: use_cache=False, Second confirm: proceed=True
+        mock_confirm.return_value.ask.side_effect = [False, True]
 
         result = prompt.collect_inputs()
 
@@ -77,6 +86,7 @@ class TestInteractivePrompt:
         assert result["enabled_features"] == set()
         assert result["use_template_cache"] is False
 
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
@@ -85,6 +95,7 @@ class TestInteractivePrompt:
         mock_confirm: Mock,
         mock_checkbox: Mock,
         mock_text: Mock,
+        mock_messages: Mock,
         prompt: InteractivePrompt,
         tmp_path: Path,
     ) -> None:
@@ -101,7 +112,8 @@ class TestInteractivePrompt:
             "s3_bucket",
             "email",
         ]
-        mock_confirm.return_value.ask.return_value = True
+        # First confirm: use_cache=True, Second confirm: proceed=True
+        mock_confirm.return_value.ask.side_effect = [True, True]
 
         result = prompt.collect_inputs()
 
@@ -112,6 +124,7 @@ class TestInteractivePrompt:
         assert "email" in result["enabled_features"]
         assert result["project_dir_name"] == "full-app"
 
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
@@ -120,6 +133,7 @@ class TestInteractivePrompt:
         mock_confirm: Mock,
         mock_checkbox: Mock,
         mock_text: Mock,
+        mock_messages: Mock,
         prompt: InteractivePrompt,
         tmp_path: Path,
     ) -> None:
@@ -131,13 +145,88 @@ class TestInteractivePrompt:
             "custom-project-name",
         ]
         mock_checkbox.return_value.ask.return_value = ["postgresql"]
-        mock_confirm.return_value.ask.return_value = True
+        # First confirm: use_cache=True, Second confirm: proceed=True
+        mock_confirm.return_value.ask.side_effect = [True, True]
 
         result = prompt.collect_inputs()
 
         assert result["artifact_id"] == "my-app"
         assert result["project_dir_name"] == "custom-project-name"
         assert result["destination"] == tmp_path
+
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
+    @patch("builtins.print")
+    def test_collect_inputs_user_declines_and_cancels(
+        self,
+        mock_print: Mock,
+        mock_confirm: Mock,
+        mock_checkbox: Mock,
+        mock_text: Mock,
+        mock_messages: Mock,
+        prompt: InteractivePrompt,
+        tmp_path: Path,
+    ) -> None:
+        """Test when user declines to proceed and then cancels."""
+        mock_text.return_value.ask.side_effect = [
+            "com.example",
+            "my-app",
+            "1.0.0",
+            str(tmp_path),
+            "my-app",
+        ]
+        mock_checkbox.return_value.ask.return_value = ["postgresql"]
+        # First confirm: use_cache=True, Second confirm: proceed=False, Third confirm: start_over=False
+        mock_confirm.return_value.ask.side_effect = [True, False, False]
+
+        with pytest.raises(KeyboardInterrupt, match="Configuration cancelled by user"):
+            prompt.collect_inputs()
+
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
+    @patch("builtins.print")
+    def test_collect_inputs_user_starts_over(
+        self,
+        mock_print: Mock,
+        mock_confirm: Mock,
+        mock_checkbox: Mock,
+        mock_text: Mock,
+        mock_messages: Mock,
+        prompt: InteractivePrompt,
+        tmp_path: Path,
+    ) -> None:
+        """Test when user declines to proceed but chooses to start over."""
+        mock_text.return_value.ask.side_effect = [
+            # First attempt
+            "com.example",
+            "my-app",
+            "1.0.0",
+            str(tmp_path),
+            "my-app",
+            # Second attempt (after starting over)
+            "org.newcompany",
+            "new-app",
+            "2.0.0",
+            str(tmp_path),
+            "new-app",
+        ]
+        mock_checkbox.return_value.ask.side_effect = [
+            ["postgresql"],  # First attempt
+            ["email"],  # Second attempt
+        ]
+        # Sequence: use_cache=True, proceed=False, start_over=True, use_cache=True, proceed=True
+        mock_confirm.return_value.ask.side_effect = [True, False, True, True, True]
+
+        result = prompt.collect_inputs()
+
+        assert result["group_id"] == "org.newcompany"
+        assert result["artifact_id"] == "new-app"
+        assert result["version"] == "2.0.0"
+        assert result["enabled_features"] == {"email"}
 
     def test_prompt_has_validators(self, prompt: InteractivePrompt) -> None:
         assert prompt.validators is not None

@@ -50,8 +50,12 @@ class Banner:
             return DEFAULT_BANNER.strip()
 
     @classmethod
-    def show(cls) -> None:
-        """Display the AR-INFRA banner with welcome message."""
+    def show(cls, *, wait_for_enter: bool = True) -> None:
+        """Display the AR-INFRA banner with welcome message.
+
+        Args:
+            wait_for_enter: If True, wait for user to press Enter before continuing
+        """
         logo = cls._load_banner()
 
         primary = "#B9BDC6"
@@ -83,9 +87,18 @@ class Banner:
         )
         console.print()
 
-        console.print(
-            Text(
-                "Press Enter to continue…",
-                style="#6F7480",
+        if wait_for_enter:
+            console.print(
+                Text(
+                    "Press Enter to continue…",
+                    style="#6F7480",
+                )
             )
-        )
+
+            try:
+                input()
+            except (KeyboardInterrupt, EOFError) as exc:
+                console.print("\n[yellow]Operation cancelled.[/yellow]")
+                raise KeyboardInterrupt("Banner display cancelled by user") from exc
+
+            console.print()

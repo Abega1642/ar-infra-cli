@@ -1,6 +1,5 @@
 """Tests for the DevelopmentArtifactCleaner class."""
 
-import logging
 import platform
 import re
 from pathlib import Path
@@ -295,15 +294,6 @@ class TestErrorHandling:
                 cleaner.remove_artifact("protected.txt")
         finally:
             temp_project.chmod(0o755)
-
-    def test_logging_on_successful_removal(
-        self, cleaner: DevelopmentArtifactCleaner, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """Test that successful removals are logged."""
-        with caplog.at_level(logging.INFO):
-            cleaner.remove_artifact("readme.md")
-
-        assert "Removed file: readme.md" in caplog.text
 
 
 class TestIntegrationScenarios:
