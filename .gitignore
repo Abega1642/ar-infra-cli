@@ -191,3 +191,4 @@ package-lock.json
 !src/ar_infra/cli/resources/banner.py
 !package.json
 !tsconfig.json
+!scripts/lib/

@@ -7,6 +7,10 @@ set -e
 set -u
 set -o pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
 readonly TEST_DIR="test-generated-project"
 readonly GROUP="dev.razafindratelo"
 readonly ARTIFACT="demo"
@@ -37,61 +41,11 @@ readonly EXPECTED_DIRS=(
     "src"
 )
 
-if [ -t 1 ]; then
-    readonly RED='\033[0;31m'
-    readonly GREEN='\033[0;32m'
-    readonly YELLOW='\033[1;33m'
-    readonly BLUE='\033[0;34m'
-    readonly NC='\033[0m'
-else
-    readonly RED=''
-    readonly GREEN=''
-    readonly YELLOW=''
-    readonly BLUE=''
-    readonly NC=''
-fi
-
-print_success() {
-    printf "${GREEN}[PASS]${NC} %s\n" "$1"
-}
-
-print_error() {
-    printf "${RED}[FAIL]${NC} %s\n" "$1"
-}
-
-print_info() {
-    printf "${BLUE}[INFO]${NC} %s\n" "$1"
-}
-
-print_warning() {
-    printf "${YELLOW}[WARN]${NC} %s\n" "$1"
-}
-
 cleanup() {
     if [ -d "$TEST_DIR" ]; then
         print_info "Cleaning up test directory..."
         rm -rf "$TEST_DIR"
     fi
-}
-
-validate_path() {
-    local path="$1"
-    local base_dir="$2"
-
-    local abs_path
-    abs_path=$(cd "$(dirname "$path")" 2>/dev/null && pwd)/$(basename "$path") || return 1
-    local abs_base
-    abs_base=$(cd "$base_dir" 2>/dev/null && pwd) || return 1
-
-    case "$abs_path" in
-        "$abs_base"*)
-            return 0
-            ;;
-        *)
-            print_error "Security: Path traversal detected: $path"
-            return 1
-            ;;
-    esac
 }
 
 check_file_exists() {
@@ -169,50 +123,15 @@ validate_file_contents() {
     return $errors
 }
 
-setup_python_environment() {
-    local script_dir
-    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    local project_root
-    project_root="$(dirname "$script_dir")"
-
-    case "$project_root" in
-        /*) ;;
-        *)
-            print_error "Security: Project root must be an absolute path"
-            return 1
-            ;;
-    esac
-
-    echo "$project_root"
-}
-
 run_project_generation() {
     local project_root="$1"
 
     print_info "Running ar-infra-cli init command..."
     print_info "Project root: $project_root"
-    print_info "Current directory: $(pwd)"
 
-    # Platform-specific Python path setup
     local python_path
-    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
-        # Windows: Convert Unix path to Windows path and use semicolon separator
-        if command -v cygpath &> /dev/null; then
-            python_path="$(cygpath -w "$project_root");"
-        else
-            # Fallback: manually convert /d/path to D:\path
-            python_path=$(echo "$project_root" | sed -e 's|^/\([a-z]\)/|\U\1:/|' -e 's|/|\\|g')
-            python_path="${python_path};"
-        fi
-        print_info "Windows detected: Using semicolon separator for PYTHONPATH"
-        export PYTHONIOENCODING=utf-8
-    else
-        # Unix-like: Use colon separator
-        python_path="$project_root:"
-        print_info "Unix-like system detected: Using colon separator for PYTHONPATH"
-    fi
-
-    print_info "PYTHONPATH will be set to: $python_path"
+    python_path=$(setup_python_path "$project_root")
+    print_info "PYTHONPATH: $python_path"
 
     local cmd=(
         python -m src.ar_infra.cli.main init
@@ -232,28 +151,6 @@ run_project_generation() {
         print_error "CLI command failed"
         return 1
     fi
-}
-
-wait_for_git_unlock() {
-    local project_path="$1"
-    local max_attempts=10
-    local attempt=1
-
-    print_info "Waiting for Git operations to complete..."
-
-    while [ $attempt -le $max_attempts ]; do
-        if git -C "$project_path" status &>/dev/null; then
-            print_success "Git repository is accessible"
-            return 0
-        fi
-
-        print_info "Attempt $attempt/$max_attempts: Git still locked, waiting..."
-        sleep 2
-        ((attempt++))
-    done
-
-    print_warning "Git repository may still be locked after $max_attempts attempts"
-    return 0  # Don't fail the test
 }
 
 display_project_structure() {
@@ -290,10 +187,7 @@ main() {
     mkdir -p "$TEST_DIR"
 
     local project_root
-    if ! project_root=$(setup_python_environment); then
-        print_error "Failed to setup Python environment"
-        exit 1
-    fi
+    project_root=$(get_project_root) || exit 1
 
     cd "$TEST_DIR" || {
         print_error "Failed to change to test directory"
@@ -305,8 +199,8 @@ main() {
         exit 1
     fi
 
-    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
-        wait_for_git_unlock "$TEST_DIR/$PROJECT_DIR"
+    if is_windows; then
+        wait_for_git_unlock "$PROJECT_DIR"
     fi
 
     cd "$project_root" || {
@@ -341,7 +235,7 @@ main() {
     done
     echo ""
 
-    if [[ "$OSTYPE" != "msys" ]] && [[ "$OSTYPE" != "win32" ]] && [[ "$OSTYPE" != "cygwin" ]]; then
+    if ! is_windows; then
         print_info "Checking executable permissions..."
         local executables_failed=0
         for exec_file in "docker-start.sh" "format.sh" "gradlew"; do
