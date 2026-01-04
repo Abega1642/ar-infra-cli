@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import platform
+import shutil
 import subprocess
 from typing import TYPE_CHECKING
 
@@ -37,17 +39,29 @@ class FormatScriptRunner:
         if not script_path.is_relative_to(project_root):
             raise RuntimeError("Refusing to execute format.sh outside project root")
 
-        if not script_path.stat().st_mode & 0o111:
+        is_windows = platform.system() == "Windows"
+
+        if not is_windows and not script_path.stat().st_mode & 0o111:
             raise RuntimeError("format.sh is not executable")
 
         log.info("Running project formatter: %s", script_path)
 
         try:
-            subprocess.run(  # noqa: S603
-                [str(script_path)],
-                cwd=project_root,
-                check=True,
-            )
+            if is_windows:
+                bash_path = shutil.which("bash")
+                if not bash_path:
+                    raise RuntimeError("bash not found in PATH")
+                subprocess.run(  # noqa: S603
+                    [bash_path, str(script_path)],
+                    cwd=project_root,
+                    check=True,
+                )
+            else:
+                subprocess.run(  # noqa: S603
+                    [str(script_path)],
+                    cwd=project_root,
+                    check=True,
+                )
         except subprocess.CalledProcessError as exc:
             log.exception("format.sh failed with exit code %s", exc.returncode)
             raise RuntimeError("Project formatting failed") from exc

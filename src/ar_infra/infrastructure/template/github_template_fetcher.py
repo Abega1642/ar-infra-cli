@@ -1,9 +1,15 @@
 """Secure GitHub template fetcher."""
 
+import gc
+import platform
 import re
 import shutil
+import stat
+import time
+import uuid
+from collections.abc import Callable
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 from urllib.parse import urlparse
 
 import git
@@ -13,7 +19,10 @@ from src.ar_infra.infrastructure.template.exception import (
     SecurityViolationError,
     TemplateFetchError,
 )
+from src.ar_infra.logger import get_logger
 
+
+log = get_logger(__name__)
 
 BLOCKED_HOSTS: Final[set[str]] = {
     "localhost",
@@ -50,17 +59,109 @@ class GitHubTemplateFetcher:
             return self._detect_placeholder_package(destination)
 
         if destination.exists():
-            shutil.rmtree(destination)
+            self._safe_rmtree(destination)
 
         try:
             git.Repo.clone_from(url, str(destination), depth=1)
+
+            # On Windows, give Git significantly more time to release all file locks
+            # The pack files can remain locked for longer after clone
+            if platform.system() == "Windows":
+                log.info("Windows detected: waiting for Git to fully release all file locks...")
+                time.sleep(10)
+
         except Exception as e:
             if destination.exists():
-                shutil.rmtree(destination)
+                self._safe_rmtree(destination)
             raise TemplateFetchError(f"Failed to fetch template from {url}: {e}") from e
 
         self._validate_template_structure(destination)
         return self._detect_placeholder_package(destination)
+
+    def _safe_rmtree(self, path: Path, max_retries: int = 10) -> None:
+        """Remove directory tree with retry logic for Windows file locks."""
+        is_windows = platform.system() == "Windows"
+
+        def handle_remove_readonly(func: Callable[[str], None], path_str: str, _exc: Any) -> None:
+            """Handle read-only files on Windows."""
+            if is_windows:
+                Path(path_str).chmod(stat.S_IWRITE)
+                func(path_str)
+
+        last_exception: Exception | None = None
+
+        for attempt in range(max_retries):
+            try:
+                if is_windows:
+                    gc.collect()
+
+                shutil.rmtree(path, onerror=handle_remove_readonly)
+            except OSError as exc:
+                last_exception = exc
+                if attempt < max_retries - 1:
+                    self._log_retry_attempt(attempt, max_retries, exc)
+                    time.sleep(8)
+                else:
+                    self._handle_final_removal_failure(path, max_retries, last_exception)
+            else:
+                return
+
+    def _log_retry_attempt(self, attempt: int, max_retries: int, exc: Exception) -> None:
+        """Log retry attempt for directory removal."""
+        log.warning(
+            "Failed to remove directory (attempt %d/%d): %s. Retrying in 8s...",
+            attempt + 1,
+            max_retries,
+            exc,
+        )
+
+    def _handle_final_removal_failure(
+        self, path: Path, max_retries: int, last_exception: Exception
+    ) -> None:
+        """Handle final failure to remove directory after all retries.
+
+        On Windows, as a last resort, attempts to rename the locked directory
+        to allow continuation. This is necessary because Git pack files can
+        remain locked by background processes (git-index-pack, antivirus scanners)
+        for extended periods on Windows, even after the main Git operation completes.
+        """
+        is_windows = platform.system() == "Windows"
+
+        if is_windows and self._try_rename_locked_directory(path, max_retries):
+            return
+
+        raise last_exception
+
+    def _try_rename_locked_directory(self, path: Path, max_retries: int) -> bool:
+        """Attempt to rename a locked directory on Windows as a fallback.
+
+        Returns:
+            True if rename succeeded, False otherwise.
+
+        Note:
+            Windows allows renaming locked files/directories but not deletion.
+            If rename fails (rare), we allow the exception to propagate naturally
+            as there are no further recovery options available.
+        """
+        backup_name = f"{path.name}.old.{uuid.uuid4().hex[:8]}"
+        backup_path = path.parent / backup_name
+
+        try:
+            path.rename(backup_path)
+            log.warning(
+                "Windows: Could not delete %s after %d attempts. "
+                "Renamed to %s. New git repo will be created.",
+                path,
+                max_retries,
+                backup_name,
+            )
+        except OSError:
+            # Rename failure is extremely rare but possible if parent directory
+            # is also locked or filesystem is corrupted. No recovery possible,
+            # so we return False to allow the original exception to propagate.
+            return False
+
+        return True
 
     def _validate_url(self, url: str) -> None:
         if not GITHUB_URL_PATTERN.match(url):

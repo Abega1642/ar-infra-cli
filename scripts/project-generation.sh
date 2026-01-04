@@ -205,7 +205,9 @@ run_project_generation() {
             python_path="${python_path};"
         fi
         print_info "Windows detected: Using semicolon separator for PYTHONPATH"
+        export PYTHONIOENCODING=utf-8
     else
+        # Unix-like: Use colon separator
         python_path="$project_root:"
         print_info "Unix-like system detected: Using colon separator for PYTHONPATH"
     fi
@@ -230,6 +232,28 @@ run_project_generation() {
         print_error "CLI command failed"
         return 1
     fi
+}
+
+wait_for_git_unlock() {
+    local project_path="$1"
+    local max_attempts=10
+    local attempt=1
+
+    print_info "Waiting for Git operations to complete..."
+
+    while [ $attempt -le $max_attempts ]; do
+        if git -C "$project_path" status &>/dev/null; then
+            print_success "Git repository is accessible"
+            return 0
+        fi
+
+        print_info "Attempt $attempt/$max_attempts: Git still locked, waiting..."
+        sleep 2
+        ((attempt++))
+    done
+
+    print_warning "Git repository may still be locked after $max_attempts attempts"
+    return 0  # Don't fail the test
 }
 
 display_project_structure() {
@@ -279,6 +303,10 @@ main() {
     if ! run_project_generation "$project_root"; then
         cd "$project_root" || exit 1
         exit 1
+    fi
+
+    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        wait_for_git_unlock "$TEST_DIR/$PROJECT_DIR"
     fi
 
     cd "$project_root" || {
