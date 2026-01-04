@@ -48,6 +48,9 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_ID: ${{ secrets.BOT_ID_TEST }}
+          BOT_SLUG: ${{ secrets.BOT_SLUG_TEST }}
+          PYTHONIOENCODING: utf-8
         run: bash scripts/project-generation.sh
 
       - name: Verify generated project structure (Unix)
@@ -155,6 +158,8 @@ jobs:
         if: runner.os != 'Windows'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_ID: ${{ secrets.BOT_ID_TEST }}
+          BOT_SLUG: ${{ secrets.BOT_SLUG_TEST }}
         run: |
           chmod +x scripts/test-feature-combinations.sh
           bash scripts/test-feature-combinations.sh
@@ -164,6 +169,9 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_ID: ${{ secrets.BOT_ID_TEST }}
+          BOT_SLUG: ${{ secrets.BOT_SLUG_TEST }}
+          PYTHONIOENCODING: utf-8
         run: bash scripts/test-feature-combinations.sh
 
       - name: Upload feature test results
