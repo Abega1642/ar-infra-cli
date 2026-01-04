@@ -1,22 +1,19 @@
 #!/bin/bash
 
-# Test script for ar-infra-cli project generation
-# This script tests the 'init' command and validates the generated project structure
+# project-generation.sh - Integration test for ar-infra-cli project generation
+# Tests the 'init' command and validates generated project structure
 
 set -e
+set -u
+set -o pipefail
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+readonly TEST_DIR="test-generated-project"
+readonly GROUP="dev.razafindratelo"
+readonly ARTIFACT="demo"
+readonly VERSION="0.0.1"
+readonly PROJECT_DIR="demo"
 
-TEST_DIR="test-generated-project"
-GROUP="dev.razafindratelo"
-ARTIFACT="demo"
-VERSION="0.0.1"
-PROJECT_DIR="demo"
-
-EXPECTED_FILES=(
+readonly EXPECTED_FILES=(
     "build.gradle"
     "Dockerfile"
     "docker-start.sh"
@@ -33,23 +30,41 @@ EXPECTED_FILES=(
     "settings.gradle"
 )
 
-EXPECTED_DIRS=(
+readonly EXPECTED_DIRS=(
     "doc"
     ".github"
     "gradle"
     "src"
 )
 
+if [ -t 1 ]; then
+    readonly RED='\033[0;31m'
+    readonly GREEN='\033[0;32m'
+    readonly YELLOW='\033[1;33m'
+    readonly BLUE='\033[0;34m'
+    readonly NC='\033[0m'
+else
+    readonly RED=''
+    readonly GREEN=''
+    readonly YELLOW=''
+    readonly BLUE=''
+    readonly NC=''
+fi
+
 print_success() {
-    echo -e "${GREEN}[PASS] $1${NC}"
+    printf "${GREEN}[PASS]${NC} %s\n" "$1"
 }
 
 print_error() {
-    echo -e "${RED}[FAIL] $1${NC}"
+    printf "${RED}[FAIL]${NC} %s\n" "$1"
 }
 
 print_info() {
-    echo -e "${YELLOW}[INFO] $1${NC}"
+    printf "${BLUE}[INFO]${NC} %s\n" "$1"
+}
+
+print_warning() {
+    printf "${YELLOW}[WARN]${NC} %s\n" "$1"
 }
 
 cleanup() {
@@ -59,31 +74,67 @@ cleanup() {
     fi
 }
 
+validate_path() {
+    local path="$1"
+    local base_dir="$2"
+
+    local abs_path
+    abs_path=$(cd "$(dirname "$path")" 2>/dev/null && pwd)/$(basename "$path") || return 1
+    local abs_base
+    abs_base=$(cd "$base_dir" 2>/dev/null && pwd) || return 1
+
+    case "$abs_path" in
+        "$abs_base"*)
+            return 0
+            ;;
+        *)
+            print_error "Security: Path traversal detected: $path"
+            return 1
+            ;;
+    esac
+}
+
 check_file_exists() {
     local file="$1"
-    if [ -f "$TEST_DIR/$PROJECT_DIR/$file" ]; then
+    local full_path="$TEST_DIR/$PROJECT_DIR/$file"
+
+    if ! validate_path "$full_path" "$TEST_DIR/$PROJECT_DIR"; then
+        print_error "Invalid file path: $file"
+        return 1
+    fi
+
+    if [ -f "$full_path" ] && [ ! -L "$full_path" ]; then
         print_success "File exists: $file"
         return 0
     else
-        print_error "File missing: $file"
+        print_error "File missing or invalid: $file"
         return 1
     fi
 }
 
 check_dir_exists() {
     local dir="$1"
-    if [ -d "$TEST_DIR/$PROJECT_DIR/$dir" ]; then
+    local full_path="$TEST_DIR/$PROJECT_DIR/$dir"
+
+    if ! validate_path "$full_path" "$TEST_DIR/$PROJECT_DIR"; then
+        print_error "Invalid directory path: $dir"
+        return 1
+    fi
+
+    if [ -d "$full_path" ] && [ ! -L "$full_path" ]; then
         print_success "Directory exists: $dir"
         return 0
     else
-        print_error "Directory missing: $dir"
+        print_error "Directory missing or invalid: $dir"
         return 1
     fi
 }
 
 check_file_executable() {
     local file="$1"
-    if [ -x "$TEST_DIR/$PROJECT_DIR/$file" ]; then
+    local full_path="$TEST_DIR/$PROJECT_DIR/$file"
+
+    if [ -x "$full_path" ]; then
         print_success "File is executable: $file"
         return 0
     else
@@ -92,10 +143,121 @@ check_file_executable() {
     fi
 }
 
+validate_file_contents() {
+    print_info "Validating file contents..."
+
+    local errors=0
+    local build_gradle="$TEST_DIR/$PROJECT_DIR/build.gradle"
+    local settings_gradle="$TEST_DIR/$PROJECT_DIR/settings.gradle"
+
+    if grep -q "group.*=.*['\"]$GROUP['\"]" "$build_gradle" || \
+       grep -q "$GROUP" "$build_gradle"; then
+        print_success "build.gradle contains group metadata"
+    else
+        print_error "build.gradle missing group metadata"
+        ((errors++))
+    fi
+
+    if grep -q "rootProject.name.*=.*['\"]$ARTIFACT['\"]" "$settings_gradle" || \
+       grep -q "$ARTIFACT" "$settings_gradle"; then
+        print_success "settings.gradle contains artifact metadata"
+    else
+        print_error "settings.gradle missing artifact metadata"
+        ((errors++))
+    fi
+
+    return $errors
+}
+
+setup_python_environment() {
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local project_root
+    project_root="$(dirname "$script_dir")"
+
+    case "$project_root" in
+        /*) ;;
+        *)
+            print_error "Security: Project root must be an absolute path"
+            return 1
+            ;;
+    esac
+
+    echo "$project_root"
+}
+
+run_project_generation() {
+    local project_root="$1"
+
+    print_info "Running ar-infra-cli init command..."
+    print_info "Project root: $project_root"
+    print_info "Current directory: $(pwd)"
+
+    # Platform-specific Python path setup
+    local python_path
+    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        # Windows: Convert Unix path to Windows path and use semicolon separator
+        if command -v cygpath &> /dev/null; then
+            python_path="$(cygpath -w "$project_root");"
+        else
+            # Fallback: manually convert /d/path to D:\path
+            python_path=$(echo "$project_root" | sed -e 's|^/\([a-z]\)/|\U\1:/|' -e 's|/|\\|g')
+            python_path="${python_path};"
+        fi
+        print_info "Windows detected: Using semicolon separator for PYTHONPATH"
+    else
+        python_path="$project_root:"
+        print_info "Unix-like system detected: Using colon separator for PYTHONPATH"
+    fi
+
+    print_info "PYTHONPATH will be set to: $python_path"
+
+    local cmd=(
+        python -m src.ar_infra.cli.main init
+        --group="$GROUP"
+        --artifact="$ARTIFACT"
+        --version="$VERSION"
+        --path=./
+        --project-dir="$PROJECT_DIR"
+        --no-features
+        --no-cache
+    )
+
+    if PYTHONPATH="$python_path" "${cmd[@]}"; then
+        print_success "CLI command executed successfully"
+        return 0
+    else
+        print_error "CLI command failed"
+        return 1
+    fi
+}
+
+display_project_structure() {
+    print_info "Generated project structure:"
+    echo ""
+
+    if command -v tree &> /dev/null; then
+        tree -L 2 "$TEST_DIR/$PROJECT_DIR" || ls -lah "$TEST_DIR/$PROJECT_DIR"
+    else
+        ls -lah "$TEST_DIR/$PROJECT_DIR"
+    fi
+    echo ""
+
+    local total_files
+    total_files=$(find "$TEST_DIR/$PROJECT_DIR" -type f ! -path "*/.git/*" 2>/dev/null | wc -l)
+    local total_dirs
+    total_dirs=$(find "$TEST_DIR/$PROJECT_DIR" -type d ! -path "*/.git/*" 2>/dev/null | wc -l)
+
+    print_info "Total files: $total_files"
+    print_info "Total directories: $total_dirs"
+}
+
 main() {
-    echo "--------------"
+    local exit_code=0
+
+    echo "********************************************"
     echo "AR-INFRA-CLI Project Generation Test"
-    echo "--------------"
+    echo "********************************************"
     echo ""
 
     cleanup
@@ -103,35 +265,27 @@ main() {
     print_info "Creating test directory: $TEST_DIR"
     mkdir -p "$TEST_DIR"
 
-    print_info "Running ar-infra-cli init command..."
-    echo ""
-
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-
-    # For Windows (Git Bash/MSYS), convert to proper format
-    if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]]; then
-        PROJECT_ROOT="$(cygpath -u "$PROJECT_ROOT" 2>/dev/null || echo "$PROJECT_ROOT")"
-    fi
-
-    cd "$TEST_DIR" || exit 1
-
-    if PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH" python -m src.ar_infra.cli.main init \
-        --group="$GROUP" \
-        --artifact="$ARTIFACT" \
-        --version="$VERSION" \
-        --path=./ \
-        --project-dir="$PROJECT_DIR" \
-        --no-features \
-        --no-cache; then
-        print_success "CLI command executed successfully"
-    else
-        print_error "CLI command failed"
-        cd "$PROJECT_ROOT" || exit 1
+    local project_root
+    if ! project_root=$(setup_python_environment); then
+        print_error "Failed to setup Python environment"
         exit 1
     fi
 
-    cd "$PROJECT_ROOT" || exit 1
+    cd "$TEST_DIR" || {
+        print_error "Failed to change to test directory"
+        exit 1
+    }
+
+    if ! run_project_generation "$project_root"; then
+        cd "$project_root" || exit 1
+        exit 1
+    fi
+
+    cd "$project_root" || {
+        print_error "Failed to return to project root"
+        exit 1
+    }
+
     echo ""
 
     if [ ! -d "$TEST_DIR/$PROJECT_DIR" ]; then
@@ -142,7 +296,7 @@ main() {
     echo ""
 
     print_info "Checking for expected files..."
-    missing_files=0
+    local missing_files=0
     for file in "${EXPECTED_FILES[@]}"; do
         if ! check_file_exists "$file"; then
             ((missing_files++))
@@ -151,7 +305,7 @@ main() {
     echo ""
 
     print_info "Checking for expected directories..."
-    missing_dirs=0
+    local missing_dirs=0
     for dir in "${EXPECTED_DIRS[@]}"; do
         if ! check_dir_exists "$dir"; then
             ((missing_dirs++))
@@ -159,71 +313,56 @@ main() {
     done
     echo ""
 
-    print_info "Checking executable permissions..."
-    executables_ok=0
-    for exec_file in "docker-start.sh" "format.sh" "gradlew"; do
-        if ! check_file_executable "$exec_file"; then
-            ((executables_ok++))
-        fi
-    done
-    echo ""
-
-    print_info "Generated project structure:"
-    echo ""
-    if command -v tree &> /dev/null; then
-        tree -L 2 "$TEST_DIR/$PROJECT_DIR"
+    if [[ "$OSTYPE" != "msys" ]] && [[ "$OSTYPE" != "win32" ]] && [[ "$OSTYPE" != "cygwin" ]]; then
+        print_info "Checking executable permissions..."
+        local executables_failed=0
+        for exec_file in "docker-start.sh" "format.sh" "gradlew"; do
+            if ! check_file_executable "$exec_file"; then
+                ((executables_failed++))
+            fi
+        done
+        echo ""
     else
-        ls -lah "$TEST_DIR/$PROJECT_DIR"
-    fi
-    echo ""
-
-    total_files=$(find "$TEST_DIR/$PROJECT_DIR" -type f | wc -l)
-    total_dirs=$(find "$TEST_DIR/$PROJECT_DIR" -type d | wc -l)
-    print_info "Total files: $total_files"
-    print_info "Total directories: $total_dirs"
-    echo ""
-
-    print_info "Validating file contents..."
-
-    # Check build.gradle contains correct group/artifact/version
-    # Note: build.gradle may use 'group = ' format instead of direct mention
-    if grep -q "group.*=.*['\"]$GROUP['\"]" "$TEST_DIR/$PROJECT_DIR/build.gradle" || \
-       grep -q "$GROUP" "$TEST_DIR/$PROJECT_DIR/build.gradle"; then
-        print_success "build.gradle contains group metadata"
-    else
-        print_error "build.gradle missing group metadata"
-        ((missing_files++))
+        print_info "Skipping executable permission checks on Windows"
+        local executables_failed=0
+        echo ""
     fi
 
-    if grep -q "rootProject.name.*=.*['\"]$ARTIFACT['\"]" "$TEST_DIR/$PROJECT_DIR/settings.gradle" || \
-       grep -q "$ARTIFACT" "$TEST_DIR/$PROJECT_DIR/settings.gradle"; then
-        print_success "settings.gradle contains artifact metadata"
-    else
-        print_error "settings.gradle missing artifact metadata"
-        ((missing_files++))
-    fi
+    display_project_structure
     echo ""
 
-    echo "--------------"
+    local content_errors=0
+    validate_file_contents || content_errors=$?
+    echo ""
+
+    local total_errors=$((missing_files + missing_dirs + executables_failed + content_errors))
+
+    echo "********************************************"
     echo "Test Summary"
-    echo "--------------"
-
-    total_errors=$((missing_files + missing_dirs + executables_ok))
+    echo "********************************************"
 
     if [ $total_errors -eq 0 ]; then
         print_success "All checks passed!"
         echo ""
-        print_info "Keeping test directory for inspection: $TEST_DIR"
+        print_info "Test directory preserved for inspection: $TEST_DIR"
         print_info "Run 'rm -rf $TEST_DIR' to clean up"
-        exit 0
+        exit_code=0
     else
         print_error "Test failed with $total_errors error(s)"
         echo ""
+        print_info "Breakdown:"
+        print_info "  Missing files: $missing_files"
+        print_info "  Missing directories: $missing_dirs"
+        print_info "  Executable permission failures: $executables_failed"
+        print_info "  Content validation errors: $content_errors"
+        echo ""
         print_info "Test directory preserved for debugging: $TEST_DIR"
-        exit 1
+        exit_code=1
     fi
+
+    exit $exit_code
 }
 
-trap 'if [ $? -ne 0 ]; then print_info "Test directory preserved for debugging: $TEST_DIR"; fi' EXIT
+trap 'if [ $? -ne 0 ]; then print_warning "Test directory preserved for debugging: $TEST_DIR"; fi' EXIT
 
-main
+main "$@"
