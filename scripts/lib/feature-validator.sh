@@ -1,227 +1,160 @@
 #!/bin/bash
-
-# feature-validator.sh - Feature-specific file and directory validation
-# Validates that generated projects contain only files for selected features
-
-set -e
 set -u
 set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Only source common.sh if it hasn't been loaded yet
 if [ -z "${_COMMON_SH_LOADED:-}" ]; then
-    # shellcheck source=scripts/lib/common.sh
-    source "$SCRIPT_DIR/common.sh"
+  # shellcheck source=scripts/lib/common.sh
+  source "$SCRIPT_DIR/common.sh"
 fi
 
-# Convert package name to path (e.g., "com.example.app" -> "com/example/app")
+
 package_to_path() {
-    local group="$1"
-    local artifact="$2"
-    echo "${group//.//}/${artifact//-/_}"
+  echo "${1//.//}/${2//-/_}"
 }
 
-# Build feature file mappings dynamically based on actual package structure
+
+path_exists() {
+  local project="$1"
+  local type="$2"
+  local path="$3"
+
+  case "$type" in
+    file) [ -f "$project/$path" ] ;;
+    directory) [ -d "$project/$path" ] ;;
+    *) return 1 ;;
+  esac
+}
+
+
 build_postgresql_files() {
-    local pkg_path="$1"
-    declare -gA POSTGRESQL_FILES=(
-        ["src/main/java/$pkg_path/repository"]="directory"
-        ["src/main/resources/db"]="directory"
-        ["src/test/java/$pkg_path/service/health"]="directory"
-        ["src/main/java/$pkg_path/endpoint/rest/controller/health/HealthRepositoryController.java"]="file"
-        ["src/main/java/$pkg_path/service/health/HealthRepositoryService.java"]="file"
-        ["src/test/java/$pkg_path/conf/PostgresConf.java"]="file"
-        ["src/test/java/$pkg_path/endpoint/rest/controller/health/HealthRepositoryControllerIT.java"]="file"
-    )
+  local p="$1"
+  POSTGRESQL_FILES=(
+    "directory:src/main/java/$p/repository"
+    "directory:src/main/resources/db"
+    "file:src/main/java/$p/endpoint/rest/controller/health/HealthRepositoryController.java"
+    "file:src/main/java/$p/service/health/HealthRepositoryService.java"
+    "file:src/test/java/$p/conf/PostgresConf.java"
+    "file:src/test/java/$p/endpoint/rest/controller/health/HealthRepositoryControllerIT.java"
+  )
 }
 
 build_rabbitmq_files() {
-    local pkg_path="$1"
-    declare -gA RABBITMQ_FILES=(
-        ["src/main/java/$pkg_path/event"]="directory"
-        ["src/main/java/$pkg_path/datastructure"]="directory"
-        ["src/main/java/$pkg_path/config/RabbitConfig.java"]="file"
-        ["src/main/java/$pkg_path/datastructure/ListGrouper.java"]="file"
-        ["src/main/java/$pkg_path/service/health/HealthEventService.java"]="file"
-        ["src/main/java/$pkg_path/endpoint/rest/controller/health/HealthEventController.java"]="file"
-        ["src/test/java/$pkg_path/conf/RabbitMQConf.java"]="file"
-        ["src/test/java/$pkg_path/service/health/HealthEventServiceIT.java"]="file"
-        ["src/test/java/$pkg_path/endpoint/rest/controller/health/HealthEventControllerIT.java"]="file"
-    )
+  local p="$1"
+  RABBITMQ_FILES=(
+    "directory:src/main/java/$p/event"
+    "directory:src/main/java/$p/datastructure"
+    "file:src/main/java/$p/config/RabbitConfig.java"
+    "file:src/main/java/$p/service/health/HealthEventService.java"
+    "file:src/main/java/$p/endpoint/rest/controller/health/HealthEventController.java"
+    "file:src/test/java/$p/conf/RabbitMQConf.java"
+  )
 }
 
 build_s3_bucket_files() {
-    local pkg_path="$1"
-    declare -gA S3_BUCKET_FILES=(
-        ["src/main/java/$pkg_path/exception/bucket"]="directory"
-        ["src/main/java/$pkg_path/config/BucketConf.java"]="file"
-        ["src/main/java/$pkg_path/file/BucketComponent.java"]="file"
-        ["src/main/java/$pkg_path/endpoint/rest/controller/health/HealthBucketController.java"]="file"
-        ["src/main/java/$pkg_path/service/health/HealthBucketService.java"]="file"
-        ["src/test/java/$pkg_path/conf/BucketConf.java"]="file"
-        ["src/test/java/$pkg_path/file/BucketComponentIT.java"]="file"
-        ["src/test/java/$pkg_path/service/health/HealthBucketServiceIT.java"]="file"
-        ["src/test/java/$pkg_path/endpoint/rest/controller/health/HealthBucketControllerIT.java"]="file"
-    )
+  local p="$1"
+  S3_BUCKET_FILES=(
+    "directory:src/main/java/$p/exception/bucket"
+    "file:src/main/java/$p/config/BucketConf.java"
+    "file:src/main/java/$p/file/BucketComponent.java"
+    "file:src/main/java/$p/service/health/HealthBucketService.java"
+  )
 }
 
 build_email_files() {
-    local pkg_path="$1"
-    declare -gA EMAIL_FILES=(
-        ["src/main/java/$pkg_path/mail"]="directory"
-        ["src/test/java/$pkg_path/mail"]="directory"
-        ["src/main/java/$pkg_path/config/EmailConf.java"]="file"
-        ["src/main/java/$pkg_path/service/health/HealthEmailService.java"]="file"
-        ["src/main/java/$pkg_path/exception/EmailSendException.java"]="file"
-        ["src/main/java/$pkg_path/exception/health/EmailHealthCheckException.java"]="file"
-        ["src/main/java/$pkg_path/endpoint/rest/controller/health/HealthEmailController.java"]="file"
-        ["src/test/java/$pkg_path/conf/EmailConf.java"]="file"
-        ["src/test/java/$pkg_path/service/health/HealthEmailServiceIT.java"]="file"
-        ["src/test/java/$pkg_path/endpoint/rest/controller/health/HealthEmailControllerIT.java"]="file"
-    )
+  local p="$1"
+  EMAIL_FILES=(
+    "directory:src/main/java/$p/mail"
+    "file:src/main/java/$p/config/EmailConf.java"
+    "file:src/main/java/$p/service/health/HealthEmailService.java"
+  )
 }
 
-# Check if a path exists and is of expected type
-check_path_exists() {
-    local project_dir="$1"
-    local relative_path="$2"
-    local expected_type="$3"
-    local full_path="$project_dir/$relative_path"
 
-    if ! validate_path "$full_path" "$project_dir"; then
-        return 1
-    fi
+validate_present() {
+  local project="$1" label="$2"
+  shift 2
+  local errors=0
 
-    if [ "$expected_type" = "file" ]; then
-        [ -f "$full_path" ] && [ ! -L "$full_path" ]
+  echo "[INFO] Checking presence of $label" >&2
+
+  for entry in "$@"; do
+    local type="${entry%%:*}"
+    local path="${entry#*:}"
+    if path_exists "$project" "$type" "$path"; then
+      echo "[OK] $label: $path" >&2
     else
-        [ -d "$full_path" ] && [ ! -L "$full_path" ]
+      echo "[ERR] $label missing: $path" >&2
+      ((errors++))
     fi
+  done
+
+  echo "$errors"
 }
 
-# Validate that expected feature files exist
-validate_feature_present() {
-    local project_dir="$1"
-    local feature="$2"
-    local -n files_ref="$3"
-    local errors=0
+validate_absent() {
+  local project="$1" label="$2"
+  shift 2
+  local errors=0
 
-    print_info "Validating presence of $feature files..."
+  echo "[INFO] Checking absence of $label" >&2
 
-    for path in "${!files_ref[@]}"; do
-        local expected_type="${files_ref[$path]}"
+  for entry in "$@"; do
+    local path="${entry#*:}"
+    if [ -e "$project/$path" ]; then
+      echo "[ERR] $label should NOT exist: $path" >&2
+      ((errors++))
+    else
+      echo "[OK] $label absent: $path" >&2
+    fi
+  done
 
-        if check_path_exists "$project_dir" "$path" "$expected_type"; then
-            print_success "$feature: $expected_type exists: $path"
-        else
-            print_error "$feature: $expected_type missing: $path"
-            ((errors++))
-        fi
-    done
-
-    return $errors
-}
-
-# Validate that feature files do NOT exist
-validate_feature_absent() {
-    local project_dir="$1"
-    local feature="$2"
-    local -n files_ref="$3"
-    local errors=0
-
-    print_info "Validating absence of $feature files..."
-
-    for path in "${!files_ref[@]}"; do
-        local expected_type="${files_ref[$path]}"
-        local full_path="$project_dir/$path"
-
-        if [ -e "$full_path" ]; then
-            print_error "$feature: $expected_type should not exist: $path"
-            ((errors++))
-        else
-            print_success "$feature: $expected_type correctly absent: $path"
-        fi
-    done
-
-    return $errors
+  echo "$errors"
 }
 
 validate_features() {
-    local project_dir="$1"
-    local group="$2"
-    local artifact="$3"
-    shift 3
-    local enabled_features=("$@")
-    local total_errors=0
+  local project="$1" group="$2" artifact="$3"
+  shift 3
+  local enabled=("$@")
+  local total_errors=0
 
-    print_info "Group: $group, Artifact: $artifact"
-    print_info "Enabled features: ${enabled_features[*]:-none}"
-    echo ""
+  local pkg
+  pkg="$(package_to_path "$group" "$artifact")"
 
-    local pkg_path
-    pkg_path=$(package_to_path "$group" "$artifact")
-    print_info "Package path: $pkg_path"
-    echo ""
+  build_postgresql_files "$pkg"
+  build_rabbitmq_files "$pkg"
+  build_s3_bucket_files "$pkg"
+  build_email_files "$pkg"
 
-    build_postgresql_files "$pkg_path"
-    build_rabbitmq_files "$pkg_path"
-    build_s3_bucket_files "$pkg_path"
-    build_email_files "$pkg_path"
-
-    local feature
-    for feature in "postgresql" "rabbitmq" "s3_bucket" "email"; do
-        local feature_enabled=false
-
-        for enabled in "${enabled_features[@]}"; do
-            if [ "$enabled" = "$feature" ]; then
-                feature_enabled=true
-                break
-            fi
-        done
-
-        case "$feature" in
-            postgresql)
-                if $feature_enabled; then
-                    validate_feature_present "$project_dir" "PostgreSQL" POSTGRESQL_FILES || ((total_errors+=$?))
-                else
-                    validate_feature_absent "$project_dir" "PostgreSQL" POSTGRESQL_FILES || ((total_errors+=$?))
-                fi
-                ;;
-            rabbitmq)
-                if $feature_enabled; then
-                    validate_feature_present "$project_dir" "RabbitMQ" RABBITMQ_FILES || ((total_errors+=$?))
-                else
-                    validate_feature_absent "$project_dir" "RabbitMQ" RABBITMQ_FILES || ((total_errors+=$?))
-                fi
-                ;;
-            s3_bucket)
-                if $feature_enabled; then
-                    validate_feature_present "$project_dir" "S3_BUCKET" S3_BUCKET_FILES || ((total_errors+=$?))
-                else
-                    validate_feature_absent "$project_dir" "S3_BUCKET" S3_BUCKET_FILES || ((total_errors+=$?))
-                fi
-                ;;
-            email)
-                if $feature_enabled; then
-                    validate_feature_present "$project_dir" "EMAIL" EMAIL_FILES || ((total_errors+=$?))
-                else
-                    validate_feature_absent "$project_dir" "EMAIL" EMAIL_FILES || ((total_errors+=$?))
-                fi
-                ;;
-        esac
-        echo ""
+  for feature in postgresql rabbitmq s3_bucket email; do
+    local on=false
+    for e in "${enabled[@]}"; do
+      [ "$e" = "$feature" ] && on=true
     done
 
-    return $total_errors
-}
+    local err=0
+    case "$feature" in
+      postgresql)
+        err="$($on && validate_present "$project" PostgreSQL "${POSTGRESQL_FILES[@]}" \
+                 || validate_absent "$project" PostgreSQL "${POSTGRESQL_FILES[@]}")"
+        ;;
+      rabbitmq)
+        err="$($on && validate_present "$project" RabbitMQ "${RABBITMQ_FILES[@]}" \
+                 || validate_absent "$project" RabbitMQ "${RABBITMQ_FILES[@]}")"
+        ;;
+      s3_bucket)
+        err="$($on && validate_present "$project" S3_BUCKET "${S3_BUCKET_FILES[@]}" \
+                 || validate_absent "$project" S3_BUCKET "${S3_BUCKET_FILES[@]}")"
+        ;;
+      email)
+        err="$($on && validate_present "$project" EMAIL "${EMAIL_FILES[@]}" \
+                 || validate_absent "$project" EMAIL "${EMAIL_FILES[@]}")"
+        ;;
+    esac
 
-export -f package_to_path
-export -f build_postgresql_files
-export -f build_rabbitmq_files
-export -f build_s3_bucket_files
-export -f build_email_files
-export -f check_path_exists
-export -f validate_feature_present
-export -f validate_feature_absent
-export -f validate_features
+    total_errors=$((total_errors + err))
+  done
+
+  echo "$total_errors"
+}

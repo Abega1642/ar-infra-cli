@@ -50,11 +50,27 @@ validate_path() {
     local path="$1"
     local base_dir="$2"
 
-    local abs_path
-    abs_path=$(cd "$(dirname "$path")" 2>/dev/null && pwd)/$(basename "$path") || return 1
+    # Convert to absolute path for comparison
     local abs_base
-    abs_base=$(cd "$base_dir" 2>/dev/null && pwd) || return 1
+    abs_base=$(cd "$base_dir" 2>/dev/null && pwd) || {
+        print_error "Base directory does not exist: $base_dir"
+        return 1
+    }
 
+    # Build absolute path from relative path
+    local abs_path
+    if [[ "$path" = /* ]]; then
+        # Already absolute
+        abs_path="$path"
+    else
+        # Make it absolute relative to base_dir
+        abs_path="$abs_base/$path"
+    fi
+
+    # Normalize the path (remove .., ., etc)
+    abs_path=$(readlink -f "$abs_path" 2>/dev/null || realpath -s "$abs_path" 2>/dev/null || echo "$abs_path")
+
+    # Check if path is within base directory
     case "$abs_path" in
         "$abs_base"*)
             return 0
