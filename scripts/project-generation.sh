@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# project-generation.sh - Integration test for ar-infra-cli project generation
-# Tests the 'init' command and validates generated project structure
+# project-generation.sh - Integration test for ar-infra-cli project generation.
+# Tests the 'init' command and validates generated project structure.
 
 set -e
 set -u
@@ -137,10 +137,10 @@ run_project_generation() {
         python -m src.ar_infra.cli.main init
         --group="$GROUP"
         --artifact="$ARTIFACT"
-        --version="$VERSION"
+        --project-version="$VERSION"
         --path=./
         --project-dir="$PROJECT_DIR"
-        --no-features
+        --disable-features
         --no-cache
     )
 

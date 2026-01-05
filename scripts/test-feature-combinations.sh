@@ -60,7 +60,7 @@ run_single_test() {
     python -m src.ar_infra.cli.main init
     --group="$GROUP"
     --artifact="$ARTIFACT"
-    --version="$VERSION"
+    --project-version="$VERSION"
     --path=./
     --project-dir="$ARTIFACT"
     --no-cache

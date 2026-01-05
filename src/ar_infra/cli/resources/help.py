@@ -1,3 +1,4 @@
+HELP_TEXT = """
 AR-INFRA - Spring Boot Project Generator
 
 USAGE:
@@ -55,3 +56,4 @@ FEATURES:
     email         Email sending capabilities
 
 For more information, visit: https://github.com/Abega1642/ar-infra-template
+"""

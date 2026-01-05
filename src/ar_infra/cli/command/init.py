@@ -47,7 +47,6 @@ class InitCommandArgs:
     project_dir: str | None
     features: str | None
     no_features: str | None
-    template_url: str | None
     no_cache: bool
 
 
@@ -168,7 +167,7 @@ class InitCommand:
                 destination=args.path or ".",
                 project_dir_name=args.project_dir,
                 enabled_features=enabled_features,
-                template_url=args.template_url or self.DEFAULT_TEMPLATE_URL,
+                template_url=self.DEFAULT_TEMPLATE_URL,
                 use_template_cache=not args.no_cache,
             )
 
