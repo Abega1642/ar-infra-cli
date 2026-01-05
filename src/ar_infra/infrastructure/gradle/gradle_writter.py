@@ -1,4 +1,4 @@
-"""Secure Gradle build file writer."""
+"""Gradle build file writer."""
 
 import re
 import shutil
@@ -43,7 +43,7 @@ JAVA_BLOCK_WITH_GROUP_PATTERN = re.compile(
 
 
 class GradleWriter:
-    """Secure writer for modifying Gradle build files."""
+    """Writer for modifying Gradle build files."""
 
     def update_group(self, build_file: Path, group: GroupId) -> None:
         self._validate_file(build_file)

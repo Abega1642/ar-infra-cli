@@ -10,7 +10,7 @@ Email: <a.razafindratelo@gmail.com>
 
 ## Supported Versions
 
-Only the latest version on the `prod` branch is supported with security updates.
+Only the latest version on the `preprod` branch is supported with security updates.
 
 Older versions are not guaranteed to receive fixes.
 

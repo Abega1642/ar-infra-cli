@@ -70,7 +70,6 @@ install_dependencies() {
 generate_banner() {
     log_info "Generating banner with npm run generate-banner..."
 
-    # Just run the npm script directly - it handles everything
     if npm run generate-banner; then
         log_success "Banner generation complete"
         return 0

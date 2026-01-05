@@ -1,4 +1,4 @@
-"""Interactive prompts for user input with enhanced security."""
+"""Interactive prompts for user input."""
 
 from pathlib import Path
 from typing import Any
@@ -54,7 +54,7 @@ class InteractivePrompt:
             if not self._ask_to_start_over():
                 raise KeyboardInterrupt("Configuration cancelled by user")
 
-            print("\n")  # Add spacing before restarting
+            print("\n")
 
     def _collect_all_prompts(self) -> dict[str, Any]:
         """Collect all prompt inputs from user."""

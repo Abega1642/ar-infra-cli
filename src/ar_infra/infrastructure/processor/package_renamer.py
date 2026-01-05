@@ -1,4 +1,4 @@
-"""Secure Java package renamer."""
+"""Java package renamer."""
 
 import re
 import shutil

@@ -1,4 +1,4 @@
-"""Secure Gradle build file parser."""
+"""Gradle build file parser."""
 
 from pathlib import Path
 
@@ -23,7 +23,7 @@ from src.ar_infra.infrastructure.gradle.gradle_exception import (
 
 class GradleParser:
     """
-    Secure parser for Gradle build files.
+     Parser for Gradle build files.
 
     Features:
     - Input validation and sanitization

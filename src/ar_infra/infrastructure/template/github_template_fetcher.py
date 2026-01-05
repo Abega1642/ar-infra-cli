@@ -1,4 +1,4 @@
-"""Secure GitHub template fetcher."""
+"""GitHub template fetcher."""
 
 import gc
 import platform

@@ -1,5 +1,4 @@
 #!/bin/bash
-# test-feature-combinations.sh - Test all feature combinations
 
 set -u
 set -o pipefail
@@ -47,10 +46,10 @@ run_single_test() {
   local test_dir="$BASE_TEST_DIR/$test_name"
   local project_dir="$test_dir/$ARTIFACT"
 
-  print_info "=================================="
+  print_info "+++++++++++++++++++++++++++++++++++++++++"
   print_info "Test: $test_name"
   print_info "Features: ${enabled_features:-none}"
-  print_info "=================================="
+  print_info "+++++++++++++++++++++++++++++++++++++++++"
   echo ""
 
   mkdir -p "$test_dir"
@@ -107,9 +106,9 @@ main() {
   local passed_tests=0
   local total_tests="${#FEATURE_COMBINATIONS[@]}"
 
-  echo "=================================="
+  echo "+++++++++++++++++++++++++++++++++++++++++"
   echo "AR-INFRA Feature Combination Tests"
-  echo "=================================="
+  echo "+++++++++++++++++++++++++++++++++++++++++"
   echo ""
 
   cleanup
@@ -129,9 +128,9 @@ main() {
     echo ""
   done
 
-  echo "=================================="
+  echo "+++++++++++++++++++++++++++++++++++++++++"
   echo "Test Summary"
-  echo "=================================="
+  echo "+++++++++++++++++++++++++++++++++++++++++"
   print_info "Total:  $total_tests"
   print_success "Passed: $passed_tests"
   print_error "Failed: $failed_tests"

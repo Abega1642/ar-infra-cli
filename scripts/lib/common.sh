@@ -57,20 +57,16 @@ validate_path() {
         return 1
     }
 
-    # Build absolute path from relative path
     local abs_path
     if [[ "$path" = /* ]]; then
-        # Already absolute
         abs_path="$path"
     else
-        # Make it absolute relative to base_dir
         abs_path="$abs_base/$path"
     fi
 
     # Normalize the path (remove .., ., etc)
     abs_path=$(readlink -f "$abs_path" 2>/dev/null || realpath -s "$abs_path" 2>/dev/null || echo "$abs_path")
 
-    # Check if path is within base directory
     case "$abs_path" in
         "$abs_base"*)
             return 0
@@ -82,7 +78,6 @@ validate_path() {
     esac
 }
 
-# Get absolute path of project root
 get_project_root() {
     local script_dir
     # Get directory where common.sh is located (scripts/lib/)
@@ -91,7 +86,6 @@ get_project_root() {
     local project_root
     project_root="$(cd "$script_dir/../.." && pwd)"
 
-    # Ensure absolute path for security
     case "$project_root" in
         /*) ;;
         *)

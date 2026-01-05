@@ -1,4 +1,4 @@
-"""Init command implementation with enhanced security."""
+"""Init command."""
 
 import sys
 from dataclasses import dataclass
@@ -38,7 +38,7 @@ from src.ar_infra.infrastructure.template.project_signature import (
 
 @dataclass(frozen=True)
 class InitCommandArgs:
-    """Arguments for init command to avoid too many parameters."""
+    """Init command args (from user input)."""
 
     group: str | None
     artifact: str | None
@@ -113,7 +113,7 @@ class InitCommand:
             sys.exit(0)
 
     def _generate_project(self, project_input: GenerateProjectInput) -> None:
-        """Generate the project with proper error handling."""
+        """Generate the project."""
         with ProgressIndicator.steps(7) as (progress, task):
             progress.update(task, description="Fetching template...")
             progress.advance(task)
@@ -131,7 +131,7 @@ class InitCommand:
                 sys.exit(1)
 
     def _execute_cli(self, args: InitCommandArgs) -> None:
-        """Execute CLI mode with enhanced security."""
+        """Execute CLI mode."""
         if not args.group:
             self._abort("--group is required when not using interactive mode")
         if not args.artifact:

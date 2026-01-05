@@ -1,4 +1,4 @@
-"""Comprehensive tests for FacadeITHandler."""
+"""Tests for FacadeITHandler."""
 
 from pathlib import Path
 
