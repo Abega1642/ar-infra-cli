@@ -8,7 +8,7 @@ click==8.3.1
 cryptography==46.0.3
 
 # Git Operations
-gitpython==3.1.45
+gitpython==3.1.46
 
 
 # HTTP Client
