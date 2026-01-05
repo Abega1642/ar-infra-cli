@@ -13,8 +13,8 @@ from src.ar_infra.cli.resources.documentation import (
     PROJECT_DIR_OPTION_HELP,
     VERSION_OPTION_HELP,
 )
-from src.ar_infra.cli.resources.help import HELP_TEXT
 from src.ar_infra.cli.ui.banner import Banner
+from src.ar_infra.cli.ui.help import show_help
 from src.ar_infra.properties import CLI_VERSION
 
 
@@ -25,20 +25,35 @@ from src.ar_infra.properties import CLI_VERSION
 @click.version_option(version=CLI_VERSION, prog_name="ar-infra-cli")
 @click.option(
     "--help",
+    "show_help_flag",  # Map --help to show_help_flag parameter
     is_flag=True,
-    expose_value=False,
-    help="Show this help message and exit.",
+    help="Show this message and exit.",
 )
 @click.pass_context
-def cli(ctx: click.Context) -> None:
+def cli(ctx: click.Context, *, show_help_flag: bool = False) -> None:
     """Ar-infra cli."""
+    if show_help_flag:
+        show_help()
+        ctx.exit()
+
     if ctx.invoked_subcommand is None:
         Banner.show()
-        click.echo(HELP_TEXT)
+        show_help()
         ctx.exit()
 
 
-@cli.command(help=HELP_TEXT)
+def _show_help_and_exit(
+    ctx: click.Context,
+    _param: click.Parameter,
+    value: bool,  # noqa: FBT001
+) -> None:
+    """Show help and exit if requested."""
+    if value:
+        show_help()
+        ctx.exit()
+
+
+@cli.command(context_settings={"max_content_width": 120})
 @click.option("--group", type=str, help=GROUP_OPTION_HELP)
 @click.option("--artifact", type=str, help=ARTIFACT_OPTION_HELP)
 @click.option("--project-version", type=str, help=VERSION_OPTION_HELP)
@@ -47,6 +62,15 @@ def cli(ctx: click.Context) -> None:
 @click.option("--features", type=str, help=FEATURES_OPTION_HELP)
 @click.option("--disable-features", type=str, help=NO_FEATURES_OPTION_HELP)
 @click.option("--no-cache", "no_cache", is_flag=True, help=NO_CACHE_OPTION_HELP)
+@click.option(
+    "--help",
+    "-h",
+    is_flag=True,
+    expose_value=False,
+    is_eager=True,
+    callback=_show_help_and_exit,
+    help="Show this message and exit.",
+)
 def init(
     group: str | None,
     artifact: str | None,
