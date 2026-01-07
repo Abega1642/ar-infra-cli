@@ -94,7 +94,7 @@ def show_help() -> None:
 
     features_table.add_row("postgresql", "PostgreSQL database support")
     features_table.add_row("rabbitmq", "RabbitMQ message broker")
-    features_table.add_row("s3_bucket", "AWS S3 integration")
+    features_table.add_row("s3_bucket", "AWS S3-compatible (BackBlaze) integration")
     features_table.add_row("email", "Email sending capabilities")
 
     console.print(features_table)
