@@ -149,6 +149,7 @@ def main():
             # Parse features: "postgresql rabbitmq" -> ["postgresql", "rabbitmq"]
             feature_list = features.strip().split()
 
+            # Map features to their checkbox positions (0-indexed)
             feature_map = {
                 'postgresql': 0,
                 'rabbitmq': 1,
@@ -160,13 +161,16 @@ def main():
                 if feature in feature_map:
                     pos = feature_map[feature]
 
+                    # Navigate to the feature position
                     for _ in range(pos):
                         child.send('\x1b[B')  # Down arrow key
                         time.sleep(0.2)
 
+                    # Select with space
                     child.send(' ')
                     time.sleep(0.3)
 
+                    # Go back to top for next feature
                     for _ in range(pos):
                         child.send('\x1b[A')  # Up arrow key
                         time.sleep(0.2)
@@ -184,8 +188,8 @@ def main():
         time.sleep(0.3)
         child.sendline('y')
 
+        # Wait for completion
         if IS_WINDOWS:
-            # On Windows, just wait a bit for completion
             time.sleep(10)
             child.close()
         else:
@@ -201,7 +205,16 @@ def main():
         if hasattr(child, 'before'):
             print(f"\nLast output:\n{child.before}", file=sys.stderr)
 
-        child.close(force=True)
+        # Properly close/terminate based on platform
+        try:
+            if IS_WINDOWS:
+                if hasattr(child, 'terminate'):
+                    child.terminate(force=True)
+            else:
+                child.close(force=True)
+        except:
+            pass
+
         return 1
 
 if __name__ == '__main__':
