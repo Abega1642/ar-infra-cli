@@ -86,7 +86,7 @@ class InteractivePrompt:
         ).ask()
         if result is None:
             raise KeyboardInterrupt("Operation cancelled by user") from None
-        return cast(str, result)
+        return cast("str", result)
 
     def _prompt_artifact_id(self) -> str:
         result = text(
@@ -97,7 +97,7 @@ class InteractivePrompt:
         ).ask()
         if result is None:
             raise KeyboardInterrupt("Operation cancelled by user") from None
-        return cast(str, result)
+        return cast("str", result)
 
     def _prompt_version(self) -> str:
         result = text(
@@ -108,7 +108,7 @@ class InteractivePrompt:
         ).ask()
         if result is None:
             raise KeyboardInterrupt("Operation cancelled by user") from None
-        return cast(str, result)
+        return cast("str", result)
 
     def _prompt_features(self) -> list[str]:
         result = checkbox(
@@ -123,7 +123,7 @@ class InteractivePrompt:
         ).ask()
         if result is None:
             raise KeyboardInterrupt("Operation cancelled by user") from None
-        return cast(list[str], result)
+        return cast("list[str]", result)
 
     def _prompt_use_cache(self) -> bool:
         result = confirm(
@@ -133,7 +133,7 @@ class InteractivePrompt:
         ).ask()
         if result is None:
             raise KeyboardInterrupt("Operation cancelled by user") from None
-        return cast(bool, result)
+        return cast("bool", result)
 
     def _confirm_and_proceed(self, inputs: dict[str, Any]) -> bool:
         Messages.project_summary(
@@ -151,7 +151,7 @@ class InteractivePrompt:
         ).ask()
         if result is None:
             raise KeyboardInterrupt("Operation cancelled by user") from None
-        return cast(bool, result)
+        return cast("bool", result)
 
     def _ask_to_start_over(self) -> bool:
         result = confirm(
@@ -161,7 +161,7 @@ class InteractivePrompt:
         ).ask()
         if result is None:
             raise KeyboardInterrupt("Operation cancelled by user") from None
-        return cast(bool, result)
+        return cast("bool", result)
 
     def _prompt_destination_path(self) -> Path:
         while True:
@@ -188,7 +188,7 @@ class InteractivePrompt:
         ).ask()
         if result is None:
             raise KeyboardInterrupt("Operation cancelled by user") from None
-        return cast(str, result)
+        return cast("str", result)
 
     def _handle_validated_path(self, validated_path: Path) -> Path:
         if not validated_path.exists():
@@ -209,7 +209,7 @@ class InteractivePrompt:
         if create is None:
             raise KeyboardInterrupt("Operation cancelled by user") from None
 
-        if not cast(bool, create):
+        if not cast("bool", create):
             print("\nPlease provide an existing directory.\n")
 
             retry = confirm(
@@ -220,7 +220,7 @@ class InteractivePrompt:
             if retry is None:
                 raise KeyboardInterrupt("Operation cancelled by user") from None
 
-            if not cast(bool, retry):
+            if not cast("bool", retry):
                 raise KeyboardInterrupt("Operation cancelled by user") from None
 
             return self._prompt_destination_path()
@@ -251,7 +251,7 @@ class InteractivePrompt:
         ).ask()
         if result is None:
             raise KeyboardInterrupt("Operation cancelled by user") from None
-        return cast(bool, result)
+        return cast("bool", result)
 
     def _print_directory_error(self, path: Path) -> None:
         print(
@@ -269,7 +269,9 @@ class InteractivePrompt:
                 raise KeyboardInterrupt("Operation cancelled by user") from None
 
             try:
-                return self.security_validator.validate_project_directory_name(cast(str, dir_name))
+                return self.security_validator.validate_project_directory_name(
+                    cast("str", dir_name)
+                )
             except ValueError as exc:
                 print(f"\nError: {exc}\n")
                 retry = confirm(
@@ -280,7 +282,7 @@ class InteractivePrompt:
                 if retry is None:
                     raise KeyboardInterrupt("Operation cancelled by user") from None
 
-                if not cast(bool, retry):
+                if not cast("bool", retry):
                     raise
 
     def _handle_existing_directory(self, destination: Path, project_dir_name: str) -> None:
@@ -308,7 +310,7 @@ class InteractivePrompt:
             if use_empty is None:
                 raise KeyboardInterrupt("Operation cancelled by user") from None
 
-            if cast(bool, use_empty):
+            if cast("bool", use_empty):
                 return
 
             raise FileExistsError(
@@ -330,7 +332,7 @@ class InteractivePrompt:
         if action is None:
             raise KeyboardInterrupt("Operation cancelled by user") from None
 
-        action = cast(str, action)
+        action = cast("str", action)
 
         if action == "cancel":
             raise KeyboardInterrupt("Operation cancelled by user") from None
