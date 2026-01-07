@@ -10,7 +10,6 @@ AR_INFRA_TEMPLATE = "https://github.com/Abega1642/ar-infra-template"
 
 
 def show_help() -> None:
-    """Display beautiful help text using Rich."""
     console = Console()
 
     title = Text()

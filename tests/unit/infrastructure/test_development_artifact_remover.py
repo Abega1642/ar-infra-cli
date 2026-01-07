@@ -13,7 +13,6 @@ from src.ar_infra.infrastructure.template.development_artifact_remover import (
 
 @pytest.fixture
 def temp_project(tmp_path: Path) -> Path:
-    """Create a temporary project structure for testing."""
     project_root = tmp_path / "test_project"
     project_root.mkdir()
 
@@ -36,26 +35,20 @@ def temp_project(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def cleaner(temp_project: Path) -> DevelopmentArtifactCleaner:
-    """Create a cleaner instance for the temporary project."""
     return DevelopmentArtifactCleaner(temp_project)
 
 
 class TestDevelopmentArtifactCleanerInitialization:
-    """Test initialization of DevelopmentArtifactCleaner."""
-
     def test_init_with_valid_directory(self, temp_project: Path) -> None:
-        """Test initialization with a valid directory."""
         cleaner = DevelopmentArtifactCleaner(temp_project)
         assert cleaner._project_root == temp_project.resolve()
 
     def test_init_with_nonexistent_directory(self, tmp_path: Path) -> None:
-        """Test initialization fails with non-existent directory."""
         nonexistent = tmp_path / "does_not_exist"
         with pytest.raises(ValueError, match="does not exist"):
             DevelopmentArtifactCleaner(nonexistent)
 
     def test_init_with_file_instead_of_directory(self, tmp_path: Path) -> None:
-        """Test initialization fails when given a file instead of directory."""
         file_path = tmp_path / "file.txt"
         file_path.write_text("content")
         with pytest.raises(ValueError, match="not a directory"):
@@ -63,12 +56,9 @@ class TestDevelopmentArtifactCleanerInitialization:
 
 
 class TestPathValidation:
-    """Test path validation and security."""
-
     def test_validate_path_within_project(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path
     ) -> None:
-        """Test that valid paths within project are accepted."""
         valid_path = temp_project / "readme.md"
         validated = cleaner._validate_path(valid_path)
         assert validated == valid_path.resolve()
@@ -76,7 +66,6 @@ class TestPathValidation:
     def test_validate_path_prevents_traversal_absolute(
         self, cleaner: DevelopmentArtifactCleaner, tmp_path: Path
     ) -> None:
-        """Test that absolute paths outside project are rejected."""
         outside_path = tmp_path / "outside.txt"
         with pytest.raises(ValueError, match="outside project root"):
             cleaner._validate_path(outside_path)
@@ -84,7 +73,6 @@ class TestPathValidation:
     def test_validate_path_prevents_traversal_relative(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path
     ) -> None:
-        """Test that relative paths escaping project are rejected."""
         traversal_path = temp_project / ".." / ".." / "etc" / "passwd"
         with pytest.raises(ValueError, match="outside project root"):
             cleaner._validate_path(traversal_path)
@@ -92,7 +80,6 @@ class TestPathValidation:
     def test_validate_path_prevents_symlink_escape(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path, tmp_path: Path
     ) -> None:
-        """Test that symlinks pointing outside project are rejected."""
         outside_dir = tmp_path / "outside"
         outside_dir.mkdir()
         symlink_path = temp_project / "evil_link"
@@ -107,12 +94,9 @@ class TestPathValidation:
 
 
 class TestRemoveSingleArtifact:
-    """Test removing individual artifacts."""
-
     def test_remove_existing_file(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path
     ) -> None:
-        """Test removing an existing file."""
         assert (temp_project / "readme.md").exists()
         result = cleaner.remove_artifact("readme.md")
         assert result is True
@@ -121,14 +105,12 @@ class TestRemoveSingleArtifact:
     def test_remove_nonexistent_file(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path
     ) -> None:
-        """Test removing a non-existent file returns False."""
         result = cleaner.remove_artifact("nonexistent.md")
         assert result is False
 
     def test_remove_file_in_subdirectory(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path
     ) -> None:
-        """Test removing a file in a subdirectory."""
         assert (temp_project / ".github" / "dependabot.yml").exists()
         result = cleaner.remove_artifact(".github/dependabot.yml")
         assert result is True
@@ -137,7 +119,6 @@ class TestRemoveSingleArtifact:
     def test_remove_entire_directory(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path
     ) -> None:
-        """Test removing an entire directory with contents."""
         github_dir = temp_project / ".github"
         assert github_dir.exists()
         assert (github_dir / "dependabot.yml").exists()
@@ -150,7 +131,6 @@ class TestRemoveSingleArtifact:
     def test_remove_nested_directory_structure(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path
     ) -> None:
-        """Test removing deeply nested directory structures."""
         nested_dir = temp_project / "a" / "b" / "c"
         nested_dir.mkdir(parents=True)
         (nested_dir / "file.txt").write_text("content")
@@ -160,18 +140,14 @@ class TestRemoveSingleArtifact:
         assert not (temp_project / "a").exists()
 
     def test_remove_with_path_traversal_attempt(self, cleaner: DevelopmentArtifactCleaner) -> None:
-        """Test that path traversal attempts are rejected."""
         with pytest.raises(ValueError, match="outside project root"):
             cleaner.remove_artifact("../../etc/passwd")
 
 
 class TestCleanMultipleArtifacts:
-    """Test cleaning multiple artifacts at once."""
-
     def test_clean_default_artifacts(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path
     ) -> None:
-        """Test cleaning with default artifact list."""
         removed_count = cleaner.clean()
 
         assert not (temp_project / ".github" / "dependabot.yml").exists()
@@ -191,7 +167,6 @@ class TestCleanMultipleArtifacts:
     def test_clean_custom_artifacts(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path
     ) -> None:
-        """Test cleaning with a custom artifact list."""
         custom_artifacts = ["readme.md", "licence"]
         removed_count = cleaner.clean(artifacts=custom_artifacts)
 
@@ -201,24 +176,19 @@ class TestCleanMultipleArtifacts:
         assert removed_count == 2
 
     def test_clean_with_nonexistent_artifacts(self, cleaner: DevelopmentArtifactCleaner) -> None:
-        """Test cleaning with some non-existent artifacts."""
         artifacts = ["readme.md", "nonexistent1.txt", "nonexistent2.txt"]
         removed_count = cleaner.clean(artifacts=artifacts)
         assert removed_count == 1  # Only readme.md existed
 
     def test_clean_empty_list(self, cleaner: DevelopmentArtifactCleaner) -> None:
-        """Test cleaning with an empty artifact list."""
         removed_count = cleaner.clean(artifacts=[])
         assert removed_count == 0
 
 
 class TestCleanEmptyParentDirectories:
-    """Test cleaning up empty parent directories."""
-
     def test_clean_empty_parents_after_file_removal(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path
     ) -> None:
-        """Test removing empty parent directories after file removal."""
         cleaner.remove_artifact(".github/dependabot.yml")
         cleaner.remove_artifact(".github/CODEOWNERS")
 
@@ -231,7 +201,6 @@ class TestCleanEmptyParentDirectories:
     def test_clean_empty_parents_nested(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path
     ) -> None:
-        """Test removing nested empty directories."""
         nested_path = temp_project / "a" / "b" / "c" / "file.txt"
         nested_path.parent.mkdir(parents=True)
         nested_path.write_text("content")
@@ -245,7 +214,6 @@ class TestCleanEmptyParentDirectories:
     def test_clean_empty_parents_stops_at_non_empty(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path
     ) -> None:
-        """Test that cleanup stops when encountering non-empty directory."""
         nested_path = temp_project / "a" / "b" / "file.txt"
         nested_path.parent.mkdir(parents=True)
         nested_path.write_text("content")
@@ -261,7 +229,6 @@ class TestCleanEmptyParentDirectories:
     def test_clean_empty_parents_does_not_remove_project_root(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path
     ) -> None:
-        """Test that project root is never removed."""
         file_path = temp_project / "file.txt"
         file_path.write_text("content")
 
@@ -273,13 +240,10 @@ class TestCleanEmptyParentDirectories:
 
 
 class TestErrorHandling:
-    """Test error handling and edge cases."""
-
     @pytest.mark.skipif(platform.system() == "Windows", reason="Windows-specific tests")
     def test_remove_artifact_with_permission_error(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path
     ) -> None:
-        """Test handling of permission errors during removal."""
         if not hasattr(Path, "chmod"):
             pytest.skip("chmod not available on this platform")
 
@@ -297,10 +261,7 @@ class TestErrorHandling:
 
 
 class TestIntegrationScenarios:
-    """Test complete integration scenarios."""
-
     def test_full_cleanup_workflow(self, temp_project: Path) -> None:
-        """Test a complete cleanup workflow."""
         cleaner = DevelopmentArtifactCleaner(temp_project)
 
         removed_count = cleaner.clean()
@@ -319,7 +280,6 @@ class TestIntegrationScenarios:
     def test_cleanup_with_mixed_success_and_failure(
         self, cleaner: DevelopmentArtifactCleaner, temp_project: Path
     ) -> None:
-        """Test cleanup with some artifacts present and some missing."""
         (temp_project / "readme.md").unlink()
         (temp_project / "licence").unlink()
 

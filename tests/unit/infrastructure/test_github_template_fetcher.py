@@ -17,8 +17,6 @@ from src.ar_infra.infrastructure.template.github_template_fetcher import (
 
 
 class TestGitHubTemplateFetcher:
-    """Test suite for GitHubTemplateFetcher."""
-
     @pytest.fixture
     def fetcher(self) -> GitHubTemplateFetcher:
         return GitHubTemplateFetcher()

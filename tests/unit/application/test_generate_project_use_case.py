@@ -43,8 +43,6 @@ def use_case(template_fetcher, feature_manager, gradle_writer, package_renamer):
 
 
 class TestGenerateProjectUseCase:
-    """Test suite for GenerateProjectUseCase."""
-
     @pytest.fixture
     def template_fetcher(self, tmp_path: Path) -> Mock:
         fetcher = Mock()
@@ -293,11 +291,8 @@ class TestGenerateProjectUseCase:
 
 
 class TestArtifactCleanerIntegration:
-    """Integration tests with real artifact cleaner."""
-
     @pytest.fixture
     def template_fetcher_with_artifacts(self, tmp_path: Path) -> Mock:
-        """Template fetcher that creates development artifacts."""
         fetcher = Mock()
 
         def create_template_with_artifacts(url, destination, use_cache=False):
@@ -327,19 +322,16 @@ class TestArtifactCleanerIntegration:
 
     @pytest.fixture
     def feature_manager_simple(self) -> Mock:
-        """Simple feature manager for integration tests."""
         manager = Mock()
         manager.get_feature_dependencies.return_value = []
         return manager
 
     @pytest.fixture
     def gradle_writer_simple(self) -> Mock:
-        """Simple gradle writer for integration tests."""
         return Mock()
 
     @pytest.fixture
     def package_renamer_simple(self) -> Mock:
-        """Simple package renamer for integration tests."""
         return Mock()
 
     def test_development_artifacts_are_removed_end_to_end(
@@ -350,11 +342,9 @@ class TestArtifactCleanerIntegration:
         package_renamer_simple: Mock,
         tmp_path: Path,
     ) -> None:
-        """Test that development artifacts are actually removed from generated project."""
         fake_git_initializer = Mock()
         fake_annotation_writer = Mock()
 
-        # Create use case WITHOUT artifact cleaner (will create real one)
         use_case = GenerateProjectUseCase(
             template_fetcher=template_fetcher_with_artifacts,
             feature_manager=feature_manager_simple,

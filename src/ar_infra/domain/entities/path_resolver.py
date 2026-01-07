@@ -36,27 +36,10 @@ class PathTraversalError(PathSecurityError):
 
 
 class PathSecurityValidator:
-    """Validates paths for security concerns before project generation."""
-
     def __init__(self) -> None:
-        """Initialize the validator with platform-specific settings."""
         self._system: Final[str] = platform.system()
 
     def validate_destination_path(self, path_str: str) -> Path:
-        """
-        Validate and resolve destination path with security checks.
-
-        Args:
-            path_str: The path string provided by user
-
-        Returns:
-            Resolved, validated Path object
-
-        Raises:
-            PathSecurityError: If path is unsafe
-            ValueError: If path is invalid
-            OSError: If path resolution fails
-        """
         self._validate_not_empty(path_str)
         self._check_path_traversal_in_input(path_str)
 
@@ -78,18 +61,6 @@ class PathSecurityValidator:
         return resolved
 
     def validate_project_directory_name(self, name: str) -> str:
-        """
-        Validate the project directory name.
-
-        Args:
-            name: The directory name provided by user
-
-        Returns:
-            Validated directory name
-
-        Raises:
-            ValueError: If name is invalid or contains dangerous patterns
-        """
         self._validate_not_empty(name)
         name = name.strip()
 
@@ -101,12 +72,10 @@ class PathSecurityValidator:
         return name
 
     def _validate_not_empty(self, value: str) -> None:
-        """Check if value is empty or whitespace."""
         if not value or not value.strip():
             raise ValueError("Path or name cannot be empty")
 
     def _check_path_traversal_in_input(self, path_str: str) -> None:
-        """Check for path traversal patterns in input."""
         try:
             parts = Path(path_str).expanduser().parts
         except (ValueError, RuntimeError) as err:
@@ -135,15 +104,6 @@ class PathSecurityValidator:
             )
 
     def _normalize_path_for_comparison(self, path: Path) -> str:
-        """
-        Normalize path for comparison across platforms.
-
-        Args:
-            path: Path to normalize
-
-        Returns:
-            Normalized path string
-        """
         path_str = str(path)
 
         if self._system == "Windows":
@@ -167,15 +127,6 @@ class PathSecurityValidator:
         return path_str
 
     def _is_safe_path(self, path_str: str) -> bool:
-        """
-        Check if path is explicitly safe.
-
-        Args:
-            path_str: Normalized path string
-
-        Returns:
-            True if path is safe, False otherwise
-        """
         if self._system == "Darwin":
             if path_str in SAFE_MACOS_PATHS:
                 return True
@@ -193,15 +144,6 @@ class PathSecurityValidator:
         return False
 
     def _is_exact_dangerous_match(self, path_str: str) -> bool:
-        """
-        Check if path exactly matches a dangerous path.
-
-        Args:
-            path_str: Normalized path string
-
-        Returns:
-            True if path matches a dangerous path
-        """
         dangerous_paths = self._get_dangerous_exact_paths()
 
         if self._system == "Windows":
@@ -210,26 +152,11 @@ class PathSecurityValidator:
         return path_str in dangerous_paths
 
     def _is_under_dangerous_prefix(self, path_str: str) -> bool:
-        """
-        Check if path starts with a dangerous prefix.
-
-        Args:
-            path_str: Normalized path string
-
-        Returns:
-            True if path starts with a dangerous prefix
-        """
         dangerous_prefixes = self._get_dangerous_prefix_paths()
 
         return any(path_str.startswith(prefix) for prefix in dangerous_prefixes)
 
     def _get_dangerous_exact_paths(self) -> frozenset[str]:
-        """
-        Get dangerous exact match paths for the current system.
-
-        Returns:
-            Set of dangerous paths
-        """
         if self._system == "Windows":
             return DANGEROUS_WINDOWS_EXACT_PATHS
         if self._system == "Darwin":
@@ -238,12 +165,6 @@ class PathSecurityValidator:
         return DANGEROUS_UNIX_EXACT_PATHS
 
     def _get_dangerous_prefix_paths(self) -> frozenset[str]:
-        """
-        Get dangerous path prefixes for the current system.
-
-        Returns:
-            Set of dangerous prefixes
-        """
         if self._system == "Windows":
             return DANGEROUS_WINDOWS_PREFIX_PATHS
         if self._system == "Darwin":
@@ -252,19 +173,16 @@ class PathSecurityValidator:
         return DANGEROUS_UNIX_PREFIX_PATHS
 
     def _check_path_separators(self, name: str) -> None:
-        """Check for path separators in directory name."""
         if ".." in name or "/" in name or "\\" in name:
             raise ValueError(
                 "Project directory name cannot contain path separators or '..' sequences"
             )
 
     def _check_hidden_directory(self, name: str) -> None:
-        """Check if directory name starts with dot."""
         if name.startswith("."):
             raise ValueError("Project directory name cannot start with '.' (hidden directory)")
 
     def _check_valid_characters(self, name: str) -> None:
-        """Check if directory name contains only valid characters."""
         if not all(c.isalnum() or c in "-_" for c in name):
             raise ValueError(
                 "Project directory name can only contain alphanumeric characters, "
@@ -272,36 +190,17 @@ class PathSecurityValidator:
             )
 
     def _check_name_length(self, name: str) -> None:
-        """Check if directory name is not too long."""
         if len(name) > 255:
             raise ValueError("Project directory name too long (max 255 characters)")
 
 
 class SafeProjectPathResolver:
-    """
-    Safely resolve and validate the complete project directory path.
-
-    This class ensures that:
-    1. The destination path is safe and not system-critical
-    2. The project directory name is valid
-    3. The final project path is within the destination
-    4. No path traversal attacks are possible
-    """
-
     def __init__(
         self,
         destination_path: str,
         project_dir_name: str,
         security_validator: PathSecurityValidator | None = None,
     ) -> None:
-        """
-        Initialize the resolver.
-
-        Args:
-            destination_path: Base destination directory path
-            project_dir_name: Name of the project directory to create
-            security_validator: Optional custom security validator
-        """
         self._validator = security_validator or PathSecurityValidator()
         self._system: Final[str] = platform.system()
 
@@ -309,17 +208,6 @@ class SafeProjectPathResolver:
         self.project_name = self._validator.validate_project_directory_name(project_dir_name)
 
     def resolve(self) -> Path:
-        """
-        Resolve and validate the complete project directory path.
-
-        Returns:
-            Safe, validated project directory path
-
-        Raises:
-            PathSecurityError: If the resolved path is unsafe
-            FileExistsError: If the project directory already exists
-            ValueError: If path validation fails
-        """
         project_dir = self._construct_project_path()
         self._verify_path_containment(project_dir)
         self._check_destination_validity()
@@ -329,12 +217,6 @@ class SafeProjectPathResolver:
         return project_dir
 
     def check_existing_directory(self) -> tuple[bool, bool]:
-        """
-        Check if project directory exists and if it has content.
-
-        Returns:
-            Tuple of (exists, has_content)
-        """
         project_dir = self.destination / self.project_name
 
         if not project_dir.exists():
@@ -346,7 +228,6 @@ class SafeProjectPathResolver:
         return True, self._directory_has_content(project_dir)
 
     def _construct_project_path(self) -> Path:
-        """Construct and resolve the project directory path."""
         project_dir = self.destination / self.project_name
 
         try:
@@ -412,7 +293,6 @@ class SafeProjectPathResolver:
         return True
 
     def _check_destination_validity(self) -> None:
-        """Check that destination exists and is a directory."""
         if not self.destination.exists():
             raise ValueError(
                 f"Destination directory '{self.destination}' does not exist. "
@@ -423,7 +303,6 @@ class SafeProjectPathResolver:
             raise ValueError(f"Destination path '{self.destination}' exists but is not a directory")
 
     def _check_project_not_exists(self, project_dir: Path) -> None:
-        """Check that project directory doesn't already exist."""
         if project_dir.exists():
             raise FileExistsError(
                 f"Directory '{project_dir}' already exists. "
@@ -431,7 +310,6 @@ class SafeProjectPathResolver:
             )
 
     def _check_write_permissions(self) -> None:
-        """Check write permissions on destination directory."""
         test_file = None
         try:
             test_file = self.destination / ".ar_infra_write_test"
@@ -445,7 +323,6 @@ class SafeProjectPathResolver:
                 test_file.unlink(missing_ok=True)
 
     def _directory_has_content(self, directory: Path) -> bool:
-        """Check if directory has any content."""
         try:
             return any(directory.iterdir())
         except OSError:

@@ -17,10 +17,7 @@ from src.ar_infra.properties import CLI_VERSION
 
 
 class TestProjectSignature:
-    """Test suite for ProjectSignature."""
-
     def test_generate_signature_creates_unique_hash(self) -> None:
-        """Test that signature contains unique hash based on project identity."""
         signature = ProjectSignature.generate(
             group_id=GroupId("com.example"),
             artifact_id=ArtifactId("test-app"),
@@ -33,7 +30,6 @@ class TestProjectSignature:
         assert all(c in "0123456789abcdef" for c in hash_part)
 
     def test_generate_signature_is_deterministic(self) -> None:
-        """Test that same inputs always produce same signature hash."""
         sig1 = ProjectSignature.generate(
             group_id=GroupId("dev.razafindratelo"),
             artifact_id=ArtifactId("backend-api"),
@@ -49,7 +45,6 @@ class TestProjectSignature:
         assert sig1.signature == sig2.signature
 
     def test_generate_signature_differs_for_different_projects(self) -> None:
-        """Test that different projects get different signatures."""
         sig1 = ProjectSignature.generate(
             group_id=GroupId("com.example"),
             artifact_id=ArtifactId("app1"),
@@ -65,7 +60,6 @@ class TestProjectSignature:
         assert sig1.signature != sig2.signature
 
     def test_version_is_set_correctly(self) -> None:
-        """Test that CLI version is set in signature."""
         signature = ProjectSignature.generate(
             group_id=GroupId("com.test"),
             artifact_id=ArtifactId("myapp"),
@@ -76,7 +70,6 @@ class TestProjectSignature:
         assert signature.version == "2.5.0"
 
     def test_default_cli_version(self) -> None:
-        """Test default CLI version"""
         signature = ProjectSignature.generate(
             group_id=GroupId("com.test"),
             artifact_id=ArtifactId("myapp"),
@@ -97,7 +90,6 @@ class TestProjectSignature:
         assert parsed.tzinfo is not None
 
     def test_generated_at_is_recent(self) -> None:
-        """Test that generated_at timestamp is recent (within last minute)."""
         before = datetime.now(UTC)
 
         signature = ProjectSignature.generate(
@@ -124,28 +116,22 @@ class TestProjectSignature:
 
 
 class TestInfraGeneratedAnnotationWriter:
-    """Test suite for InfraGeneratedAnnotationWriter."""
-
     @pytest.fixture
     def annotation_content(self) -> str:
-        """Sample InfraGenerated.java content."""
         return INFRA_GENERATED_SAMPLE
 
     @pytest.fixture
     def annotation_file(self, tmp_path: Path, annotation_content: str) -> Path:
-        """Create a temporary annotation file."""
         file_path = tmp_path / "InfraGenerated.java"
         file_path.write_text(annotation_content, encoding="utf-8")
         return file_path
 
     @pytest.fixture
     def writer(self) -> InfraGeneratedAnnotationWriter:
-        """Create annotation writer instance."""
         return InfraGeneratedAnnotationWriter()
 
     @pytest.fixture
     def test_signature(self) -> ProjectSignature:
-        """Create test signature."""
         return ProjectSignature(
             signature="ar-infra-cli:abc123def4567890",
             version="2.0.0",
@@ -158,7 +144,6 @@ class TestInfraGeneratedAnnotationWriter:
         annotation_file: Path,
         test_signature: ProjectSignature,
     ) -> None:
-        """Test that all annotation values are replaced."""
         writer.update_annotation(annotation_file, test_signature)
 
         content = annotation_file.read_text(encoding="utf-8")
@@ -173,7 +158,6 @@ class TestInfraGeneratedAnnotationWriter:
         annotation_file: Path,
         test_signature: ProjectSignature,
     ) -> None:
-        """Test that annotation structure is preserved."""
         writer.update_annotation(annotation_file, test_signature)
 
         content = annotation_file.read_text(encoding="utf-8")
@@ -188,7 +172,6 @@ class TestInfraGeneratedAnnotationWriter:
         tmp_path: Path,
         test_signature: ProjectSignature,
     ) -> None:
-        """Test error when annotation file doesn't exist."""
         non_existent = tmp_path / "NotFound.java"
 
         with pytest.raises(FileNotFoundError, match="Annotation file not found"):
@@ -254,7 +237,6 @@ public @interface InfraGenerated {
         annotation_file: Path,
         test_signature: ProjectSignature,
     ) -> None:
-        """Test that updating twice produces same result."""
         writer.update_annotation(annotation_file, test_signature)
         content_after_first = annotation_file.read_text(encoding="utf-8")
 

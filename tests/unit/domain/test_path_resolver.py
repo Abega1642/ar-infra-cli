@@ -20,13 +20,11 @@ from src.ar_infra.domain.entities.path_resolver import (
 
 @pytest.fixture
 def validator() -> PathSecurityValidator:
-    """Create a validator instance."""
     return PathSecurityValidator()
 
 
 @pytest.fixture
 def temp_dir() -> Generator[Path, Any, None]:
-    """Create a temporary directory for testing."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
 
@@ -38,7 +36,6 @@ class TestPathSecurityValidatorCommon:
     """Test suite for PathSecurityValidator - common tests for all platforms."""
 
     def test_reject_empty_path(self, validator: PathSecurityValidator) -> None:
-        """Test that empty paths are rejected."""
         with pytest.raises(ValueError, match="cannot be empty"):
             validator.validate_destination_path("")
 
@@ -60,7 +57,6 @@ class TestPathSecurityValidatorCommon:
             test_dir.rmdir()
 
     def test_allow_user_home_directory(self, validator: PathSecurityValidator) -> None:
-        """Test that user home directory is allowed."""
         home = Path.home()
         test_dir = home / "test_projects"
         test_dir.mkdir(exist_ok=True)
@@ -73,7 +69,6 @@ class TestPathSecurityValidatorCommon:
             test_dir.rmdir()
 
     def test_validate_valid_project_directory_name(self, validator: PathSecurityValidator) -> None:
-        """Test validation of valid project directory names."""
         valid_names = [
             "my-project",
             "my_project",
@@ -86,7 +81,6 @@ class TestPathSecurityValidatorCommon:
             assert result == name
 
     def test_reject_invalid_project_directory_names(self, validator: PathSecurityValidator) -> None:
-        """Test rejection of invalid project directory names."""
         invalid_names = [
             "",
             "   ",
@@ -107,7 +101,6 @@ class TestPathSecurityValidatorCommon:
                 validator.validate_project_directory_name(name)
 
     def test_reject_path_traversal_in_project_name(self, validator: PathSecurityValidator) -> None:
-        """Test that path traversal in project name is rejected."""
         with pytest.raises(ValueError, match="path separators"):
             validator.validate_project_directory_name("../project")
 
@@ -115,7 +108,6 @@ class TestPathSecurityValidatorCommon:
             validator.validate_project_directory_name("foo/../bar")
 
     def test_reject_excessively_long_project_name(self, validator: PathSecurityValidator) -> None:
-        """Test that excessively long names are rejected."""
         long_name = "a" * 256
 
         with pytest.raises(ValueError, match="too long"):
@@ -124,7 +116,6 @@ class TestPathSecurityValidatorCommon:
     def test_validate_valid_temp_destination_path(
         self, validator: PathSecurityValidator, temp_dir: Path
     ) -> None:
-        """Test validation of a valid temporary destination path."""
         result = validator.validate_destination_path(str(temp_dir))
         assert result.is_absolute()
 
@@ -137,12 +128,10 @@ class TestPathSecurityValidatorLinux:
     """Test suite for PathSecurityValidator - Linux-specific tests."""
 
     def test_reject_root_directory(self, validator: PathSecurityValidator) -> None:
-        """Test that root directory is rejected on Linux."""
         with pytest.raises(DangerousPathError, match="system directory"):
             validator.validate_destination_path("/")
 
     def test_reject_system_directories(self, validator: PathSecurityValidator) -> None:
-        """Test that system directories are rejected on Linux."""
         dangerous_paths = ["/bin", "/sbin", "/usr", "/sys", "/proc", "/boot", "/dev", "/lib"]
 
         for path in dangerous_paths:
@@ -150,11 +139,10 @@ class TestPathSecurityValidatorLinux:
             # but should still be rejected. They could raise DangerousPathError
             # (if resolved path is dangerous) or PathSecurityError (if it's a
             # dangerous symlink caught before resolution completes)
-            with pytest.raises(PathSecurityError):  # DangerousPathError is a subclass
+            with pytest.raises(PathSecurityError):
                 validator.validate_destination_path(path)
 
     def test_reject_subdirectories_of_system_paths(self, validator: PathSecurityValidator) -> None:
-        """Test that subdirectories of system paths are rejected on Linux."""
         with pytest.raises(DangerousPathError, match="under a system directory"):
             validator.validate_destination_path("/etc/config")
 
@@ -185,7 +173,6 @@ class TestPathSecurityValidatorLinux:
         # /var itself is in dangerous list
 
     def test_reject_path_traversal_patterns(self, validator: PathSecurityValidator) -> None:
-        """Test that path traversal patterns are detected on Linux."""
         traversal_patterns = [
             "../../../etc",
             "/tmp/../../../etc",  # noqa: S108
@@ -199,7 +186,6 @@ class TestPathSecurityValidatorLinux:
     def test_reject_symlink_destination(
         self, validator: PathSecurityValidator, temp_dir: Path
     ) -> None:
-        """Test that symlinks are rejected as destination on Linux."""
         real_dir = temp_dir / "real"
         real_dir.mkdir()
         symlink = temp_dir / "link"
@@ -218,12 +204,10 @@ class TestPathSecurityValidatorMacOS:
     """Test suite for PathSecurityValidator - macOS-specific tests."""
 
     def test_reject_root_directory(self, validator: PathSecurityValidator) -> None:
-        """Test that root directory is rejected on macOS."""
         with pytest.raises(DangerousPathError, match="system directory"):
             validator.validate_destination_path("/")
 
     def test_reject_system_directories(self, validator: PathSecurityValidator) -> None:
-        """Test that system directories are rejected on macOS."""
         dangerous_paths = [
             "/System",
             "/Library",
@@ -239,7 +223,6 @@ class TestPathSecurityValidatorMacOS:
                 validator.validate_destination_path(path)
 
     def test_reject_subdirectories_of_system_paths(self, validator: PathSecurityValidator) -> None:
-        """Test that subdirectories of system paths are rejected on macOS."""
         with pytest.raises(DangerousPathError, match="under a system directory"):
             validator.validate_destination_path("/System/Library")
 
@@ -280,7 +263,6 @@ class TestPathSecurityValidatorMacOS:
             validator.validate_destination_path("/private/etc")
 
     def test_reject_path_traversal_patterns(self, validator: PathSecurityValidator) -> None:
-        """Test that path traversal patterns are detected on macOS."""
         traversal_patterns = [
             "../../../etc",
             "/tmp/../../../etc",  # noqa: S108
@@ -294,7 +276,6 @@ class TestPathSecurityValidatorMacOS:
     def test_reject_symlink_destination(
         self, validator: PathSecurityValidator, temp_dir: Path
     ) -> None:
-        """Test that symlinks are rejected as destination on macOS."""
         real_dir = temp_dir / "real"
         real_dir.mkdir()
         symlink = temp_dir / "link"
@@ -320,7 +301,6 @@ class TestPathSecurityValidatorWindows:
             validator.validate_destination_path("c:/")
 
     def test_reject_windows_system_paths(self, validator: PathSecurityValidator) -> None:
-        """Test that Windows system paths are rejected."""
         dangerous_paths = [
             "C:\\Windows",
             "c:/windows",
@@ -335,8 +315,6 @@ class TestPathSecurityValidatorWindows:
                 validator.validate_destination_path(path)
 
     def test_reject_windows_system_subdirectories(self, validator: PathSecurityValidator) -> None:
-        """Test that Windows system subdirectories are rejected."""
-
         expected = "Cannot use system directory 'C:\\Windows\\System32' as destination. This is a critical system path that should not be modified."
 
         with pytest.raises(DangerousPathError, match=re.escape(expected)):
@@ -346,7 +324,6 @@ class TestPathSecurityValidatorWindows:
             validator.validate_destination_path("C:\\Program Files\\Common Files")
 
     def test_case_insensitive_path_validation(self, validator: PathSecurityValidator) -> None:
-        """Test that path validation is case-insensitive on Windows."""
         with pytest.raises(DangerousPathError):
             validator.validate_destination_path("c:\\WINDOWS")
 
@@ -357,7 +334,6 @@ class TestPathSecurityValidatorWindows:
             validator.validate_destination_path("C:\\WiNdOwS")
 
     def test_forward_slash_paths(self, validator: PathSecurityValidator) -> None:
-        """Test that forward slash paths are handled on Windows."""
         with pytest.raises(DangerousPathError):
             validator.validate_destination_path("C:/Windows")
 
@@ -365,13 +341,11 @@ class TestPathSecurityValidatorWindows:
             validator.validate_destination_path("C:/Program Files")
 
     def test_allow_user_temp_directory(self, validator: PathSecurityValidator) -> None:
-        """Test that user temp directories are allowed on Windows."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = validator.validate_destination_path(tmpdir)
             assert result.is_absolute()
 
     def test_reject_path_traversal_patterns(self, validator: PathSecurityValidator) -> None:
-        """Test that path traversal patterns are detected on Windows."""
         traversal_patterns = [
             "..\\..\\..\\Windows",
             "C:\\Temp\\..\\..\\Windows",
@@ -390,7 +364,6 @@ class TestSafeProjectPathResolverCommon:
     """Test suite for SafeProjectPathResolver - common tests for all platforms."""
 
     def test_resolve_valid_project_path(self, temp_dir: Path) -> None:
-        """Test resolution of a valid project path."""
         resolver = SafeProjectPathResolver(
             destination_path=str(temp_dir),
             project_dir_name="my-project",
@@ -403,7 +376,6 @@ class TestSafeProjectPathResolverCommon:
         assert result.is_absolute()
 
     def test_reject_existing_project_directory(self, temp_dir: Path) -> None:
-        """Test that existing project directories are rejected."""
         existing_dir = temp_dir / "existing-project"
         existing_dir.mkdir()
 
@@ -416,7 +388,6 @@ class TestSafeProjectPathResolverCommon:
             resolver.resolve()
 
     def test_reject_nonexistent_destination(self, temp_dir: Path) -> None:
-        """Test that non-existent destination is rejected."""
         nonexistent = temp_dir / "does-not-exist"
 
         resolver = SafeProjectPathResolver(
@@ -428,7 +399,6 @@ class TestSafeProjectPathResolverCommon:
             resolver.resolve()
 
     def test_reject_destination_file_not_directory(self, temp_dir: Path) -> None:
-        """Test that file paths are rejected as destination."""
         file_path = temp_dir / "file.txt"
         file_path.write_text("test")
 
@@ -441,7 +411,6 @@ class TestSafeProjectPathResolverCommon:
             resolver.resolve()
 
     def test_check_existing_directory_not_exists(self, temp_dir: Path) -> None:
-        """Test checking non-existent directory."""
         resolver = SafeProjectPathResolver(
             destination_path=str(temp_dir),
             project_dir_name="new-project",
@@ -453,7 +422,6 @@ class TestSafeProjectPathResolverCommon:
         assert not has_content
 
     def test_check_existing_directory_empty(self, temp_dir: Path) -> None:
-        """Test checking existing but empty directory."""
         project_dir = temp_dir / "empty-project"
         project_dir.mkdir()
 
@@ -468,7 +436,6 @@ class TestSafeProjectPathResolverCommon:
         assert not has_content
 
     def test_check_existing_directory_with_content(self, temp_dir: Path) -> None:
-        """Test checking existing directory with content."""
         project_dir = temp_dir / "full-project"
         project_dir.mkdir()
         (project_dir / "file.txt").write_text("content")
@@ -484,7 +451,6 @@ class TestSafeProjectPathResolverCommon:
         assert has_content
 
     def test_security_validator_integration(self, temp_dir: Path) -> None:
-        """Test that custom security validator is used."""
         custom_validator = PathSecurityValidator()
 
         resolver = SafeProjectPathResolver(
@@ -496,7 +462,6 @@ class TestSafeProjectPathResolverCommon:
         assert resolver._validator is custom_validator
 
     def test_verify_path_containment(self, temp_dir: Path) -> None:
-        """Test that project path is verified to be within destination."""
         resolver = SafeProjectPathResolver(
             destination_path=str(temp_dir),
             project_dir_name="valid-name",
@@ -517,7 +482,6 @@ class TestSafeProjectPathResolverLinux:
     """Test suite for SafeProjectPathResolver - Linux-specific tests."""
 
     def test_reject_dangerous_system_path(self) -> None:
-        """Test that dangerous system paths are rejected on Linux."""
         with pytest.raises(DangerousPathError):
             SafeProjectPathResolver(
                 destination_path="/etc",
@@ -525,7 +489,6 @@ class TestSafeProjectPathResolverLinux:
             )
 
     def test_full_validation_flow(self, temp_dir: Path) -> None:
-        """Test the complete validation flow on Linux."""
         destination = temp_dir / "projects"
         destination.mkdir()
 
@@ -541,7 +504,6 @@ class TestSafeProjectPathResolverLinux:
         assert not project_path.exists()
 
     def test_prevent_directory_escape(self, temp_dir: Path) -> None:
-        """Test that directory escape attempts are prevented on Linux."""
         destination = temp_dir / "safe-zone"
         destination.mkdir()
 
@@ -567,7 +529,6 @@ class TestSafeProjectPathResolverMacOS:
     """Test suite for SafeProjectPathResolver - macOS-specific tests."""
 
     def test_reject_dangerous_system_path(self) -> None:
-        """Test that dangerous system paths are rejected on macOS."""
         with pytest.raises(DangerousPathError):
             SafeProjectPathResolver(
                 destination_path="/System",
@@ -575,7 +536,6 @@ class TestSafeProjectPathResolverMacOS:
             )
 
     def test_full_validation_flow(self, temp_dir: Path) -> None:
-        """Test the complete validation flow on macOS."""
         destination = temp_dir / "projects"
         destination.mkdir()
 
@@ -591,7 +551,6 @@ class TestSafeProjectPathResolverMacOS:
         assert not project_path.exists()
 
     def test_prevent_directory_escape(self, temp_dir: Path) -> None:
-        """Test that directory escape attempts are prevented on macOS."""
         destination = temp_dir / "safe-zone"
         destination.mkdir()
 
@@ -617,7 +576,6 @@ class TestSafeProjectPathResolverWindows:
     """Test suite for SafeProjectPathResolver - Windows-specific tests."""
 
     def test_reject_dangerous_system_path(self) -> None:
-        """Test that dangerous system paths are rejected on Windows."""
         with pytest.raises(DangerousPathError):
             SafeProjectPathResolver(
                 destination_path="C:\\Windows",
@@ -625,7 +583,6 @@ class TestSafeProjectPathResolverWindows:
             )
 
     def test_full_validation_flow(self, temp_dir: Path) -> None:
-        """Test the complete validation flow on Windows."""
         destination = temp_dir / "projects"
         destination.mkdir()
 
@@ -641,7 +598,6 @@ class TestSafeProjectPathResolverWindows:
         assert not project_path.exists()
 
     def test_prevent_directory_escape(self, temp_dir: Path) -> None:
-        """Test that directory escape attempts are prevented on Windows."""
         destination = temp_dir / "safe-zone"
         destination.mkdir()
 
@@ -659,7 +615,6 @@ class TestSafeProjectPathResolverWindows:
                 )
 
     def test_handle_short_names(self, temp_dir: Path) -> None:
-        """Test that Windows short names are handled correctly."""
         # Windows may use short names like RUNNER~1
         # The path containment check should still work
         resolver = SafeProjectPathResolver(

@@ -57,8 +57,6 @@ public abstract class FacadeIT {
 
 
 class TestFacadeITHandler:
-    """Exhaustive test suite for FacadeITHandler."""
-
     @pytest.fixture
     def facade_path(self, tmp_path: Path) -> Path:
         path = tmp_path / "src/test/java/com/example/arinfra/conf"

@@ -1,0 +1,2 @@
+PRIMARY = "#6d66c8"
+SECONDARY = "#9d97d9"

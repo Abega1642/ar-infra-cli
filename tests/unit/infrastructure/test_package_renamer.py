@@ -13,8 +13,6 @@ from src.ar_infra.infrastructure.processor.package_renamer import PackageRenamer
 
 
 class TestPackageRenamer:
-    """Test suite for PackageRenamer."""
-
     @pytest.fixture
     def renamer(self) -> PackageRenamer:
         return PackageRenamer()

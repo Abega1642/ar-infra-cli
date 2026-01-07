@@ -15,15 +15,6 @@ from src.ar_infra.domain.exceptions.validation_error import InvalidGroupIdError
 
 
 def _validate_segment(segment: str) -> None:
-    """
-    Validate a single segment of the group ID.
-
-    Args:
-        segment: A single segment to validate.
-
-    Raises:
-        InvalidGroupIdError: If the segment is invalid.
-    """
     if not segment:
         raise InvalidGroupIdError("Group ID segments cannot be empty")
 
@@ -82,16 +73,9 @@ class GroupId:
     value: str
 
     def __post_init__(self) -> None:
-        """Validate group ID after initialization."""
         self._validate()
 
     def _validate(self) -> None:
-        """
-        Validate the group ID according to Maven/Gradle conventions and security rules.
-
-        Raises:
-            InvalidGroupIdError: If the group ID is invalid.
-        """
         if not self.value or not self.value.strip():
             raise InvalidGroupIdError("Group ID cannot be empty")
 
@@ -129,7 +113,6 @@ class GroupId:
 
     @property
     def segments(self) -> list[str]:
-        """Return the segments of the group ID."""
         return self.value.split(".")
 
     def to_path(self) -> str:
@@ -142,13 +125,10 @@ class GroupId:
         return self.value.replace(".", "/")
 
     def __str__(self) -> str:
-        """Return string representation."""
         return self.value
 
     def __repr__(self) -> str:
-        """Return detailed representation."""
         return f"GroupId('{self.value}')"
 
     def __hash__(self) -> int:
-        """Return hash for use in sets and dicts."""
         return hash(self.value)

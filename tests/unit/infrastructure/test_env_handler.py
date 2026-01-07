@@ -41,8 +41,6 @@ SPRING_MAIL_PORT=port
 
 
 class TestEnvHandler:
-    """Test suite for EnvHandler."""
-
     @pytest.fixture
     def handler(self) -> EnvHandler:
         return EnvHandler()

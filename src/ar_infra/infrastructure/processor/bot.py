@@ -1,7 +1,6 @@
 """Git repository initialization with bot commit."""
 
 import gc
-import os
 import platform
 import shutil
 import stat
@@ -14,23 +13,16 @@ from pathlib import Path
 from typing import Any
 
 import requests
-from dotenv import load_dotenv
 
+from src.ar_infra.infrastructure.config import BOT_ID, BOT_SLUG, GITHUB_TOKEN
 from src.ar_infra.logger import get_logger
 
 
-load_dotenv()
-
 log = get_logger(__name__)
-
-BOT_ID = os.getenv("BOT_ID")
-BOT_SLUG = os.getenv("BOT_SLUG", "ar-infra-bot")
 
 
 @dataclass(frozen=True)
 class BotIdentity:
-    """Bot identity for git commits using GitHub's official format."""
-
     name: str
     email: str
 
@@ -38,11 +30,10 @@ class BotIdentity:
     def from_github_app(
         cls, bot_slug: str = "test-ar-infra-bot", bot_id: int | None = None
     ) -> "BotIdentity":
-        """Create proper GitHub App bot identity."""
         if bot_id is None:
             try:
                 headers = {}
-                github_token = os.getenv("GITHUB_TOKEN")
+                github_token = GITHUB_TOKEN
                 if github_token:
                     headers["Authorization"] = f"token {github_token}"
 
@@ -111,7 +102,6 @@ class BotGitHandler:
         initial_branch: str = "preprod",
         commit_message: str = "infra: generate the spring boot infrastructure",
     ) -> None:
-        """Initialize Git repository with bot commit in existing project."""
         if not project_path.exists():
             raise GitRepositoryError(f"Project path does not exist: {project_path}")
 

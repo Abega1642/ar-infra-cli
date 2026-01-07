@@ -9,8 +9,6 @@ from src.ar_infra.domain.value_objects.package_name import PackageName
 
 
 class TestPackageName:
-    """Test suite for PackageName value object."""
-
     def test_create_from_group_and_artifact(self) -> None:
         group = GroupId("dev.razafindratelo")
         artifact = ArtifactId("backend-api")

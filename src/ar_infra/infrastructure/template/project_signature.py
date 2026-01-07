@@ -14,8 +14,6 @@ from src.ar_infra.properties import CLI_VERSION
 
 @dataclass(frozen=True)
 class ProjectSignature:
-    """Immutable project signature for generated infrastructure."""
-
     signature: str
     version: str
     generated_at: str

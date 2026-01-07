@@ -13,14 +13,9 @@ class DevelopmentArtifactCleaner:
     """
     Removes development-specific files and directories from generated projects.
 
-    This class safely removes files and directories that were used during
+    This class removes files and directories that were used during
     infrastructure development but should not be included in the generated
     project output.
-
-    Security considerations:
-    - Validates all paths to prevent directory traversal attacks
-    - Only operates within the specified project root
-    - Uses Path.resolve() to normalize and validate paths
     """
 
     DEFAULT_ARTIFACTS: Final[list[str]] = [
@@ -35,16 +30,6 @@ class DevelopmentArtifactCleaner:
     ]
 
     def __init__(self, project_root: Path) -> None:
-        """
-        Initialize the cleaner with a project root directory.
-
-        Args:
-            project_root: The root directory of the generated project.
-                         All operations are constrained to this directory.
-
-        Raises:
-            ValueError: If project_root doesn't exist or isn't a directory.
-        """
         if not project_root.exists():
             raise ValueError(f"Project root does not exist: {project_root}")
 
@@ -55,18 +40,6 @@ class DevelopmentArtifactCleaner:
         logger.info("Initialized DevelopmentArtifactCleaner for: %s", self._project_root)
 
     def _validate_path(self, target_path: Path) -> Path:
-        """
-        Validate that a path is within the project root.
-
-        Args:
-            target_path: The path to validate.
-
-        Returns:
-            The resolved absolute path.
-
-        Raises:
-            ValueError: If the path escapes the project root.
-        """
         resolved = target_path.resolve()
 
         try:
@@ -79,19 +52,6 @@ class DevelopmentArtifactCleaner:
         return resolved
 
     def remove_artifact(self, relative_path: str) -> bool:
-        """
-        Remove a single file or directory artifact.
-
-        Args:
-            relative_path: Path relative to project root (e.g., "readme.md").
-
-        Returns:
-            True if the artifact was removed, False if it didn't exist.
-
-        Raises:
-            ValueError: If the path is invalid or outside project root.
-            OSError: If removal fails due to permissions or other OS errors.
-        """
         target = self._project_root / relative_path
         validated_target = self._validate_path(target)
 
@@ -116,15 +76,6 @@ class DevelopmentArtifactCleaner:
         return removed
 
     def _remove_directory_recursive(self, directory: Path) -> None:
-        """
-        Recursively remove a directory and all its contents.
-
-        Args:
-            directory: The directory to remove (must be validated).
-
-        Raises:
-            OSError: If removal fails.
-        """
         for child in directory.iterdir():
             if child.is_file() or child.is_symlink():
                 child.unlink()
@@ -134,20 +85,6 @@ class DevelopmentArtifactCleaner:
         directory.rmdir()
 
     def clean(self, artifacts: list[str] | None = None) -> int:
-        """
-        Remove multiple development artifacts from the project.
-
-        Args:
-            artifacts: List of relative paths to remove.
-                      If None, uses DEFAULT_ARTIFACTS.
-
-        Returns:
-            Number of artifacts successfully removed.
-
-        Raises:
-            ValueError: If any path is invalid.
-            OSError: If removal fails.
-        """
         artifacts_to_remove = artifacts if artifacts is not None else self.DEFAULT_ARTIFACTS
         removed_count = 0
 
@@ -166,20 +103,6 @@ class DevelopmentArtifactCleaner:
         return removed_count
 
     def clean_empty_parent_directories(self, relative_path: str) -> int:
-        """
-        Remove empty parent directories after artifact removal.
-
-        Useful for cleaning up empty .github directories after removing all files.
-
-        Args:
-            relative_path: Path whose parent directories to check.
-
-        Returns:
-            Number of empty directories removed.
-
-        Raises:
-            ValueError: If the path is invalid.
-        """
         target = self._project_root / relative_path
         validated_target = self._validate_path(target)
 

@@ -8,8 +8,6 @@ from src.ar_infra.cli.prompt.validator import Validators
 
 
 class TestValidators:
-    """Test suite for Validators class."""
-
     @pytest.fixture
     def validators(self) -> Validators:
         return Validators()

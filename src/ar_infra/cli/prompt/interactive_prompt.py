@@ -1,7 +1,7 @@
 """Interactive prompts for user input."""
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from questionary import (
     Style,
@@ -44,7 +44,6 @@ class InteractivePrompt:
         self.security_validator = PathSecurityValidator()
 
     def collect_inputs(self) -> dict[str, Any]:
-        """Collect all inputs interactively with security checks."""
         while True:
             inputs = self._collect_all_prompts()
 
@@ -52,12 +51,11 @@ class InteractivePrompt:
                 return inputs
 
             if not self._ask_to_start_over():
-                raise KeyboardInterrupt("Configuration cancelled by user")
+                raise KeyboardInterrupt("Configuration cancelled by user") from None
 
             print("\n")
 
     def _collect_all_prompts(self) -> dict[str, Any]:
-        """Collect all prompt inputs from user."""
         group_id = self._prompt_group_id()
         artifact_id = self._prompt_artifact_id()
         version = self._prompt_version()
@@ -80,38 +78,40 @@ class InteractivePrompt:
         }
 
     def _prompt_group_id(self) -> str:
-        """Prompt for group ID."""
-        result: str = text(
+        result = text(
             "Gradle/Maven Group ID:",
             default="com.example",
             style=PROMPT_STYLE,
             validate=lambda val: self.validators.group_id(val) is None,
         ).ask()
-        return result
+        if result is None:
+            raise KeyboardInterrupt("Operation cancelled by user") from None
+        return cast(str, result)
 
     def _prompt_artifact_id(self) -> str:
-        """Prompt for artifact ID."""
-        result: str = text(
+        result = text(
             "Gradle/Maven Artifact ID (project name):",
             default="my-app",
             style=PROMPT_STYLE,
             validate=lambda val: self.validators.artifact_id(val) is None,
         ).ask()
-        return result
+        if result is None:
+            raise KeyboardInterrupt("Operation cancelled by user") from None
+        return cast(str, result)
 
     def _prompt_version(self) -> str:
-        """Prompt for version."""
-        result: str = text(
+        result = text(
             "Project Version:",
             default="1.0.0",
             style=PROMPT_STYLE,
             validate=lambda val: self.validators.version(val) is None,
         ).ask()
-        return result
+        if result is None:
+            raise KeyboardInterrupt("Operation cancelled by user") from None
+        return cast(str, result)
 
     def _prompt_features(self) -> list[str]:
-        """Prompt for feature selection."""
-        result: list[str] = checkbox(
+        result = checkbox(
             "Select Features to Include:",
             choices=[
                 {"name": "PostgreSQL Database", "value": "postgresql"},
@@ -121,19 +121,21 @@ class InteractivePrompt:
             ],
             style=PROMPT_STYLE,
         ).ask()
-        return result
+        if result is None:
+            raise KeyboardInterrupt("Operation cancelled by user") from None
+        return cast(list[str], result)
 
     def _prompt_use_cache(self) -> bool:
-        """Prompt for template cache usage."""
-        result: bool = confirm(
+        result = confirm(
             "Use cached template (faster)?",
             default=True,
             style=PROMPT_STYLE,
         ).ask()
-        return result
+        if result is None:
+            raise KeyboardInterrupt("Operation cancelled by user") from None
+        return cast(bool, result)
 
     def _confirm_and_proceed(self, inputs: dict[str, Any]) -> bool:
-        """Show summary and ask for confirmation to proceed."""
         Messages.project_summary(
             group=inputs["group_id"],
             artifact=inputs["artifact_id"],
@@ -142,29 +144,26 @@ class InteractivePrompt:
             features=list(inputs["enabled_features"]) if inputs["enabled_features"] else [],
         )
 
-        result: bool = confirm(
+        result = confirm(
             "Would you like to proceed with this configuration?",
             default=True,
             style=PROMPT_STYLE,
         ).ask()
-        return result
+        if result is None:
+            raise KeyboardInterrupt("Operation cancelled by user") from None
+        return cast(bool, result)
 
     def _ask_to_start_over(self) -> bool:
-        """Ask if user wants to start over with different values."""
-        result: bool = confirm(
+        result = confirm(
             "Would you like to start over with different values?",
             default=True,
             style=PROMPT_STYLE,
         ).ask()
-        return result
+        if result is None:
+            raise KeyboardInterrupt("Operation cancelled by user") from None
+        return cast(bool, result)
 
     def _prompt_destination_path(self) -> Path:
-        """
-        Prompt for destination path with security validation.
-
-        Returns:
-            Validated destination path
-        """
         while True:
             path_str = self._ask_for_destination_path()
             try:
@@ -181,17 +180,17 @@ class InteractivePrompt:
                     raise
 
     def _ask_for_destination_path(self) -> str:
-        """Prompt user for destination path."""
-        result: str = text(
+        result = text(
             "Destination Directory (where to create the project folder):",
             default="./",
             style=PROMPT_STYLE,
             validate=lambda val: self.validators.path(val) is None,
         ).ask()
-        return result
+        if result is None:
+            raise KeyboardInterrupt("Operation cancelled by user") from None
+        return cast(str, result)
 
     def _handle_validated_path(self, validated_path: Path) -> Path:
-        """Handle validated path (create if needed, validate directory)."""
         if not validated_path.exists():
             return self._handle_nonexistent_path(validated_path)
 
@@ -202,14 +201,15 @@ class InteractivePrompt:
         return validated_path
 
     def _handle_nonexistent_path(self, path: Path) -> Path:
-        """Handle case where path doesn't exist."""
         create = confirm(
             f"Directory '{path}' does not exist. Create it?",
             default=True,
             style=PROMPT_STYLE,
         ).ask()
+        if create is None:
+            raise KeyboardInterrupt("Operation cancelled by user") from None
 
-        if not create:
+        if not cast(bool, create):
             print("\nPlease provide an existing directory.\n")
 
             retry = confirm(
@@ -217,68 +217,59 @@ class InteractivePrompt:
                 default=True,
                 style=PROMPT_STYLE,
             ).ask()
+            if retry is None:
+                raise KeyboardInterrupt("Operation cancelled by user") from None
 
-            if not retry:
-                raise KeyboardInterrupt("Operation cancelled by user")
+            if not cast(bool, retry):
+                raise KeyboardInterrupt("Operation cancelled by user") from None
 
             return self._prompt_destination_path()
 
         return self._create_directory(path)
 
     def _create_directory(self, path: Path) -> Path:
-        """Create directory at given path."""
         try:
             path.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
             print(f"\nError: Cannot create directory: {exc}\nPlease choose a different path.\n")
             raise
-
         return path
 
     def _handle_security_exception(self, exc: Exception, error_type: str) -> bool:
-        """Handle security-related exceptions."""
         print(f"\n{error_type}: {exc}\n")
         return self._ask_retry("Would you like to choose a different path?")
 
     def _handle_general_error(self, exc: Exception) -> bool:
-        """Handle general validation/OS errors."""
         print(f"\nError: {exc}\n")
         return self._ask_retry("Would you like to try again?")
 
     def _ask_retry(self, message: str) -> bool:
-        """Ask user if they want to retry."""
-        result: bool = confirm(
+        result = confirm(
             message,
             default=True,
             style=PROMPT_STYLE,
         ).ask()
-        return result
+        if result is None:
+            raise KeyboardInterrupt("Operation cancelled by user") from None
+        return cast(bool, result)
 
     def _print_directory_error(self, path: Path) -> None:
-        """Print error message for non-directory paths."""
         print(
             f"\nError: '{path}' exists but is not a directory.\nPlease choose a different path.\n"
         )
 
     def _prompt_project_directory_name(self, default_name: str) -> str:
-        """
-        Prompt for project directory name with validation.
-
-        Args:
-            default_name: Default directory name (artifact_id)
-
-        Returns:
-            Validated project directory name
-        """
         while True:
             dir_name = text(
                 "Project Directory Name (folder name for the project):",
                 default=default_name,
                 style=PROMPT_STYLE,
             ).ask()
+            if dir_name is None:
+                raise KeyboardInterrupt("Operation cancelled by user") from None
 
             try:
-                return self.security_validator.validate_project_directory_name(dir_name)
+                return self.security_validator.validate_project_directory_name(cast(str, dir_name))
             except ValueError as exc:
                 print(f"\nError: {exc}\n")
                 retry = confirm(
@@ -286,25 +277,13 @@ class InteractivePrompt:
                     default=True,
                     style=PROMPT_STYLE,
                 ).ask()
-                if not retry:
+                if retry is None:
+                    raise KeyboardInterrupt("Operation cancelled by user") from None
+
+                if not cast(bool, retry):
                     raise
 
     def _handle_existing_directory(self, destination: Path, project_dir_name: str) -> None:
-        """
-        Handle the case where project directory already exists.
-
-        Raises appropriate exceptions if the directory cannot be used.
-
-        Args:
-            destination: Destination path
-            project_dir_name: Project directory name
-
-        Raises:
-            ValueError: If path exists but is not a directory
-            PermissionError: If directory cannot be accessed
-            FileExistsError: If directory exists and user chooses not to use it
-            KeyboardInterrupt: If user cancels the operation
-        """
         project_path = destination / project_dir_name
 
         if not project_path.exists():
@@ -326,9 +305,12 @@ class InteractivePrompt:
                 default=True,
                 style=PROMPT_STYLE,
             ).ask()
+            if use_empty is None:
+                raise KeyboardInterrupt("Operation cancelled by user") from None
 
-            if use_empty:
+            if cast(bool, use_empty):
                 return
+
             raise FileExistsError(
                 f"Directory '{project_path}' already exists. "
                 "Please choose a different name or destination."
@@ -339,24 +321,19 @@ class InteractivePrompt:
         action = select(
             "What would you like to do?",
             choices=[
-                {
-                    "name": "Choose a different project name",
-                    "value": "rename",
-                },
-                {
-                    "name": "Choose a different destination",
-                    "value": "change_dest",
-                },
-                {
-                    "name": "Cancel operation",
-                    "value": "cancel",
-                },
+                {"name": "Choose a different project name", "value": "rename"},
+                {"name": "Choose a different destination", "value": "change_dest"},
+                {"name": "Cancel operation", "value": "cancel"},
             ],
             style=PROMPT_STYLE,
         ).ask()
+        if action is None:
+            raise KeyboardInterrupt("Operation cancelled by user") from None
+
+        action = cast(str, action)
 
         if action == "cancel":
-            raise KeyboardInterrupt("Operation cancelled by user")
+            raise KeyboardInterrupt("Operation cancelled by user") from None
         if action == "rename":
             raise FileExistsError("Please provide a different project name")
         raise FileExistsError("Please provide a different destination")

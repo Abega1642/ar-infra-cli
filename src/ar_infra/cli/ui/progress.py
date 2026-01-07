@@ -14,8 +14,6 @@ from src.ar_infra.cli.ui.console import console
 
 
 class ProgressIndicator:
-    """Manages progress display for operations."""
-
     @staticmethod
     @contextmanager
     def spinner(message: str) -> Iterator[Progress]:

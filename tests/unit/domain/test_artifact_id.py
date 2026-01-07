@@ -7,8 +7,6 @@ from src.ar_infra.domain.value_objects.artifact_id import ArtifactId
 
 
 class TestArtifactId:
-    """Test suite for ArtifactId value object."""
-
     def test_create_valid_artifact_id(self) -> None:
         artifact_id = ArtifactId("backend-api")
         assert artifact_id.value == "backend-api"

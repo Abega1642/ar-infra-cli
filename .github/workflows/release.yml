@@ -1,0 +1,300 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+jobs:
+  security-gate:
+    name: Security Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify tag format
+        run: |
+          if [[ ! "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: Tag must follow semantic versioning (e.g., v0.1.0)"
+            exit 1
+          fi
+
+      - name: Check for .env file
+        run: |
+          if [ -f ".env" ]; then
+            echo "ERROR: .env file found in repository!"
+            exit 1
+          fi
+
+  build:
+    name: Build Binary - ${{ matrix.os }}
+    needs: security-gate
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: ar-infra
+            asset_name: ar-infra-linux-amd64
+          - os: macos-13 # Intel
+            artifact_name: ar-infra
+            asset_name: ar-infra-macos-amd64
+          - os: macos-14 # Apple Silicon (M1/M2)
+            artifact_name: ar-infra
+            asset_name: ar-infra-macos-arm64
+          - os: windows-latest
+            artifact_name: ar-infra.exe
+            asset_name: ar-infra-windows-amd64.exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build binary with PyInstaller
+        run: |
+          pyinstaller ar-infra.spec
+        shell: bash
+
+      - name: Rename binary
+        run: |
+          cd dist
+          mv ${{ matrix.artifact_name }} ${{ matrix.asset_name }}
+        shell: bash
+
+      - name: Test binary (smoke test)
+        run: |
+          cd dist
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            ./${{ matrix.asset_name }} init --help
+          else
+            chmod +x ./${{ matrix.asset_name }}
+            ./${{ matrix.asset_name }} init --help
+          fi
+        shell: bash
+
+      - name: Calculate SHA256 checksum
+        run: |
+          cd dist
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            certutil -hashfile ${{ matrix.asset_name }} SHA256 > ${{ matrix.asset_name }}.sha256
+          else
+            shasum -a 256 ${{ matrix.asset_name }} > ${{ matrix.asset_name }}.sha256
+          fi
+        shell: bash
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: |
+            dist/${{ matrix.asset_name }}
+            dist/${{ matrix.asset_name }}.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+  create-release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          find dist-artifacts -type f -exec cp {} release-assets/ \;
+          ls -lah release-assets/
+
+      - name: Extract version number
+        id: version
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION_NUMBER="${VERSION#v}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version_number=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
+
+          # Get previous tag for changelog
+          PREVIOUS_TAG=$(git tag --sort=-v:refname | grep -v "$VERSION" | head -n 1)
+          echo "previous_tag=${PREVIOUS_TAG:-$(git rev-list --max-parents=0 HEAD)}" >> $GITHUB_OUTPUT
+
+      - name: Generate release notes
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PREVIOUS_TAG="${{ steps.version.outputs.previous_tag }}"
+
+          # Check if custom release notes exist
+          if [ -f "release-notes/${VERSION}.md" ]; then
+            echo "Using custom release notes from release-notes/${VERSION}.md"
+            cat "release-notes/${VERSION}.md" > release_notes.md
+          else
+            echo "Generating default release notes"
+            cat > release_notes.md << 'EOF'
+          ## AR-Infra CLI ${{ github.ref_name }}
+
+          Production-ready Spring Boot project generator.
+
+          ### What's Changed
+
+          See the [full changelog](https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${{ github.ref_name }}) for details.
+
+          ### Installation Methods
+
+          #### Option 1: Binary (Recommended - No Python Required)
+
+          **Linux (x64):**
+          ```bash
+          # Download and verify
+          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-linux-amd64
+          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-linux-amd64.sha256
+          shasum -a 256 -c ar-infra-linux-amd64.sha256
+
+          # Install
+          chmod +x ar-infra-linux-amd64
+          sudo mv ar-infra-linux-amd64 /usr/local/bin/ar-infra
+          ```
+
+          **macOS (Intel):**
+          ```bash
+          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-macos-amd64
+          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-macos-amd64.sha256
+          shasum -a 256 -c ar-infra-macos-amd64.sha256
+          chmod +x ar-infra-macos-amd64
+          sudo mv ar-infra-macos-amd64 /usr/local/bin/ar-infra
+          ```
+
+          **macOS (Apple Silicon M1/M2):**
+          ```bash
+          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-macos-arm64
+          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-macos-arm64.sha256
+          shasum -a 256 -c ar-infra-macos-arm64.sha256
+          chmod +x ar-infra-macos-arm64
+          sudo mv ar-infra-macos-arm64 /usr/local/bin/ar-infra
+          ```
+
+          **Windows (PowerShell as Administrator):**
+          ```powershell
+          # Download and install
+          Invoke-WebRequest -Uri "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-windows-amd64.exe" -OutFile "ar-infra.exe"
+          Invoke-WebRequest -Uri "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-windows-amd64.exe.sha256" -OutFile "ar-infra.exe.sha256"
+
+          # Verify checksum
+          certutil -hashfile ar-infra.exe SHA256
+
+          # Move to PATH
+          Move-Item ar-infra.exe C:\Windows\System32\ar-infra.exe
+          ```
+
+          #### Option 2: Install via pip/pipx (Python Required)
+          ```bash
+          # Using pipx (recommended)
+          pipx install ar-infra-cli
+
+          # Or using pip
+          pip install ar-infra-cli
+          ```
+
+          ### Quick Start
+          ```bash
+          # Interactive mode
+          ar-infra init
+
+          # With options
+          ar-infra init --group=com.example --artifact=myapp --features=postgresql,rabbitmq
+          ```
+
+          ### Security
+
+          - Verify checksums before installation
+          - Binaries built via GitHub Actions with full audit trail
+          - [View source code](${{ github.server_url }}/${{ github.repository }})
+
+          ### Documentation
+
+          Full documentation: https://github.com/${{ github.repository }}
+          EOF
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: security-gate
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/ar-infra-cli
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build package
+        run: python -m build
+
+      - name: Check distribution
+        run: |
+          twine check dist/*
+          ls -lah dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          verbose: true
+          print-hash: true

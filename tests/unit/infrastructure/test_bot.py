@@ -22,12 +22,10 @@ class TestBotIdentity:
         assert identity.name == "my-bot[bot]"
         assert identity.email == "123456+my-bot[bot]@users.noreply.github.com"
 
+    @patch("src.ar_infra.infrastructure.processor.bot.GITHUB_TOKEN", None)
     @patch("src.ar_infra.infrastructure.processor.bot.requests.get")
-    @patch("src.ar_infra.infrastructure.processor.bot.os.getenv")
-    def test_from_github_app_fetches_id_from_api(self, mock_getenv: Mock, mock_get: Mock) -> None:
-        # Mock no GITHUB_TOKEN in environment
-        mock_getenv.return_value = None
-
+    def test_from_github_app_fetches_id_from_api(self, mock_get: Mock) -> None:
+        """Test fetching bot ID from API when GITHUB_TOKEN is not set."""
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
         mock_response.json.return_value = {"id": 987654}
@@ -43,14 +41,9 @@ class TestBotIdentity:
             headers={},
         )
 
+    @patch("src.ar_infra.infrastructure.processor.bot.GITHUB_TOKEN", "ghp_test_token_123")
     @patch("src.ar_infra.infrastructure.processor.bot.requests.get")
-    @patch("src.ar_infra.infrastructure.processor.bot.os.getenv")
-    def test_from_github_app_uses_github_token_when_available(
-        self, mock_getenv: Mock, mock_get: Mock
-    ) -> None:
-        # Mock GITHUB_TOKEN in environment
-        mock_getenv.return_value = "ghp_test_token_123"
-
+    def test_from_github_app_uses_github_token_when_available(self, mock_get: Mock) -> None:
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
         mock_response.json.return_value = {"id": 987654}
@@ -76,7 +69,6 @@ class TestBotIdentity:
 
         identity = BotIdentity.from_github_app(bot_slug="fail-bot")
 
-        # Should use fallback ID
         assert identity.name == "fail-bot[bot]"
         assert identity.email == "123456789+fail-bot[bot]@users.noreply.github.com"
 
@@ -97,7 +89,6 @@ class TestBotIdentity:
 
         identity = BotIdentity.from_github_app(bot_slug="rate-limited-bot")
 
-        # Should use fallback ID
         assert identity.name == "rate-limited-bot[bot]"
         assert identity.email == "123456789+rate-limited-bot[bot]@users.noreply.github.com"
 
@@ -107,7 +98,6 @@ class TestBotIdentity:
 class TestBotGitHandler:
     @pytest.fixture
     def handler(self) -> BotGitHandler:
-        """Handler with a fixed test identity."""
         identity = BotIdentity(
             name="test-bot[bot]", email="999+test-bot[bot]@users.noreply.github.com"
         )
@@ -179,7 +169,7 @@ class TestBotGitHandler:
         assert second_call_path == temp_output / ".git"
 
     @patch("src.ar_infra.infrastructure.processor.bot.subprocess.run")
-    def test_run_command_raises_gitcommanderror_on_failure(
+    def test_run_command_raises_git_command_error_on_failure(
         self,
         mock_run: Mock,
         handler: BotGitHandler,
@@ -198,7 +188,7 @@ class TestBotGitHandler:
         assert "something wrong" in exc.value.stderr
 
     @patch("src.ar_infra.infrastructure.processor.bot.subprocess.run")
-    def test_run_command_raises_repositoryerror_when_command_missing(
+    def test_run_command_raises_repository_error_when_command_missing(
         self,
         mock_run: Mock,
         handler: BotGitHandler,

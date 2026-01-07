@@ -9,8 +9,6 @@ from src.ar_infra.cli.prompt.interactive_prompt import InteractivePrompt
 
 
 class TestInteractivePrompt:
-    """Test suite for InteractivePrompt class."""
-
     @pytest.fixture
     def prompt(self) -> InteractivePrompt:
         return InteractivePrompt()
@@ -36,7 +34,7 @@ class TestInteractivePrompt:
             "my-app",
         ]
         mock_checkbox.return_value.ask.return_value = ["postgresql", "email"]
-        # First confirm: use_cache=True, Second confirm: proceed=True
+
         mock_confirm.return_value.ask.side_effect = [True, True]
 
         result = prompt.collect_inputs()
@@ -112,7 +110,7 @@ class TestInteractivePrompt:
             "s3_bucket",
             "email",
         ]
-        # First confirm: use_cache=True, Second confirm: proceed=True
+
         mock_confirm.return_value.ask.side_effect = [True, True]
 
         result = prompt.collect_inputs()
@@ -145,7 +143,7 @@ class TestInteractivePrompt:
             "custom-project-name",
         ]
         mock_checkbox.return_value.ask.return_value = ["postgresql"]
-        # First confirm: use_cache=True, Second confirm: proceed=True
+
         mock_confirm.return_value.ask.side_effect = [True, True]
 
         result = prompt.collect_inputs()
@@ -201,7 +199,6 @@ class TestInteractivePrompt:
     ) -> None:
         """Test when user declines to proceed but chooses to start over."""
         mock_text.return_value.ask.side_effect = [
-            # First attempt
             "com.example",
             "my-app",
             "1.0.0",

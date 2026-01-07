@@ -7,8 +7,6 @@ from src.ar_infra.domain.value_objects.version import Version
 
 
 class TestVersion:
-    """Test suite for Version value object."""
-
     def test_create_semantic_version(self) -> None:
         version = Version("1.0.0")
         assert version.value == "1.0.0"

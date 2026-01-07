@@ -6,8 +6,6 @@ from typing import final
 
 
 class GradleConfiguration(str, Enum):
-    """Gradle dependency configurations."""
-
     IMPLEMENTATION = "implementation"
     TEST_IMPLEMENTATION = "testImplementation"
     RUNTIME_ONLY = "runtimeOnly"

@@ -23,8 +23,6 @@ from src.ar_infra.infrastructure.gradle.gradle_writter import GradleWriter
 
 
 class TestGradleWriter:
-    """Test suite for GradleWriter."""
-
     @pytest.fixture
     def writer(self) -> GradleWriter:
         return GradleWriter()

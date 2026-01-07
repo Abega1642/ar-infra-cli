@@ -23,10 +23,6 @@ class FormatScriptRunner:
     _SCRIPT_NAME = "format.sh"
 
     def run(self, project_root: Path) -> None:
-        """Locate and execute ./format.sh.
-
-        :param project_root: Root directory of the generated project
-        """
         script_path = project_root / self._SCRIPT_NAME
 
         if not script_path.exists():

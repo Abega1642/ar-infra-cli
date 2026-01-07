@@ -10,7 +10,7 @@ It will typically be used to:
 - Prefix Java/Kotlin package names
 
 Example:
-  --group dev.razafindratelo
+  --group=dev.razafindratelo
 """
 
 ARTIFACT_OPTION_HELP = """
@@ -24,7 +24,7 @@ and is typically used as:
 It should be lowercase and may contain hyphens.
 
 Example:
-  --artifact feature-test
+  --artifact=feature-test
 """
 
 VERSION_OPTION_HELP = """
@@ -36,7 +36,7 @@ by Gradle for dependency resolution and publishing.
 Semantic versioning is recommended.
 
 Example:
-  --version 1.0.0
+  --project-version=1.0.0
 """
 
 PATH_OPTION_HELP = """
@@ -46,7 +46,7 @@ If the directory does not exist, it will be created.
 If omitted, the current working directory is used.
 
 Example:
-  --path ~/projects
+  --path=~/projects
 """
 
 PROJECT_DIR_OPTION_HELP = """
@@ -76,7 +76,7 @@ This option explicitly disables features that may be enabled
 by default or via templates.
 
 Example:
-  --no-features=rabbitmq
+  --disable-features=rabbitmq
 """
 
 NO_CACHE_OPTION_HELP = """

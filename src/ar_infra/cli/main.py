@@ -25,13 +25,12 @@ from src.ar_infra.properties import CLI_VERSION
 @click.version_option(version=CLI_VERSION, prog_name="ar-infra-cli")
 @click.option(
     "--help",
-    "show_help_flag",  # Map --help to show_help_flag parameter
+    "show_help_flag",
     is_flag=True,
     help="Show this message and exit.",
 )
 @click.pass_context
 def cli(ctx: click.Context, *, show_help_flag: bool = False) -> None:
-    """Ar-infra cli."""
     if show_help_flag:
         show_help()
         ctx.exit()
@@ -47,7 +46,6 @@ def _show_help_and_exit(
     _param: click.Parameter,
     value: bool,  # noqa: FBT001
 ) -> None:
-    """Show help and exit if requested."""
     if value:
         show_help()
         ctx.exit()
@@ -82,7 +80,6 @@ def init(
     *,
     no_cache: bool,
 ) -> None:
-    """Initialize a new Spring Boot project."""
     command = InitCommand()
     args = InitCommandArgs(
         group=group,

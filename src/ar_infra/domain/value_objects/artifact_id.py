@@ -17,8 +17,6 @@ from src.ar_infra.domain.exceptions.validation_error import InvalidArtifactIdErr
 @final
 @dataclass(frozen=True, slots=True)
 class ArtifactId:
-    """Immutable value object representing a Maven/Gradle artifact identifier."""
-
     value: str
 
     def __post_init__(self) -> None:

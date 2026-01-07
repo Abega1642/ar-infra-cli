@@ -38,8 +38,6 @@ from src.ar_infra.infrastructure.template.project_signature import (
 
 @dataclass(frozen=True)
 class InitCommandArgs:
-    """Init command args (from user input)."""
-
     group: str | None
     artifact: str | None
     version: str | None
@@ -91,9 +89,7 @@ class InitCommand:
             self._execute_cli(args)
 
     def _execute_interactive(self) -> None:
-        """Execute interactive mode."""
         Banner.show(wait_for_enter=True)
-        Messages.welcome()
         try:
             inputs = self.interactive_prompt.collect_inputs()
 
@@ -113,7 +109,6 @@ class InitCommand:
             sys.exit(0)
 
     def _generate_project(self, project_input: GenerateProjectInput) -> None:
-        """Generate the project."""
         with ProgressIndicator.steps(7) as (progress, task):
             progress.update(task, description="Fetching template...")
             progress.advance(task)
@@ -131,7 +126,6 @@ class InitCommand:
                 sys.exit(1)
 
     def _execute_cli(self, args: InitCommandArgs) -> None:
-        """Execute CLI mode."""
         if not args.group:
             self._abort("--group is required when not using interactive mode")
         if not args.artifact:
@@ -218,12 +212,10 @@ class InitCommand:
             self._abort(f"I/O error: {exc}")
 
     def _abort(self, message: str) -> NoReturn:
-        """Abort execution with error message."""
         Messages.error(message)
         raise SystemExit(1)
 
     def _validate_destination_path(self, destination_path: str) -> Path:
-        """Validate destination path with security checks."""
         try:
             return self.security_validator.validate_destination_path(destination_path)
         except DangerousPathError as exc:
@@ -237,7 +229,6 @@ class InitCommand:
             raise SystemExit(1) from exc
 
     def _validate_project_directory_name(self, project_dir_name: str) -> str:
-        """Validate project directory name."""
         try:
             return self.security_validator.validate_project_directory_name(project_dir_name)
         except ValueError as exc:
@@ -247,7 +238,6 @@ class InitCommand:
     def _resolve_project_dir(
         self, validated_destination: Path, validated_project_name: str
     ) -> Path:
-        """Resolve and validate complete project path."""
         try:
             resolver = SafeProjectPathResolver(
                 destination_path=str(validated_destination),
@@ -267,7 +257,6 @@ class InitCommand:
         features: str | None,
         no_features: str | None,
     ) -> set[str]:
-        """Parse feature flags from command line arguments."""
         all_features = {"postgresql", "rabbitmq", "s3_bucket", "email"}
 
         if features is not None:
@@ -282,7 +271,6 @@ class InitCommand:
         return all_features
 
     def _convert_features(self, feature_names: set[str]) -> set[TemplateFeature]:
-        """Convert feature name strings to TemplateFeature enums."""
         feature_map = {
             "postgresql": TemplateFeature.POSTGRESQL,
             "rabbitmq": TemplateFeature.RABBITMQ,

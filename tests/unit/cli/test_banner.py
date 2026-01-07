@@ -10,30 +10,24 @@ from src.ar_infra.cli.ui.banner import Banner
 
 
 class TestBanner:
-    """Test suite for Banner class."""
-
     def test_show_banner(self, capsys):
-        """Test that banner can be displayed."""
         Banner.show(wait_for_enter=False)
         captured = capsys.readouterr()
         assert len(captured.out) > 0, "Banner should produce output"
 
     def test_banner_contains_text(self, capsys):
-        """Test that banner contains expected text."""
         Banner.show(wait_for_enter=False)
         captured = capsys.readouterr()
         text_only = re.sub(r"\x1b\[[0-9;]*m", "", captured.out)
         assert "AR" in text_only or "INFRA" in text_only, "Banner should contain AR-INFRA text"
 
     def test_banner_waits_for_enter(self, capsys):
-        """Test that banner waits for Enter key when wait_for_enter=True."""
         with patch("builtins.input", return_value=""):
             Banner.show(wait_for_enter=True)
             captured = capsys.readouterr()
             assert "Press Enter to continue" in captured.out
 
     def test_banner_handles_keyboard_interrupt(self, capsys):
-        """Test that banner handles keyboard interrupt gracefully."""
         with patch("builtins.input", side_effect=KeyboardInterrupt):
             with pytest.raises(KeyboardInterrupt, match="Banner display cancelled by user"):
                 Banner.show(wait_for_enter=True)
@@ -49,7 +43,6 @@ class TestBanner:
             assert "Operation cancelled" in captured.out
 
     def test_banner_has_ansi_codes(self):
-        """Test that banner contains ANSI escape codes."""
         banner_path = Path("src/ar_infra/cli/resources/banner.txt")
 
         if banner_path.exists():
@@ -62,7 +55,6 @@ class TestBanner:
                 pytest.skip("Banner generated without 256-color codes (CI environment)")
 
     def test_banner_ocean_palette_colors(self):
-        """Test that banner uses expected ocean palette colors (if available)."""
         banner_path = Path("src/ar_infra/cli/resources/banner.txt")
 
         if banner_path.exists():
@@ -79,17 +71,14 @@ class TestBanner:
             ), f"Expected ocean palette colors not found. Found: {found_colors}"
 
     def test_banner_file_exists(self):
-        """Test that banner file exists."""
         banner_path = Path("src/ar_infra/cli/resources/banner.txt")
         assert banner_path.exists(), "Banner file should exist"
 
     def test_banner_file_not_empty(self):
-        """Test that banner file is not empty."""
         banner_path = Path("src/ar_infra/cli/resources/banner.txt")
         assert banner_path.stat().st_size > 0, "Banner file should not be empty"
 
     def test_banner_file_contains_block_characters(self):
-        """Test that banner contains block drawing characters."""
         banner_path = Path("src/ar_infra/cli/resources/banner.txt")
         banner = banner_path.read_text(encoding="utf-8")
         assert any(
@@ -97,7 +86,6 @@ class TestBanner:
         ), "Banner should contain block or box drawing characters"
 
     def test_banner_reasonable_size(self):
-        """Test that banner file is reasonable size (not too small, not too large)."""
         banner_path = Path("src/ar_infra/cli/resources/banner.txt")
         size = banner_path.stat().st_size
         assert 100 < size < 5000, f"Banner file size should be reasonable (got {size} bytes)"

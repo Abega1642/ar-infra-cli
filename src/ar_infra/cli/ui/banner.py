@@ -1,11 +1,14 @@
 """Banner display utilities."""
 
+import sys
 from pathlib import Path
 
 from rich.panel import Panel
 from rich.text import Text
 
+from src.ar_infra.cli.ui.color_properties import PRIMARY, SECONDARY
 from src.ar_infra.cli.ui.console import console
+from src.ar_infra.cli.ui.welcome import show_welcome
 
 
 DEFAULT_BANNER = """
@@ -20,13 +23,15 @@ class Banner:
     """Handles banner display with oh-my-logo integration."""
 
     @staticmethod
-    def _load_banner() -> str:
-        """Load the generated banner from text file.
+    def _get_resource_path() -> Path:
+        if getattr(sys, "frozen", False):
+            base_path = Path(sys._MEIPASS)  # type: ignore[attr-defined]  # pylint: disable=protected-access
+            return base_path / "ar_infra" / "cli" / "resources"
+        return Path(__file__).parent.parent / "resources"
 
-        Returns:
-            str: Banner text with ANSI color codes, or default banner if not found.
-        """
-        banner_path = Path(__file__).parent.parent / "resources" / "banner.txt"
+    @staticmethod
+    def _load_banner() -> str:
+        banner_path = Banner._get_resource_path() / "banner.txt"
 
         if banner_path.exists():
             try:
@@ -50,23 +55,15 @@ class Banner:
             return DEFAULT_BANNER.strip()
 
     @classmethod
-    def show(cls, *, wait_for_enter: bool = True) -> None:
-        """Display the AR-INFRA banner with welcome message.
-
-        Args:
-            wait_for_enter: If True, wait for user to press Enter before continuing
-        """
+    def show(cls, *, wait_for_enter: bool = True, show_welcome_message: bool = True) -> None:
         logo = cls._load_banner()
-
-        primary = "#B9BDC6"
-        secondary = "#8A8F99"
-        border = "#5E646E"
+        border = "#b8b3e6"
 
         console.print(
             Panel.fit(
                 Text(
-                    " Welcome to AR-INFRA Generator ",
-                    style=f"bold {primary}",
+                    " AR-INFRA CLI - Spring boot app generator ",
+                    style=f"bold {PRIMARY}",
                 ),
                 border_style=border,
                 padding=(0, 1),
@@ -82,18 +79,17 @@ class Banner:
             Text(
                 "Production-ready Spring Boot infrastructure.\n"
                 "Designed for clean architecture and enterprise systems.",
-                style=secondary,
+                style=SECONDARY,
             )
         )
         console.print()
 
+        if show_welcome_message:
+            show_welcome(console)
+
         if wait_for_enter:
-            console.print(
-                Text(
-                    "Press Enter to continue…",
-                    style="#6F7480",
-                )
-            )
+            hint = Text("Press Enter to continue…", style="#9d97d9")
+            console.print(hint)
 
             try:
                 input()

@@ -17,16 +17,12 @@ from src.ar_infra.infrastructure.gradle.gradle_parser import GradleParser
 
 
 class TestGradleParser:
-    """Test suite for GradleParser."""
-
     @pytest.fixture
     def parser(self) -> GradleParser:
-        """Create GradleParser instance."""
         return GradleParser()
 
     @pytest.fixture
     def sample_build_file(self, tmp_path: Path) -> Path:
-        """Create a temporary build.gradle file."""
         build_file = tmp_path / "build.gradle"
         build_file.write_text(SAMPLE_BUILD_GRADLE)
         return build_file
@@ -36,7 +32,6 @@ class TestGradleParser:
         parser: GradleParser,
         sample_build_file: Path,
     ) -> None:
-        """Test parsing group and version from build.gradle."""
         group, version = parser.parse_group_and_version(sample_build_file)
         assert group == "com.example"
         assert version == "0.0.1-SNAPSHOT"
@@ -46,12 +41,10 @@ class TestGradleParser:
         parser: GradleParser,
         sample_build_file: Path,
     ) -> None:
-        """Test parsing dependencies from build.gradle."""
         dependencies = parser.parse_dependencies(sample_build_file)
 
         assert len(dependencies) >= 3
 
-        # Check for specific dependencies
         web_dep = next(
             (d for d in dependencies if "spring-boot-starter-web" in d.name),
             None,
@@ -77,7 +70,6 @@ class TestGradleParser:
         parser: GradleParser,
         sample_build_file: Path,
     ) -> None:
-        """Test parsing Java version from build.gradle."""
         java_version = parser.parse_java_version(sample_build_file)
         assert java_version == "21"
 
@@ -86,7 +78,6 @@ class TestGradleParser:
         parser: GradleParser,
         sample_build_file: Path,
     ) -> None:
-        """Test parsing plugins from build.gradle."""
         plugins = parser.parse_plugins(sample_build_file)
 
         assert "java" in plugins
@@ -94,7 +85,6 @@ class TestGradleParser:
         assert plugins["org.springframework.boot"] == "3.2.0"
 
     def test_parse_nonexistent_file(self, parser: GradleParser) -> None:
-        """Test parsing non-existent file raises error."""
         with pytest.raises(GradleParseError, match="does not exist"):
             parser.parse_group_and_version(Path("/nonexistent/build.gradle"))
 
@@ -103,7 +93,6 @@ class TestGradleParser:
         parser: GradleParser,
         tmp_path: Path,
     ) -> None:
-        """Test parsing malformed Gradle file raises error."""
         malformed_file = tmp_path / "build.gradle"
         malformed_file.write_text("group = 'com.example'\nthis is not valid groovy {{")
 
@@ -115,7 +104,6 @@ class TestGradleParser:
         parser: GradleParser,
         tmp_path: Path,
     ) -> None:
-        """Test detection of malicious content in Gradle files."""
         malicious_file = tmp_path / "build.gradle"
         malicious_file.write_text(MALICIOUS_BUILD_GRADLE)
 
@@ -127,7 +115,6 @@ class TestGradleParser:
         parser: GradleParser,
         tmp_path: Path,
     ) -> None:
-        """Test that path traversal in dependencies is detected."""
         malicious_gradle = """
         dependencies {
             implementation '../../../etc/passwd'
@@ -145,7 +132,6 @@ class TestGradleParser:
         parser: GradleParser,
         tmp_path: Path,
     ) -> None:
-        """Test handling of empty dependencies block."""
         gradle_content = """
         group = 'com.example'
         version = '1.0.0'
@@ -164,7 +150,6 @@ class TestGradleParser:
         parser: GradleParser,
         tmp_path: Path,
     ) -> None:
-        """Test handling of missing dependencies block."""
         gradle_content = """
         group = 'com.example'
         version = '1.0.0'
@@ -180,7 +165,6 @@ class TestGradleParser:
         parser: GradleParser,
         tmp_path: Path,
     ) -> None:
-        """Test parsing multiline dependency declarations."""
         gradle_content = """
         dependencies {
             implementation(
@@ -200,7 +184,6 @@ class TestGradleParser:
         assert len(dependencies) == 2
 
     def test_file_size_limit(self, parser: GradleParser, tmp_path: Path) -> None:
-        """Test that excessively large files are rejected (DoS prevention)."""
         large_file = tmp_path / "build.gradle"
         large_content = "// comment\n" * 500000
         large_file.write_text(large_content)

@@ -34,19 +34,6 @@ class GradleParser:
     """
 
     def parse_group_and_version(self, build_file: Path) -> tuple[str, str]:
-        """
-        Parse group and version from build.gradle.
-
-        Args:
-            build_file: Path to build.gradle file.
-
-        Returns:
-            Tuple of (group, version).
-
-        Raises:
-            GradleParseError: If parsing fails.
-            MaliciousContentError: If malicious content is detected.
-        """
         content = self._read_and_validate_file(build_file)
 
         group_match = GROUP_PATTERN.search(content)
@@ -65,19 +52,6 @@ class GradleParser:
         return group, version
 
     def parse_dependencies(self, build_file: Path) -> list[GradleDependency]:
-        """
-        Parse dependencies from build.gradle.
-
-        Args:
-            build_file: Path to build.gradle file.
-
-        Returns:
-            List of GradleDependency objects.
-
-        Raises:
-            GradleParseError: If parsing fails.
-            MaliciousContentError: If malicious content is detected.
-        """
         content = self._read_and_validate_file(build_file)
 
         dependencies: list[GradleDependency] = []
@@ -113,18 +87,6 @@ class GradleParser:
         return dependencies
 
     def parse_java_version(self, build_file: Path) -> str:
-        """
-        Parse Java version from build.gradle.
-
-        Args:
-            build_file: Path to build.gradle file.
-
-        Returns:
-            Java version as string (e.g., "21").
-
-        Raises:
-            GradleParseError: If parsing fails.
-        """
         content = self._read_and_validate_file(build_file)
 
         match = JAVA_VERSION_PATTERN.search(content)
@@ -134,18 +96,6 @@ class GradleParser:
         return match.group(1)
 
     def parse_plugins(self, build_file: Path) -> dict[str, str | None]:
-        """
-        Parse plugins from build.gradle.
-
-        Args:
-            build_file: Path to build.gradle file.
-
-        Returns:
-            Dictionary of plugin_id -> version (or None if no version).
-
-        Raises:
-            GradleParseError: If parsing fails.
-        """
         content = self._read_and_validate_file(build_file)
 
         plugins: dict[str, str | None] = {}
@@ -158,19 +108,6 @@ class GradleParser:
         return plugins
 
     def _read_and_validate_file(self, file_path: Path) -> str:
-        """
-        Read and validate Gradle file with security checks.
-
-        Args:
-            file_path: Path to file.
-
-        Returns:
-            File content as string.
-
-        Raises:
-            GradleParseError: If file is invalid.
-            MaliciousContentError: If malicious content is detected.
-        """
         if not file_path.exists():
             raise GradleParseError(f"File does not exist: {file_path}")
 
@@ -195,16 +132,6 @@ class GradleParser:
         return content
 
     def _detect_malicious_content(self, content: str, file_path: Path) -> None:
-        """
-        Detect potentially malicious content in Gradle files.
-
-        Args:
-            content: File content.
-            file_path: Path to file (for error messages).
-
-        Raises:
-            MaliciousContentError: If malicious content is detected.
-        """
         for pattern in MALICIOUS_PATTERNS:
             if pattern.search(content):
                 raise MaliciousContentError(
@@ -213,15 +140,6 @@ class GradleParser:
                 )
 
     def _validate_group(self, group: str) -> None:
-        """
-        Validate group ID.
-
-        Args:
-            group: Group ID to validate.
-
-        Raises:
-            GradleParseError: If group is invalid.
-        """
         if not group or not group.strip():
             raise GradleParseError("Group ID cannot be empty")
 
@@ -229,15 +147,6 @@ class GradleParser:
             raise GradleParseError(f"Invalid group ID: {group}")
 
     def _validate_version(self, version: str) -> None:
-        """
-        Validate version string.
-
-        Args:
-            version: Version to validate.
-
-        Raises:
-            GradleParseError: If version is invalid.
-        """
         if not version or not version.strip():
             raise GradleParseError("Version cannot be empty")
 
@@ -245,15 +154,6 @@ class GradleParser:
             raise GradleParseError(f"Invalid version: {version}")
 
     def _parse_configuration(self, config_str: str) -> GradleConfiguration:
-        """
-        Parse configuration string to enum.
-
-        Args:
-            config_str: Configuration string (e.g., "implementation").
-
-        Returns:
-            GradleConfiguration enum value.
-        """
         config_map = {
             "implementation": GradleConfiguration.IMPLEMENTATION,
             "testImplementation": GradleConfiguration.TEST_IMPLEMENTATION,

@@ -18,8 +18,6 @@ PORT=8080
 
 
 class TestFeatureManager:
-    """Test suite for FeatureManager."""
-
     @pytest.fixture
     def mock_env_handler(self) -> Mock:
         return Mock()

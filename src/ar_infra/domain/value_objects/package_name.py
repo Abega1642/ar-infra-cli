@@ -16,8 +16,6 @@ from src.ar_infra.domain.value_objects.group_id import GroupId
 @final
 @dataclass(frozen=True, slots=True)
 class PackageName:
-    """Immutable value object representing a full Java package name."""
-
     value: str
 
     def __post_init__(self) -> None:

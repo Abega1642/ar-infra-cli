@@ -23,8 +23,6 @@ _QUALIFIER_LABEL_RANK = {
 @final
 @dataclass(frozen=True, slots=True)
 class Version:
-    """Immutable value object representing a semantic version."""
-
     value: str
     _parsed: tuple[int, int, int, str | None] = field(init=False, repr=False)
 

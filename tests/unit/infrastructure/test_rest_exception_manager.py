@@ -20,7 +20,6 @@ from src.ar_infra.infrastructure.template.rest_exception_manager import RestExce
 
 @pytest.fixture
 def sample_exception_handler() -> str:
-    """Sample ApiExceptionHandler.java content."""
     return API_EXCEPTION_HANDLER_SAMPLE
 
 
@@ -39,10 +38,7 @@ def temp_project_dir(tmp_path_factory: TempPathFactory, sample_exception_handler
 
 
 class TestRestExceptionHandlerManager:
-    """Test suite for RestExceptionHandlerManager."""
-
     def test_remove_bucket_exceptions_only(self, temp_project_dir: Path) -> None:
-        """Test removing only S3 bucket exception handlers."""
         manager = RestExceptionHandlerManager()
         enabled_features = {TemplateFeature.EMAIL, TemplateFeature.POSTGRESQL}
 
@@ -61,7 +57,6 @@ class TestRestExceptionHandlerManager:
         assert "handleGenericException" in content
 
     def test_remove_email_exceptions_only(self, temp_project_dir: Path) -> None:
-        """Test removing only email exception handlers."""
         manager = RestExceptionHandlerManager()
         enabled_features = {TemplateFeature.S3_BUCKET, TemplateFeature.POSTGRESQL}
 
@@ -78,7 +73,6 @@ class TestRestExceptionHandlerManager:
         assert "handleEntityNotFoundException" in content
 
     def test_remove_postgresql_exceptions_only(self, temp_project_dir: Path) -> None:
-        """Test removing only PostgreSQL exception handlers."""
         manager = RestExceptionHandlerManager()
         enabled_features = {TemplateFeature.S3_BUCKET, TemplateFeature.EMAIL}
 
@@ -95,7 +89,6 @@ class TestRestExceptionHandlerManager:
         assert "handleEmailHealthCheckException" in content
 
     def test_remove_all_feature_exceptions(self, temp_project_dir: Path) -> None:
-        """Test removing all feature-specific exception handlers."""
         manager = RestExceptionHandlerManager()
         enabled_features: set[TemplateFeature] = set()
 
@@ -114,7 +107,6 @@ class TestRestExceptionHandlerManager:
         assert "handleGenericException" in content
 
     def test_keep_all_exceptions_when_all_enabled(self, temp_project_dir: Path) -> None:
-        """Test keeping all exception handlers when all features are enabled."""
         manager = RestExceptionHandlerManager()
         enabled_features = {
             TemplateFeature.S3_BUCKET,
@@ -137,7 +129,6 @@ class TestRestExceptionHandlerManager:
         assert "handleGenericException" in content
 
     def test_no_exception_handler_file(self, tmp_path: Path) -> None:
-        """Test handling when ApiExceptionHandler.java doesn't exist."""
         manager = RestExceptionHandlerManager()
         enabled_features = {TemplateFeature.EMAIL}
 
@@ -147,7 +138,6 @@ class TestRestExceptionHandlerManager:
     def test_multiple_exception_handler_files_raises_error(
         self, tmp_path: Path, sample_exception_handler: str
     ) -> None:
-        """Test that multiple ApiExceptionHandler.java files raise an error."""
         dir1 = tmp_path / "src1" / "controller"
         dir2 = tmp_path / "src2" / "controller"
         dir1.mkdir(parents=True)
@@ -165,7 +155,6 @@ class TestRestExceptionHandlerManager:
             manager.apply_feature_selection(tmp_path, enabled_features)
 
     def test_preserves_generic_exception_handler(self, temp_project_dir: Path) -> None:
-        """Test that generic Exception handler is always preserved."""
         manager = RestExceptionHandlerManager()
         enabled_features: set[TemplateFeature] = set()
 

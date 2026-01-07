@@ -34,7 +34,6 @@ class EnvHandler:
         env_file.write_text(updated_content, encoding="utf-8")
 
     def _should_remove_line(self, line: str, prefixes_to_remove: set[str]) -> bool:
-        """Check if a line should be removed based on prefixes."""
         stripped = line.strip()
 
         if not stripped or stripped.startswith("#"):

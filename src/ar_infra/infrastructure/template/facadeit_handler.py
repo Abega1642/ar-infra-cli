@@ -100,7 +100,6 @@ class FacadeITHandler:
 
     @staticmethod
     def _update_brace_depth(line: str, current_depth: int) -> int:
-        """Update brace depth based on braces in the line."""
         depth = current_depth
         depth += line.count("{")
         depth -= line.count("}")
