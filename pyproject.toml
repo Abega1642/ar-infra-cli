@@ -78,11 +78,10 @@ dev = [
 ]
 
 [project.scripts]
-ar_infra = "ar_infra.cli.app:main"
+ar-infra = "ar_infra.cli.main:cli"
 
 [project.urls]
 Homepage = "https://github.com/Abega1642/ar-infra-cli"
-Documentation = ""
 Repository = "https://github.com/Abega1642/ar-infra-cli"
 Issues = "https://github.com/Abega1642/ar-infra-cli/issues"
 
@@ -112,68 +111,68 @@ extend-exclude = [
 
 [tool.ruff.lint]
 select = [
-    "E",     # pycodestyle errors
-    "W",     # pycodestyle warnings
-    "F",     # pyflakes
-    "I",     # isort
-    "C",     # flake8-comprehensions
-    "B",     # flake8-bugbear
-    "UP",    # pyupgrade
-    "N",     # pep8-naming
-    "YTT",   # flake8-2020
-    "S",     # flake8-bandit
-    "BLE",   # flake8-blind-except
-    "FBT",   # flake8-boolean-trap
-    "A",     # flake8-builtins
-    "COM",   # flake8-commas
-    "C4",    # flake8-comprehensions
-    "DTZ",   # flake8-datetimez
-    "T10",   # flake8-debugger
-    "EM",    # flake8-errmsg
-    "ISC",   # flake8-implicit-str-concat
-    "ICN",   # flake8-import-conventions
-    "G",     # flake8-logging-format
-    "PIE",   # flake8-pie
-    "T20",   # flake8-print
-    "PT",    # flake8-pytest-style
-    "Q",     # flake8-quotes
-    "RSE",   # flake8-raise
-    "RET",   # flake8-return
-    "SIM",   # flake8-simplify
-    "TID",   # flake8-tidy-imports
-    "TCH",   # flake8-type-checking
-    "ARG",   # flake8-unused-arguments
-    "PTH",   # flake8-use-pathlib
-    "ERA",   # eradicate
-    "PD",    # pandas-vet
-    "PGH",   # pygrep-hooks
-    "PL",    # pylint
-    "TRY",   # tryceratops
-    "NPY",   # numpy-specific rules
-    "RUF",   # ruff-specific rules
+    "E",
+    "W",
+    "F",
+    "I",
+    "C",
+    "B",
+    "UP",
+    "N",
+    "YTT",
+    "S",
+    "BLE",
+    "FBT",
+    "A",
+    "COM",
+    "C4",
+    "DTZ",
+    "T10",
+    "EM",
+    "ISC",
+    "ICN",
+    "G",
+    "PIE",
+    "T20",
+    "PT",
+    "Q",
+    "RSE",
+    "RET",
+    "SIM",
+    "TID",
+    "TCH",
+    "ARG",
+    "PTH",
+    "ERA",
+    "PD",
+    "PGH",
+    "PL",
+    "TRY",
+    "NPY",
+    "RUF",
 ]
 ignore = [
     "COM812",
     "ISC001",
     "T201",
-    "E501",    # line too long (handled by formatter)
-    "S101",    # use of assert (OK in tests)
-    "PLR0913", # too many arguments
-    "PLR2004", # magic value comparison
-    "TRY003",  # Avoid specifying long messages outside exception class
-    "EM101",   # Exception must not use string literal
-    "EM102",   # Exception must not use f-string literal
-    "TRY301",  # Abstract raise to inner function
-    "SIM105",  # Use contextlib.suppress
+    "E501",
+    "S101",
+    "PLR0913",
+    "PLR2004",
+    "TRY003",
+    "EM101",
+    "EM102",
+    "TRY301",
+    "SIM105",
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "src/ar_infra/infrastructure/template/github_template_fetcher.py" = ["S104"]
 "tests/**/*.py" = [
-    "S101",    # assert allowed in tests
-    "ARG",     # unused arguments OK in tests
-    "FBT",     # boolean trap OK in tests
-    "PLR2004", # magic values OK in tests
+    "S101",
+    "ARG",
+    "FBT",
+    "PLR2004",
 ]
 
 [tool.ruff.lint.isort]
@@ -195,7 +194,6 @@ target-version = ['py311']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
-  # directories
   \.git
   | \.mypy_cache
   | \.pytest_cache

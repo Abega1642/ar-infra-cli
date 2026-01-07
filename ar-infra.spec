@@ -65,13 +65,13 @@ if ar_infra_dir.exists():
     # Include cli/resources directory (banner.txt, etc.)
     resources_dir = ar_infra_dir / 'cli' / 'resources'
     if resources_dir.exists():
-        print(f"✓ Found resources directory: {resources_dir}")
+        print(f"[OK] Found resources directory: {resources_dir}")
         for item in resources_dir.rglob('*'):
             if item.is_file():
                 print(f"  Adding: {item.name} -> ar_infra/cli/resources/")
                 project_datas.append((str(item), 'ar_infra/cli/resources'))
     else:
-        print(f"✗ Resources directory not found: {resources_dir}")
+        print(f"[WARN] Resources directory not found: {resources_dir}")
         print(f"  Checking if ar_infra_dir exists: {ar_infra_dir.exists()}")
         if ar_infra_dir.exists():
             print(f"  Contents of cli/: {list((ar_infra_dir / 'cli').iterdir()) if (ar_infra_dir / 'cli').exists() else 'cli/ not found'}")

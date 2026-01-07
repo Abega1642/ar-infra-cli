@@ -44,10 +44,7 @@ jobs:
           - os: ubuntu-latest
             artifact_name: ar-infra
             asset_name: ar-infra-linux-amd64
-          - os: macos-13 # Intel
-            artifact_name: ar-infra
-            asset_name: ar-infra-macos-amd64
-          - os: macos-14 # Apple Silicon (M1/M2)
+          - os: macos-14
             artifact_name: ar-infra
             asset_name: ar-infra-macos-arm64
           - os: windows-latest
@@ -86,7 +83,9 @@ jobs:
         shell: bash
 
       - name: Remove .env file
-        run: rm -f .env
+        run: |
+          if [ -f .env ]; then rm .env; fi
+        shell: bash
 
       - name: Rename binary
         run: |
@@ -206,7 +205,7 @@ jobs:
           sudo mv ar-infra-macos-amd64 /usr/local/bin/ar-infra
           ```
 
-          **macOS (Apple Silicon M1/M2):**
+          **macOS (Apple Silicon):**
           ```bash
           curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-macos-arm64
           curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-macos-arm64.sha256
