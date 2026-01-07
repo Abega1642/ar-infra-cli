@@ -66,6 +66,14 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
+      - name: Create .env file from GitHub Secrets
+        run: |
+          cat <<EOF > .env
+          BOT_ID=${{ secrets.BOT_ID }}
+          BOT_SLUG=${{ secrets.BOT_SLUG }}
+          EOF
+        shell: bash
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -76,6 +84,9 @@ jobs:
         run: |
           pyinstaller ar-infra.spec
         shell: bash
+
+      - name: Remove .env file
+        run: rm -f .env
 
       - name: Rename binary
         run: |
