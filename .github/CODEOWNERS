@@ -5,12 +5,17 @@
 .github/ @Abega1642
 
 # Security & governance files
-SECURITY.md @Abega1642
-CODE_OF_CONDUCT.md @Abega1642
-CONTRIBUTING.md @Abega1642
-dependabot.yml @Abega1642
+security.md @Abega1642
+code_of_conduct.md @Abega1642
+contributing.md @Abega1642
+licence
+.github/dependabot.yml @Abega1642
 
-# Build & tooling
-gradle/ @Abega1642
-build.gradle @Abega1642
-settings.gradle @Abega1642
+.markdownlint.yml @Abega1642
+ar-infra.spec @Abega1642
+ar-infra-cli-banner.png @Abega1642
+ar-infra-logo.png @Abega1642
+Makefile @Abega1642
+src/ @Abega1642 @Abega1642
+scripts/ @Abega1642 @Abega1642
+tests/ @Abega1642
