@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ar-infra-cli"
-version = "0.1.0"
+version = "0.1.1"
 description = "Production-ready Spring Boot project generator CLI"
 authors = [
     {name = "Abegà Razafindratelo", email = "a.razafindratelo@gmail.com"}

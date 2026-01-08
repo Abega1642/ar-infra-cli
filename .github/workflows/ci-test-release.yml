@@ -1,0 +1,360 @@
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types:
+      - completed
+    branches:
+      - prod
+      - preprod
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to test (e.g., v0.1.1)"
+        required: true
+        type: string
+
+jobs:
+  check-release-success:
+    name: Verify Release Workflow Success
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
+    outputs:
+      should_run: ${{ steps.verify.outputs.should_run }}
+    steps:
+      - name: Verify workflow success
+        id: verify
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "Manual trigger - proceeding with tests"
+          elif [ "${{ github.event.workflow_run.conclusion }}" == "success" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "Release workflow successful - proceeding with tests"
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            echo "Release workflow did not succeed - skipping tests"
+          fi
+
+  test-binary-linux:
+    name: Test Binary - ${{ matrix.distro }}
+    needs: check-release-success
+    if: needs.check-release-success.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        distro:
+          - ubuntu:20.04
+          - ubuntu:22.04
+          - ubuntu:24.04
+          - debian:11
+          - debian:12
+          - fedora:38
+          - fedora:39
+          - rockylinux:8
+          - rockylinux:9
+          - archlinux:latest
+          - alpine:latest
+
+    container:
+      image: ${{ matrix.distro }}
+
+    steps:
+      - name: Install curl and ca-certificates
+        run: |
+          if command -v apt-get &> /dev/null; then
+            apt-get update && apt-get install -y curl ca-certificates
+          elif command -v dnf &> /dev/null; then
+            dnf install -y curl ca-certificates
+          elif command -v yum &> /dev/null; then
+            yum install -y curl ca-certificates
+          elif command -v pacman &> /dev/null; then
+            pacman -Sy --noconfirm curl ca-certificates
+          elif command -v apk &> /dev/null; then
+            apk add --no-cache curl ca-certificates
+          fi
+        shell: sh
+
+      - name: Determine release tag
+        id: release
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          if [ -n "$RELEASE_TAG" ]; then
+            echo "tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+          else
+            echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+          fi
+        shell: sh
+
+      - name: Download binary
+        run: |
+          TAG="${{ steps.release.outputs.tag }}"
+          curl -LO "https://github.com/${{ github.repository }}/releases/download/${TAG}/ar-infra-linux-amd64"
+          curl -LO "https://github.com/${{ github.repository }}/releases/download/${TAG}/ar-infra-linux-amd64.sha256"
+        shell: sh
+
+      - name: Verify checksum
+        run: |
+          if command -v sha256sum &> /dev/null; then
+            sha256sum -c ar-infra-linux-amd64.sha256
+          elif command -v shasum &> /dev/null; then
+            shasum -a 256 -c ar-infra-linux-amd64.sha256
+          else
+            echo "Warning: No checksum tool available, skipping verification"
+          fi
+        shell: sh
+
+      - name: Install binary
+        run: |
+          chmod +x ar-infra-linux-amd64
+          mv ar-infra-linux-amd64 /usr/local/bin/ar-infra
+        shell: sh
+
+      - name: Test binary execution
+        run: |
+          ar-infra --version
+          ar-infra init --help
+        shell: sh
+
+      - name: Test binary functionality
+        run: |
+          mkdir -p /tmp/test-project
+          cd /tmp/test-project
+          echo "Testing binary on ${{ matrix.distro }}"
+        shell: sh
+
+  test-binary-macos:
+    name: Test Binary - macOS ${{ matrix.runner }}
+    needs: check-release-success
+    if: needs.check-release-success.outputs.should_run == 'true'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-12
+            arch: amd64
+            name: macOS 12 Intel
+          - runner: macos-13
+            arch: amd64
+            name: macOS 13 Intel
+          - runner: macos-14
+            arch: arm64
+            name: macOS 14 Apple Silicon
+
+    steps:
+      - name: Determine release tag
+        id: release
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          if [ -n "$RELEASE_TAG" ]; then
+            echo "tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+          else
+            echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download binary
+        run: |
+          TAG="${{ steps.release.outputs.tag }}"
+          curl -LO "https://github.com/${{ github.repository }}/releases/download/${TAG}/ar-infra-macos-${{ matrix.arch }}"
+          curl -LO "https://github.com/${{ github.repository }}/releases/download/${TAG}/ar-infra-macos-${{ matrix.arch }}.sha256"
+
+      - name: Verify checksum
+        run: |
+          shasum -a 256 -c ar-infra-macos-${{ matrix.arch }}.sha256
+
+      - name: Install binary
+        run: |
+          chmod +x ar-infra-macos-${{ matrix.arch }}
+          sudo mv ar-infra-macos-${{ matrix.arch }} /usr/local/bin/ar-infra
+
+      - name: Test binary execution
+        run: |
+          ar-infra --version
+          ar-infra init --help
+
+      - name: Test binary functionality
+        run: |
+          mkdir -p /tmp/test-project
+          cd /tmp/test-project
+          echo "Testing binary on ${{ matrix.name }}"
+
+  test-binary-windows:
+    name: Test Binary - Windows ${{ matrix.name }}
+    needs: check-release-success
+    if: needs.check-release-success.outputs.should_run == 'true'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2019
+            name: Windows Server 2019
+          - runner: windows-2022
+            name: Windows Server 2022
+
+    steps:
+      - name: Determine release tag
+        id: release
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          if ($env:RELEASE_TAG -ne "") {
+            echo "tag=$env:RELEASE_TAG" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "tag=$env:TAG_NAME" >> $env:GITHUB_OUTPUT
+          }
+        shell: pwsh
+
+      - name: Download binary
+        run: |
+          $TAG = "${{ steps.release.outputs.tag }}"
+          Invoke-WebRequest -Uri "https://github.com/${{ github.repository }}/releases/download/${TAG}/ar-infra-windows-amd64.exe" -OutFile "ar-infra.exe"
+          Invoke-WebRequest -Uri "https://github.com/${{ github.repository }}/releases/download/${TAG}/ar-infra-windows-amd64.exe.sha256" -OutFile "ar-infra.exe.sha256"
+        shell: pwsh
+
+      - name: Verify checksum
+        run: |
+          $hash = (certutil -hashfile ar-infra.exe SHA256 | Select-String -Pattern "^[a-f0-9]{64}$").Line
+          $expected = (Get-Content ar-infra.exe.sha256 | Select-String -Pattern "^[a-f0-9]{64}").Matches.Value
+          if ($hash -ne $expected) {
+            Write-Error "Checksum verification failed"
+            exit 1
+          }
+          Write-Output "Checksum verified successfully"
+        shell: pwsh
+
+      - name: Test binary execution
+        run: |
+          .\ar-infra.exe --version
+          .\ar-infra.exe init --help
+        shell: pwsh
+
+      - name: Test binary functionality
+        run: |
+          $null = New-Item -ItemType Directory -Path "$env:TEMP\test-project" -Force
+          Set-Location "$env:TEMP\test-project"
+          Write-Output "Testing binary on ${{ matrix.name }}"
+        shell: pwsh
+
+  test-pypi-installation:
+    name: Test PyPI - ${{ matrix.os }} (Python ${{ matrix.python-version }})
+    needs: check-release-success
+    if: needs.check-release-success.outputs.should_run == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Wait for PyPI propagation
+        run: |
+          echo "Waiting 60 seconds for PyPI to propagate the new release"
+          sleep 60
+        shell: bash
+
+      - name: Install from PyPI using pip
+        run: |
+          python -m pip install --upgrade pip
+          pip install ar-infra-cli
+
+      - name: Test pip installation
+        run: |
+          ar-infra --version
+          ar-infra init --help
+
+      - name: Uninstall pip version
+        run: |
+          pip uninstall -y ar-infra-cli
+
+      - name: Install from PyPI using pipx
+        run: |
+          python -m pip install --upgrade pipx
+          pipx install ar-infra-cli
+
+      - name: Test pipx installation
+        run: |
+          ar-infra --version
+          ar-infra init --help
+
+  test-pypi-installation-linux-distros:
+    name: Test PyPI - ${{ matrix.distro }} (Python ${{ matrix.python-version }})
+    needs: check-release-success
+    if: needs.check-release-success.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        distro:
+          - ubuntu:22.04
+          - debian:12
+          - fedora:39
+        python-version: ["3.11", "3.12"]
+
+    container:
+      image: ${{ matrix.distro }}
+
+    steps:
+      - name: Install Python and pip
+        run: |
+          if command -v apt-get &> /dev/null; then
+            apt-get update
+            apt-get install -y python${{ matrix.python-version }} python3-pip
+          elif command -v dnf &> /dev/null; then
+            dnf install -y python${{ matrix.python-version }} python3-pip
+          fi
+        shell: sh
+
+      - name: Wait for PyPI propagation
+        run: |
+          echo "Waiting 60 seconds for PyPI to propagate the new release"
+          sleep 60
+        shell: sh
+
+      - name: Install from PyPI
+        run: |
+          python${{ matrix.python-version }} -m pip install --upgrade pip
+          python${{ matrix.python-version }} -m pip install ar-infra-cli
+        shell: sh
+
+      - name: Test installation
+        run: |
+          ar-infra --version
+          ar-infra init --help
+        shell: sh
+
+  report-results:
+    name: Report Test Results
+    needs:
+      - test-binary-linux
+      - test-binary-macos
+      - test-binary-windows
+      - test-pypi-installation
+      - test-pypi-installation-linux-distros
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Check test results
+        run: |
+          if [ "${{ needs.test-binary-linux.result }}" != "success" ] || \
+             [ "${{ needs.test-binary-macos.result }}" != "success" ] || \
+             [ "${{ needs.test-binary-windows.result }}" != "success" ] || \
+             [ "${{ needs.test-pypi-installation.result }}" != "success" ] || \
+             [ "${{ needs.test-pypi-installation-linux-distros.result }}" != "success" ]; then
+            echo "One or more test jobs failed"
+            exit 1
+          fi
+          echo "All test jobs passed successfully"
