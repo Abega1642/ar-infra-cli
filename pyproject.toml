@@ -40,6 +40,7 @@ dependencies = [
     "pyyaml>=6.0.3",
     "python-dotenv>=1.2.1",
     "pathspec>=0.12.1",
+    "pathvalidate>=3.3.1"
 ]
 
 [project.optional-dependencies]
@@ -78,19 +79,17 @@ dev = [
 ]
 
 [project.scripts]
-ar-infra = "ar_infra.cli.main:cli"
+ar-infra = "src.ar_infra.cli.main:cli"
 
 [project.urls]
 Homepage = "https://github.com/Abega1642/ar-infra-cli"
 Repository = "https://github.com/Abega1642/ar-infra-cli"
 Issues = "https://github.com/Abega1642/ar-infra-cli/issues"
 
-[tool.setuptools]
-package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
-where = ["src"]
-include = ["ar_infra*"]
+where = ["."]
+include = ["src", "src.*"]
 namespaces = false
 
 
@@ -242,6 +241,7 @@ show_error_codes = true
 show_column_numbers = true
 pretty = true
 color_output = true
+mypy_path = "src"
 
 [[tool.mypy.overrides]]
 module = "tests.*"
@@ -261,12 +261,13 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = [
     "-ra",
     "-q",
     "--strict-markers",
     "--strict-config",
-    "--cov=src.ar_infra",
+    "--cov=src",
     "--cov-branch",
     "--cov-report=term-missing:skip-covered",
     "--cov-report=html",
@@ -287,7 +288,7 @@ filterwarnings = [
 
 
 [tool.coverage.run]
-source = ["src.ar_infra"]
+source = ["src"]
 branch = true
 omit = [
     "*/tests/*",
