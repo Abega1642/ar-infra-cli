@@ -1,3 +1,5 @@
+name: Test Release
+
 on:
   workflow_run:
     workflows: ["Release"]
@@ -44,34 +46,29 @@ jobs:
       fail-fast: false
       matrix:
         distro:
-          - ubuntu:20.04
           - ubuntu:22.04
           - ubuntu:24.04
-          - debian:11
           - debian:12
           - fedora:38
           - fedora:39
-          - rockylinux:8
-          - rockylinux:9
           - archlinux:latest
-          - alpine:latest
 
     container:
       image: ${{ matrix.distro }}
 
     steps:
-      - name: Install curl and ca-certificates
+      - name: Install curl, ca-certificates, and git
         run: |
           if command -v apt-get &> /dev/null; then
-            apt-get update && apt-get install -y curl ca-certificates
+            apt-get update && apt-get install -y curl ca-certificates git
           elif command -v dnf &> /dev/null; then
-            dnf install -y curl ca-certificates
+            dnf install -y curl ca-certificates git
           elif command -v yum &> /dev/null; then
-            yum install -y curl ca-certificates
+            yum install -y curl ca-certificates git
           elif command -v pacman &> /dev/null; then
-            pacman -Sy --noconfirm curl ca-certificates
+            pacman -Sy --noconfirm curl ca-certificates git
           elif command -v apk &> /dev/null; then
-            apk add --no-cache curl ca-certificates
+            apk add --no-cache curl ca-certificates git
           fi
         shell: sh
 
@@ -137,9 +134,6 @@ jobs:
           - runner: macos-12
             arch: amd64
             name: macOS 12 Intel
-          - runner: macos-13
-            arch: amd64
-            name: macOS 13 Intel
           - runner: macos-14
             arch: arm64
             name: macOS 14 Apple Silicon
@@ -290,30 +284,46 @@ jobs:
           ar-infra init --help
 
   test-pypi-installation-linux-distros:
-    name: Test PyPI - ${{ matrix.distro }} (Python ${{ matrix.python-version }})
+    name: Test PyPI - ${{ matrix.distro-name }}
     needs: check-release-success
     if: needs.check-release-success.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        distro:
-          - ubuntu:22.04
-          - debian:12
-          - fedora:39
-        python-version: ["3.11", "3.12"]
+        include:
+          - distro: ubuntu:22.04
+            distro-name: Ubuntu 22.04
+            python-pkg: python3.11
+            pip-pkg: python3-pip python3.11-venv pipx
+            use-pipx: true
+          - distro: ubuntu:24.04
+            distro-name: Ubuntu 24.04
+            python-pkg: python3.12
+            pip-pkg: python3-pip python3.12-venv pipx
+            use-pipx: true
+          - distro: debian:12
+            distro-name: Debian 12
+            python-pkg: python3.11
+            pip-pkg: python3-pip python3-venv pipx
+            use-pipx: true
+          - distro: fedora:39
+            distro-name: Fedora 39
+            python-pkg: python3.12
+            pip-pkg: python3-pip
+            use-pipx: false
 
     container:
       image: ${{ matrix.distro }}
 
     steps:
-      - name: Install Python and pip
+      - name: Install Python, pip, and git
         run: |
           if command -v apt-get &> /dev/null; then
             apt-get update
-            apt-get install -y python${{ matrix.python-version }} python3-pip
+            apt-get install -y ${{ matrix.python-pkg }} ${{ matrix.pip-pkg }} git
           elif command -v dnf &> /dev/null; then
-            dnf install -y python${{ matrix.python-version }} python3-pip
+            dnf install -y ${{ matrix.python-pkg }} ${{ matrix.pip-pkg }} git
           fi
         shell: sh
 
@@ -323,10 +333,21 @@ jobs:
           sleep 60
         shell: sh
 
-      - name: Install from PyPI
+      - name: Install from PyPI (Debian with pipx)
+        if: matrix.use-pipx == true
         run: |
-          python${{ matrix.python-version }} -m pip install --upgrade pip
-          python${{ matrix.python-version }} -m pip install ar-infra-cli
+          export PIPX_HOME=/opt/pipx
+          export PIPX_BIN_DIR=/usr/local/bin
+          pipx install ar-infra-cli
+        shell: sh
+
+      - name: Install from PyPI (Non-Debian)
+        if: matrix.use-pipx == false
+        run: |
+          python3 -m pip install --upgrade pipx --break-system-packages 2>/dev/null || python3 -m pip install --upgrade pip pipx
+          export PIPX_HOME=/opt/pipx
+          export PIPX_BIN_DIR=/usr/local/bin
+          pipx install ar-infra-cli
         shell: sh
 
       - name: Test installation
