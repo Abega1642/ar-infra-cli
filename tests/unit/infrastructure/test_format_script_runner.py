@@ -1,5 +1,6 @@
 """Tests for FormatScriptRunner."""
 
+import platform
 import re
 import subprocess
 from unittest.mock import patch
@@ -55,6 +56,10 @@ class TestFormatScriptRunner:
 
             mock_run.assert_not_called()
 
+    @pytest.mark.skipif(
+        platform.system() == "Windows",
+        reason="Unix executable permission checks don't work on Windows",
+    )
     @pytest.mark.parametrize("system_name", ["Linux", "Darwin"])
     def test_unix_format_raises_when_script_not_executable(
         self, runner, mock_project_root, system_name
@@ -64,9 +69,12 @@ class TestFormatScriptRunner:
 
         with (
             patch("platform.system", return_value=system_name),
+            patch("subprocess.run") as mock_run,
             pytest.raises(RuntimeError, match=re.escape("format.sh is not executable")),
         ):
             runner.run(mock_project_root)
+
+        mock_run.assert_not_called()
 
     @pytest.mark.parametrize("system_name", ["Linux", "Darwin"])
     def test_unix_format_raises_when_script_is_directory(
