@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import platform
 import shutil
 import subprocess
@@ -76,7 +77,7 @@ class FormatScriptRunner:
         if not script_path.resolve().is_relative_to(project_root):
             raise RuntimeError("Refusing to execute format.sh outside project root")
 
-        if not script_path.stat().st_mode & 0o111:
+        if os.name != "nt" and not script_path.stat().st_mode & 0o111:
             raise RuntimeError("format.sh is not executable")
 
         log.info("Running project formatter: %s", script_path)
