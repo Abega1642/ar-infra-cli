@@ -43,7 +43,8 @@ run_single_test() {
   local feature_flag="$2"
   local enabled_features="${3:-}"
 
-  local test_dir="$BASE_TEST_DIR/$test_name"
+  local concatained_test_name="${test_name//,/_}"
+  local test_dir="$BASE_TEST_DIR/$concatained_test_name"
   local project_dir="$test_dir/$ARTIFACT"
 
   print_info "+++++++++++++++++++++++++++++++++++++++++"
