@@ -1,25 +1,35 @@
-"""Logger configuration for AR-INFRA CLI."""
-
 import logging
+import sys
+from typing import ClassVar
 
 
-def get_logger(name: str) -> logging.Logger:
-    """Get or create a configured logger instance.
+class _ColorFormatter(logging.Formatter):
+    COLORS: ClassVar[dict[int, str]] = {
+        logging.DEBUG: "\033[90m",  # gray
+        logging.INFO: "\033[34m",  # blue
+        logging.WARNING: "\033[33m",  # yellow
+        logging.ERROR: "\033[31m",  # red
+        logging.CRITICAL: "\033[31m",  # red
+    }
+    RESET: ClassVar[str] = "\033[0m"
 
-    Creates a logger with INFO level and console output formatting.
-    If the logger already has handlers, returns it as-is to avoid duplicate handlers.
+    def format(self, record: logging.LogRecord) -> str:
+        color = self.COLORS.get(record.levelno, "")
+        level = f"{color}[{record.levelname}]{self.RESET}"
+        message = record.getMessage()
+        return f"{level} {message}"
 
-    Args:
-        name: Name for the logger, typically __name__ of the calling module
 
-    Returns:
-        Configured logging.Logger instance
-    """
-    logger = logging.getLogger(name)
+def get_logger(_: str) -> logging.Logger:
+    logger = logging.getLogger("ar-infra-cli")
+
     if not logger.handlers:
         logger.setLevel(logging.INFO)
-        formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-        handler = logging.StreamHandler()
-        handler.setFormatter(formatter)
+
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(_ColorFormatter())
+
         logger.addHandler(handler)
+        logger.propagate = False
+
     return logger
