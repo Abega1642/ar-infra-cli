@@ -5,6 +5,7 @@ import platform
 import re
 import shutil
 import stat
+import tempfile
 import time
 import uuid
 from collections.abc import Callable
@@ -46,157 +47,222 @@ class GitHubTemplateFetcher:
         *,
         use_cache: bool = True,
     ) -> str:
-        """
-        Fetch template from GitHub URL.
+        log.info("Fetching template from: %s", url)
+        log.info("Destination: %s", destination.absolute())
 
-        Returns:
-            Detected placeholder package name (e.g., 'com.example.arinfra').
-        """
         self._validate_url(url)
 
         if use_cache and destination.exists():
-            self._validate_template_structure(destination)
+            log.info("Using cached template")
+            return self._process_template(destination)
+
+        return self._fetch_to_destination(url, destination)
+
+    def _fetch_to_destination(self, url: str, destination: Path) -> str:
+        temp_dir = None
+
+        try:
+            temp_dir = self._create_temp_directory()
+            log.info("Cloning to temporary directory: %s", temp_dir)
+
+            self._clone_repository(url, temp_dir)
+            self._process_template(temp_dir)
+
+            log.info("Template validated, moving to destination...")
+            self._move_to_destination(temp_dir, destination)
+            log.info("Template successfully installed")
+
             return self._detect_placeholder_package(destination)
 
-        if destination.exists():
-            self._safe_rmtree(destination)
+        except Exception:
+            log.exception("Error during template fetch")
+
+            if temp_dir and temp_dir.exists():
+                log.info("Cleaning up temporary directory after error...")
+                try:
+                    self._safe_rmtree(temp_dir)
+                    log.info("Cleanup completed")
+                except OSError as cleanup_error:
+                    log.warning("Failed to cleanup temp directory: %s", cleanup_error)
+
+            raise
+
+    def _create_temp_directory(self) -> Path:
+        temp_dir = Path(tempfile.mkdtemp(prefix="ar-infra-template-"))
+        log.info("Created temporary directory: %s", temp_dir)
+        return temp_dir
+
+    def _move_to_destination(self, source: Path, destination: Path) -> None:
+        try:
+            if destination.exists():
+                log.info("Removing existing destination: %s", destination)
+                self._safe_rmtree(destination)
+
+            log.info("Moving template: %s -> %s", source, destination)
+
+            shutil.copytree(str(source), str(destination))
+            log.info("Template copied successfully")
+
+            log.info("Cleaning up temporary directory...")
+            self._safe_rmtree(source)
+            log.info("Cleanup completed")
+
+        except (OSError, shutil.Error) as e:
+            log.exception(
+                "Failed to move template to destination. Source: %s, Destination: %s",
+                source,
+                destination,
+            )
+            raise TemplateFetchError(f"Failed to move template to destination: {e}") from e
+
+    def _clone_repository(self, url: str, destination: Path) -> None:
+        log.info("Starting git clone (this may take a moment)...")
 
         try:
             git.Repo.clone_from(url, str(destination), depth=1)
+            log.info("Clone completed successfully")
+            self._wait_for_git_locks()
 
-            # On Windows, give Git significantly more time to release all file locks
-            # The pack files can remain locked for longer after clone
-            if platform.system() == "Windows":
-                log.info("Windows detected: waiting for Git to fully release all file locks...")
-                time.sleep(10)
+        except git.exc.GitCommandError as e:
+            self._handle_clone_error(url, e)
 
-        except Exception as e:
-            if destination.exists():
-                self._safe_rmtree(destination)
-            raise TemplateFetchError(f"Failed to fetch template from {url}: {e}") from e
+        except (OSError, RuntimeError) as e:
+            self._handle_unexpected_error(url, e)
 
-        self._validate_template_structure(destination)
-        return self._detect_placeholder_package(destination)
+    def _wait_for_git_locks(self) -> None:
+        if platform.system() == "Windows":
+            log.info("Windows: waiting for Git to release file locks...")
+            time.sleep(10)
+
+    def _handle_clone_error(self, url: str, error: git.exc.GitCommandError) -> None:
+        log.error("Git clone failed!")
+        log.error("URL: %s", url)
+        log.error("Exit code: %s", error.status)
+        log.error("Command: %s", error.command)
+
+        if error.stderr:
+            log.error("Error output: %s", error.stderr)
+        if error.stdout:
+            log.error("Standard output: %s", error.stdout)
+
+        hint = self._get_error_hint(error)
+        raise TemplateFetchError(f"Git clone failed: {hint}. Check logs for details.") from error
+
+    def _handle_unexpected_error(self, url: str, error: Exception) -> None:
+        log.error("Unexpected error: %s", type(error).__name__)
+        log.error("Message: %s", error)
+
+        raise TemplateFetchError(f"Failed to fetch template from {url}: {error}") from error
+
+    def _get_error_hint(self, error: git.exc.GitCommandError) -> str:
+        error_text = str(error.stderr or error.stdout or "").lower()
+
+        if "could not resolve" in error_text or "name resolution" in error_text:
+            return "Network/DNS issue - check internet connection"
+        if "permission denied" in error_text or "access denied" in error_text:
+            return "Permission issue - check repository access"
+        if "repository not found" in error_text:
+            return "Repository not found or inaccessible"
+        if "authentication failed" in error_text:
+            return "Authentication failed - check credentials"
+
+        return "Git error"
+
+    def _process_template(self, template_dir: Path) -> str:
+        log.info("Validating template structure...")
+        self._validate_template_structure(template_dir)
+
+        log.info("Detecting placeholder package...")
+        package = self._detect_placeholder_package(template_dir)
+        log.info("Template validated with package: %s", package)
+
+        return package
 
     def _safe_rmtree(self, path: Path, max_retries: int = 10) -> None:
-        """Remove directory tree with retry logic for Windows file locks."""
-        is_windows = platform.system() == "Windows"
-
-        def handle_remove_readonly(func: Callable[[str], None], path_str: str, _exc: Any) -> None:
-            """Handle read-only files on Windows."""
-            if is_windows:
-                Path(path_str).chmod(stat.S_IWRITE)
-                func(path_str)
-
-        last_exception: Exception | None = None
-
         for attempt in range(max_retries):
             try:
-                if is_windows:
+                if platform.system() == "Windows":
                     gc.collect()
 
-                shutil.rmtree(path, onerror=handle_remove_readonly)
-            except OSError as exc:
-                last_exception = exc
+                shutil.rmtree(path, onerror=self._handle_readonly_file)
+
+            except OSError as e:
                 if attempt < max_retries - 1:
-                    self._log_retry_attempt(attempt, max_retries, exc)
+                    log.warning("Retry %d/%d: %s", attempt + 1, max_retries, e)
                     time.sleep(8)
                 else:
-                    self._handle_final_removal_failure(path, max_retries, last_exception)
+                    self._handle_locked_directory(path, max_retries, e)
             else:
                 return
 
-    def _log_retry_attempt(self, attempt: int, max_retries: int, exc: Exception) -> None:
-        """Log retry attempt for directory removal."""
-        log.warning(
-            "Failed to remove directory (attempt %d/%d): %s. Retrying in 8s...",
-            attempt + 1,
-            max_retries,
-            exc,
-        )
+    def _handle_readonly_file(self, func: Callable[[str], None], path_str: str, _exc: Any) -> None:
+        if platform.system() == "Windows":
+            Path(path_str).chmod(stat.S_IWRITE)
+            func(path_str)
 
-    def _handle_final_removal_failure(
-        self, path: Path, max_retries: int, last_exception: Exception
-    ) -> None:
-        """Handle final failure to remove directory after all retries.
-
-        On Windows, as a last resort, attempts to rename the locked directory
-        to allow continuation. This is necessary because Git pack files can
-        remain locked by background processes (git-index-pack, antivirus scanners)
-        for extended periods on Windows, even after the main Git operation completes.
-        """
-        is_windows = platform.system() == "Windows"
-
-        if is_windows and self._try_rename_locked_directory(path, max_retries):
+    def _handle_locked_directory(self, path: Path, max_retries: int, error: Exception) -> None:
+        if platform.system() == "Windows" and self._try_rename_locked_dir(path, max_retries):
             return
 
-        raise last_exception
+        log.error("Failed to remove directory after %d attempts", max_retries)
+        raise error
 
-    def _try_rename_locked_directory(self, path: Path, max_retries: int) -> bool:
-        """Attempt to rename a locked directory on Windows as a fallback.
-
-        Returns:
-            True if rename succeeded, False otherwise.
-
-        Note:
-            Windows allows renaming locked files/directories but not deletion.
-            If rename fails (rare), we allow the exception to propagate naturally
-            as there are no further recovery options available.
-        """
+    def _try_rename_locked_dir(self, path: Path, max_retries: int) -> bool:
         backup_name = f"{path.name}.old.{uuid.uuid4().hex[:8]}"
         backup_path = path.parent / backup_name
 
         try:
             path.rename(backup_path)
             log.warning(
-                "Windows: Could not delete %s after %d attempts. "
-                "Renamed to %s. New git repo will be created.",
-                path,
+                "Could not delete directory after %d attempts. Renamed to %s",
                 max_retries,
                 backup_name,
             )
         except OSError:
-            # Rename failure is extremely rare but possible if parent directory
-            # is also locked or filesystem is corrupted. No recovery possible,
-            # so we return False to allow the original exception to propagate.
             return False
 
         return True
 
     def _validate_url(self, url: str) -> None:
         if not GITHUB_URL_PATTERN.match(url):
+            log.error("Invalid URL format: %s", url)
             raise SecurityViolationError("Only GitHub URLs are allowed")
 
         parsed = urlparse(url)
 
         if parsed.scheme and parsed.scheme not in ["https", "git"]:
+            log.error("Invalid scheme: %s", parsed.scheme)
             raise SecurityViolationError(f"Invalid URL scheme: {parsed.scheme}")
 
         if parsed.hostname and parsed.hostname.lower() in BLOCKED_HOSTS:
+            log.error("Blocked hostname: %s", parsed.hostname)
             raise SecurityViolationError(f"Blocked hostname: {parsed.hostname}")
 
     def _validate_template_structure(self, template_dir: Path) -> None:
         if not (template_dir / "build.gradle").exists():
+            log.error("Missing build.gradle")
             raise InvalidTemplateError("build.gradle not found in template")
 
         src_main_java = template_dir / "src" / "main" / "java"
         if not src_main_java.exists():
+            log.error("Missing src/main/java directory")
             raise InvalidTemplateError("src/main/java directory not found in template")
 
     def _detect_placeholder_package(self, template_dir: Path) -> str:
         src_main_java = template_dir / "src" / "main" / "java"
 
         for path in src_main_java.rglob("*"):
-            if path.is_dir() and self._looks_like_base_package(path):
+            if path.is_dir() and self._is_base_package(path):
                 relative = path.relative_to(src_main_java)
                 return relative.as_posix().replace("/", ".")
 
+        log.error("Could not detect base package in template")
         raise InvalidTemplateError(
             "Could not detect placeholder package in template. "
             "Expected structure: src/main/java/com/example/arinfra"
         )
 
-    def _looks_like_base_package(self, path: Path) -> bool:
+    def _is_base_package(self, path: Path) -> bool:
         java_files = list(path.glob("*.java"))
         if not java_files:
             return False
