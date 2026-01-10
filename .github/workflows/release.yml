@@ -89,17 +89,17 @@ jobs:
       - name: Inject secrets into config.py (Unix)
         if: runner.os != 'Windows'
         run: |
-          sed -i.bak "s/__BOT_ID_PLACEHOLDER__/${{ secrets.BOT_ID }}/g" src/ar_infra/config.py
-          sed -i.bak "s/__BOT_SLUG_PLACEHOLDER__/${{ secrets.BOT_SLUG }}/g" src/ar_infra/config.py
-          rm src/ar_infra/config.py.bak
+          sed -i.bak "s/__BOT_ID_PLACEHOLDER__/${{ secrets.BOT_ID }}/g" src/ar_infra/infrastructure/config.py
+          sed -i.bak "s/__BOT_SLUG_PLACEHOLDER__/${{ secrets.BOT_SLUG }}/g" src/ar_infra/infrastructure/config.py
+          rm src/ar_infra/infrastructure/config.py.bak
           echo "Secrets injected into config.py"
         shell: bash
 
       - name: Inject secrets into config.py (Windows)
         if: runner.os == 'Windows'
         run: |
-          (Get-Content src/ar_infra/config.py) -replace '__BOT_ID_PLACEHOLDER__', '${{ secrets.BOT_ID }}' | Set-Content src/ar_infra/config.py
-          (Get-Content src/ar_infra/config.py) -replace '__BOT_SLUG_PLACEHOLDER__', '${{ secrets.BOT_SLUG }}' | Set-Content src/ar_infra/config.py
+          (Get-Content src/ar_infra/infrastructure/config.py) -replace '__BOT_ID_PLACEHOLDER__', '${{ secrets.BOT_ID }}' | Set-Content src/ar_infra/infrastructure/config.py
+          (Get-Content src/ar_infra/infrastructure/config.py) -replace '__BOT_SLUG_PLACEHOLDER__', '${{ secrets.BOT_SLUG }}' | Set-Content src/ar_infra/infrastructure/config.py
           Write-Host "Secrets injected into config.py"
         shell: pwsh
 
@@ -333,6 +333,12 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
+      - name: Inject secrets into config.py
+        run: |
+          sed -i "s/__BOT_ID_PLACEHOLDER__/${{ secrets.BOT_ID }}/g" src/ar_infra/infrastructure/config.py
+          sed -i "s/__BOT_SLUG_PLACEHOLDER__/${{ secrets.BOT_SLUG }}/g" src/ar_infra/infrastructure/config.py
+          echo "Secrets injected into config.py"
+
       - name: Install build tools
         run: |
           python -m pip install --upgrade pip
@@ -340,14 +346,11 @@ jobs:
 
       - name: Verify package resources
         run: |
-          echo "Checking for banner file..."
-          if [ -f "src/ar_infra/cli/resources/banner.txt" ]; then
-            echo "Banner file found"
-            cat src/ar_infra/cli/resources/banner.txt
-          else
-            echo "WARNING: Banner file not found!"
-            find src -name "banner.txt" || echo "Banner file does not exist anywhere in src/"
+          if [ ! -f "src/ar_infra/cli/resources/banner.txt" ]; then
+            echo "ERROR: Banner file not found!"
+            exit 1
           fi
+          echo "Banner file found."
 
       - name: Build package
         run: python -m build
@@ -355,17 +358,8 @@ jobs:
       - name: Check distribution
         run: |
           twine check dist/*
-          ls -lah dist/
-
-          echo "Verifying package contents..."
-          unzip -l dist/*.whl | grep -i banner || echo "WARNING: Banner not found in wheel!"
-
-      - name: Get package version
-        id: get_version
-        run: |
-          VERSION=$(grep '^version = ' pyproject.toml | grep -oP '(?<=version = ")[^"]+')
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Package version: ${VERSION}"
+          echo "Package contents:"
+          unzip -l dist/*.whl | grep -i banner
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
