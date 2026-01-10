@@ -1,1 +1,20 @@
-recursive-include src/ar_infra/cli/resources
+# MANIFEST.in
+
+
+include src/ar_infra/cli/resources/*
+include src/ar_infra/cli/resources/**/*
+
+recursive-include src/ar_infra *.txt
+recursive-include src/ar_infra *.json
+recursive-include src/ar_infra *.yaml
+recursive-include src/ar_infra *.yml
+recursive-include src/ar_infra *.toml
+recursive-include src/ar_infra *.j2
+recursive-include src/ar_infra *.jinja2
+recursive-include src/ar_infra *.md
+
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store
+global-exclude *.swp
+global-exclude *.swo

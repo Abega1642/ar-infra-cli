@@ -86,13 +86,22 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - name: Create .env file from GitHub Secrets
+      - name: Inject secrets into config.py (Unix)
+        if: runner.os != 'Windows'
         run: |
-          cat <<EOF > .env
-          BOT_ID=${{ secrets.BOT_ID }}
-          BOT_SLUG=${{ secrets.BOT_SLUG }}
-          EOF
+          sed -i.bak "s/__BOT_ID_PLACEHOLDER__/${{ secrets.BOT_ID }}/g" src/ar_infra/config.py
+          sed -i.bak "s/__BOT_SLUG_PLACEHOLDER__/${{ secrets.BOT_SLUG }}/g" src/ar_infra/config.py
+          rm src/ar_infra/config.py.bak
+          echo "Secrets injected into config.py"
         shell: bash
+
+      - name: Inject secrets into config.py (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          (Get-Content src/ar_infra/config.py) -replace '__BOT_ID_PLACEHOLDER__', '${{ secrets.BOT_ID }}' | Set-Content src/ar_infra/config.py
+          (Get-Content src/ar_infra/config.py) -replace '__BOT_SLUG_PLACEHOLDER__', '${{ secrets.BOT_SLUG }}' | Set-Content src/ar_infra/config.py
+          Write-Host "Secrets injected into config.py"
+        shell: pwsh
 
       - name: Install dependencies
         run: |
@@ -118,11 +127,6 @@ jobs:
           cd dist
           file ${{ matrix.artifact_name }}
           ldd ${{ matrix.artifact_name }} || echo "Static binary or non-ELF"
-        shell: bash
-
-      - name: Remove .env file
-        run: |
-          if [ -f .env ]; then rm .env; fi
         shell: bash
 
       - name: Rename binary
@@ -334,6 +338,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install build twine
 
+      - name: Verify package resources
+        run: |
+          echo "Checking for banner file..."
+          if [ -f "src/ar_infra/cli/resources/banner.txt" ]; then
+            echo "Banner file found"
+            cat src/ar_infra/cli/resources/banner.txt
+          else
+            echo "WARNING: Banner file not found!"
+            find src -name "banner.txt" || echo "Banner file does not exist anywhere in src/"
+          fi
+
       - name: Build package
         run: python -m build
 
@@ -341,6 +356,9 @@ jobs:
         run: |
           twine check dist/*
           ls -lah dist/
+
+          echo "Verifying package contents..."
+          unzip -l dist/*.whl | grep -i banner || echo "WARNING: Banner not found in wheel!"
 
       - name: Get package version
         id: get_version
@@ -352,6 +370,7 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
+          password: ${{ secrets.PYPI_TOKEN }}
           skip-existing: true
           verbose: true
           print-hash: true
