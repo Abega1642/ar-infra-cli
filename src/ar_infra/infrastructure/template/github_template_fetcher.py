@@ -7,7 +7,6 @@ import shutil
 import stat
 import tempfile
 import time
-import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Final
@@ -15,6 +14,7 @@ from urllib.parse import urlparse
 
 import git
 
+from src.ar_infra.infrastructure.fs_utilities import try_rename_locked_directory
 from src.ar_infra.infrastructure.template.exception import (
     InvalidTemplateError,
     SecurityViolationError,
@@ -23,7 +23,7 @@ from src.ar_infra.infrastructure.template.exception import (
 from src.ar_infra.logger import get_logger
 
 
-log = get_logger(__name__)
+log = get_logger()
 
 BLOCKED_HOSTS: Final[set[str]] = {
     "localhost",
@@ -208,20 +208,7 @@ class GitHubTemplateFetcher:
         raise error
 
     def _try_rename_locked_dir(self, path: Path, max_retries: int) -> bool:
-        backup_name = f"{path.name}.old.{uuid.uuid4().hex[:8]}"
-        backup_path = path.parent / backup_name
-
-        try:
-            path.rename(backup_path)
-            log.warning(
-                "Could not delete directory after %d attempts. Renamed to %s",
-                max_retries,
-                backup_name,
-            )
-        except OSError:
-            return False
-
-        return True
+        return try_rename_locked_directory(path, max_retries)
 
     def _validate_url(self, url: str) -> None:
         if not GITHUB_URL_PATTERN.match(url):

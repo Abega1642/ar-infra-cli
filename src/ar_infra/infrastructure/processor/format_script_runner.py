@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-log = get_logger(__name__)
+log = get_logger()
 
 
 class FormatScriptRunner:

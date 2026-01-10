@@ -6,7 +6,6 @@ import shutil
 import stat
 import subprocess  # nosec B404
 import time
-import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,10 +14,11 @@ from typing import Any
 import requests
 
 from src.ar_infra.infrastructure.config import BOT_ID, BOT_SLUG, GITHUB_TOKEN
+from src.ar_infra.infrastructure.fs_utilities import try_rename_locked_directory
 from src.ar_infra.logger import get_logger
 
 
-log = get_logger(__name__)
+log = get_logger()
 
 
 @dataclass(frozen=True)
@@ -118,7 +118,7 @@ class BotGitHandler:
         self._stage_all_files(project_path)
         self._create_initial_commit(project_path, commit_message)
 
-        log.info("\nGit repository initialized with bot commit at: %s\n", project_path)
+        log.info("Git repository initialized with bot commit at: %s", project_path)
 
     def generate_and_initialize_repo(
         self,
@@ -145,7 +145,7 @@ class BotGitHandler:
 
         self.initialize_repository(output_path, initial_branch, commit_message)
 
-        log.info("\nProject generated and initial commit created by bot at: %s\n", output_path)
+        log.info("Project generated and initial commit created by bot at: %s", output_path)
 
     def _remove_existing_git_directory(self, path: Path) -> None:
         git_dir = path / ".git"
@@ -153,11 +153,9 @@ class BotGitHandler:
             self._safe_rmtree(git_dir)
 
     def _safe_rmtree(self, path: Path, max_retries: int = 10) -> None:
-        """Remove directory tree with retry logic for Windows file locks."""
         is_windows = platform.system() == "Windows"
 
         def handle_remove_readonly(func: Callable[[str], None], path_str: str, _exc: Any) -> None:
-            """Handle read-only files on Windows."""
             if is_windows:
                 Path(path_str).chmod(stat.S_IWRITE)
                 func(path_str)
@@ -181,7 +179,6 @@ class BotGitHandler:
                 return
 
     def _log_retry_attempt(self, attempt: int, max_retries: int, exc: Exception) -> None:
-        """Log retry attempt for directory removal."""
         log.warning(
             "Failed to remove directory (attempt %d/%d): %s. Retrying in 8s...",
             attempt + 1,
@@ -207,34 +204,7 @@ class BotGitHandler:
         raise last_exception
 
     def _try_rename_locked_directory(self, path: Path, max_retries: int) -> bool:
-        """Attempt to rename a locked directory on Windows as a fallback.
-
-        Returns:
-            True if rename succeeded, False otherwise.
-
-        Note:
-            Windows allows renaming locked files/directories but not deletion.
-            If rename fails (rare), we allow the exception to propagate naturally
-            as there are no further recovery options available.
-        """
-        backup_name = f"{path.name}.old.{uuid.uuid4().hex[:8]}"
-        backup_path = path.parent / backup_name
-
-        try:
-            path.rename(backup_path)
-            log.warning(
-                "Windows: Could not delete %s after %d attempts. "
-                "Renamed to %s. New git repo will be created.",
-                path,
-                max_retries,
-                backup_name,
-            )
-        except OSError:
-            # Rename failure is extremely rare but possible if parent directory
-            # is also locked or filesystem is corrupted. No recovery possible,
-            # so we return False to allow the original exception to propagate.
-            return False
-        return True
+        return try_rename_locked_directory(path, max_retries, context="Windows")
 
     def _initialize_git(self, path: Path) -> None:
         self._run_git_command(["git", "init"], cwd=path)
@@ -283,14 +253,6 @@ class BotGitHandler:
         command: list[str],
         cwd: Path | None = None,
     ) -> None:
-        """
-        Run a command safely using subprocess.run with a list (shell=False).
-
-        Security notes:
-        - shell=False prevents shell injection.
-        - Inputs are validated before this method.
-        - Bandit false positives B603/B404 are safe here.
-        """
         cmd = command
 
         try:
