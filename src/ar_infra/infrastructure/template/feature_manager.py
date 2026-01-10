@@ -1,5 +1,3 @@
-"""Feature manager for template customization."""
-
 import shutil
 from pathlib import Path
 
@@ -11,8 +9,6 @@ from src.ar_infra.infrastructure.template.rest_exception_manager import RestExce
 
 
 class FeatureManager:
-    """Manage template features - remove unwanted features and their files."""
-
     def __init__(
         self,
         env_handler: EnvHandler | None = None,
@@ -28,7 +24,6 @@ class FeatureManager:
         template_dir: Path,
         enabled_features: set[TemplateFeature],
     ) -> None:
-        """Remove all features not in enabled_features."""
         all_features = set(TemplateFeature)
         features_to_remove = all_features - enabled_features
 
@@ -49,7 +44,6 @@ class FeatureManager:
         template_dir: Path,
         feature: TemplateFeature,
     ) -> None:
-        """Remove all files and directories associated with a feature."""
         feature_files = FEATURE_MAPPINGS.get(feature)
         if not feature_files:
             return
@@ -65,12 +59,10 @@ class FeatureManager:
                 file_path.unlink()
 
     def get_feature_dependencies(self, feature: TemplateFeature) -> list[str]:
-        """Get list of dependencies for a feature."""
         feature_files = FEATURE_MAPPINGS.get(feature)
         return feature_files.dependencies if feature_files else []
 
     def get_feature_env_variables(self, feature: TemplateFeature) -> list[str]:
-        """Get list of environment variables for a feature."""
         feature_files = FEATURE_MAPPINGS.get(feature)
         return feature_files.env_variables if feature_files else []
 
@@ -79,7 +71,6 @@ class FeatureManager:
         template_dir: Path,
         features_to_remove: set[TemplateFeature],
     ) -> None:
-        """Remove environment variables for disabled features."""
         env_file = template_dir / ".env.template"
         if not env_file.exists():
             return

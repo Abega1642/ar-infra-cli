@@ -1,5 +1,3 @@
-"""Interactive prompts for user input."""
-
 from pathlib import Path
 from typing import Any, cast
 
@@ -37,8 +35,6 @@ PROMPT_STYLE = Style(
 
 
 class InteractivePrompt:
-    """Handles interactive CLI prompts."""
-
     def __init__(self) -> None:
         self.validators = Validators()
         self.security_validator = PathSecurityValidator()
@@ -59,10 +55,23 @@ class InteractivePrompt:
         group_id = self._prompt_group_id()
         artifact_id = self._prompt_artifact_id()
         version = self._prompt_version()
-        destination = self._prompt_destination_path()
-        project_dir_name = self._prompt_project_directory_name(artifact_id)
 
-        self._handle_existing_directory(destination, project_dir_name)
+        while True:
+            destination = self._prompt_destination_path()
+            project_dir_name = self._prompt_project_directory_name(artifact_id)
+
+            conflict_action = self._handle_existing_directory(destination, project_dir_name)
+
+            if conflict_action == "proceed":
+                break
+            if conflict_action == "rename":
+                print()
+                continue
+            if conflict_action == "change_dest":
+                print()
+                continue
+            print("\nOperation cancelled.\n")
+            raise KeyboardInterrupt("Operation cancelled by user") from None
 
         features = self._prompt_features()
         use_cache = self._prompt_use_cache()
@@ -285,39 +294,54 @@ class InteractivePrompt:
                 if not cast("bool", retry):
                     raise
 
-    def _handle_existing_directory(self, destination: Path, project_dir_name: str) -> None:
+    def _handle_existing_directory(self, destination: Path, project_dir_name: str) -> str:
         project_path = destination / project_dir_name
 
+        conflict_result = self._check_path_conflicts(project_path)
+        if conflict_result is not None:
+            return conflict_result
+
+        empty_dir_result = self._handle_empty_directory(project_path)
+        if empty_dir_result is not None:
+            return empty_dir_result
+
+        return self._ask_directory_conflict_resolution(project_path)
+
+    def _check_path_conflicts(self, project_path: Path) -> str | None:
         if not project_path.exists():
-            return
+            return "proceed"
 
         if not project_path.is_dir():
-            raise ValueError(
-                f"'{project_path}' exists but is not a directory. Please choose a different name."
+            print(
+                f"\nError: '{project_path}' exists but is not a directory.\n"
+                "Please choose a different name or destination.\n"
             )
+            return "rename"
 
+        return None
+
+    def _handle_empty_directory(self, project_path: Path) -> str | None:
         try:
             has_content = any(project_path.iterdir())
         except OSError as exc:
-            raise PermissionError(f"Cannot access directory '{project_path}': {exc}") from exc
+            print(f"\nError: Cannot access directory '{project_path}': {exc}\n")
+            return "cancel"
 
-        if not has_content:
-            use_empty = confirm(
-                f"Directory '{project_path}' exists but is empty. Use it?",
-                default=True,
-                style=PROMPT_STYLE,
-            ).ask()
-            if use_empty is None:
-                raise KeyboardInterrupt("Operation cancelled by user") from None
+        if has_content:
+            return None
 
-            if cast("bool", use_empty):
-                return
+        use_empty = confirm(
+            f"Directory '{project_path}' exists but is empty. Use it?",
+            default=True,
+            style=PROMPT_STYLE,
+        ).ask()
 
-            raise FileExistsError(
-                f"Directory '{project_path}' already exists. "
-                "Please choose a different name or destination."
-            )
+        if use_empty is None or not cast("bool", use_empty):
+            return "cancel" if use_empty is None else "rename"
 
+        return "proceed"
+
+    def _ask_directory_conflict_resolution(self, project_path: Path) -> str:
         print(f"\nWarning: Directory '{project_path}' already exists and contains files.\n")
 
         action = select(
@@ -329,13 +353,5 @@ class InteractivePrompt:
             ],
             style=PROMPT_STYLE,
         ).ask()
-        if action is None:
-            raise KeyboardInterrupt("Operation cancelled by user") from None
 
-        action = cast("str", action)
-
-        if action == "cancel":
-            raise KeyboardInterrupt("Operation cancelled by user") from None
-        if action == "rename":
-            raise FileExistsError("Please provide a different project name")
-        raise FileExistsError("Please provide a different destination")
+        return "cancel" if action is None else cast("str", action)

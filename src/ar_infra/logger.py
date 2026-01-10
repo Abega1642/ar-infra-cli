@@ -2,6 +2,10 @@ import logging
 import sys
 from typing import ClassVar
 
+from rich.logging import RichHandler
+
+from src.ar_infra.cli.ui.console import console
+
 
 class _ColorFormatter(logging.Formatter):
     COLORS: ClassVar[dict[int, str]] = {
@@ -20,14 +24,28 @@ class _ColorFormatter(logging.Formatter):
         return f"{level} {message}"
 
 
-def get_logger(_: str) -> logging.Logger:
+def get_logger(*, use_rich: bool = True) -> logging.Logger:
     logger = logging.getLogger("ar-infra-cli")
 
     if not logger.handlers:
         logger.setLevel(logging.INFO)
 
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(_ColorFormatter())
+        handler: logging.Handler
+        if use_rich:
+            handler = RichHandler(
+                console=console,
+                show_time=False,
+                show_path=False,
+                show_level=True,
+                markup=False,
+                rich_tracebacks=True,
+                log_time_format="",
+                omit_repeated_times=True,
+            )
+            handler.setFormatter(logging.Formatter("%(message)s", datefmt=""))
+        else:
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setFormatter(_ColorFormatter())
 
         logger.addHandler(handler)
         logger.propagate = False
