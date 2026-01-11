@@ -19,17 +19,21 @@ declare -a FEATURE_COMBINATIONS=(
   "rabbitmq:--features=rabbitmq:rabbitmq"
   "s3_bucket:--features=s3_bucket:s3_bucket"
   "email:--features=email:email"
-  "postgresql,rabbitmq:--features=postgresql,rabbitmq:postgresql rabbitmq"
-  "postgresql,s3_bucket:--features=postgresql,s3_bucket:postgresql s3_bucket"
-  "postgresql,email:--features=postgresql,email:postgresql email"
-  "rabbitmq,s3_bucket:--features=rabbitmq,s3_bucket:rabbitmq s3_bucket"
-  "rabbitmq,email:--features=rabbitmq,email:rabbitmq email"
-  "s3_bucket,email:--features=s3_bucket,email:s3_bucket email"
-  "postgresql,rabbitmq,s3_bucket:--features=postgresql,rabbitmq,s3_bucket:postgresql rabbitmq s3_bucket"
-  "postgresql,rabbitmq,email:--features=postgresql,rabbitmq,email:postgresql rabbitmq email"
-  "postgresql,s3_bucket,email:--features=postgresql,s3_bucket,email:postgresql s3_bucket email"
-  "rabbitmq,s3_bucket,email:--features=rabbitmq,s3_bucket,email:rabbitmq s3_bucket email"
+
+  "postgresql_rabbitmq:--features=postgresql,rabbitmq:postgresql rabbitmq"
+  "postgresql_s3_bucket:--features=postgresql,s3_bucket:postgresql s3_bucket"
+  "postgresql_email:--features=postgresql,email:postgresql email"
+
+  "rabbitmq_s3_bucket:--features=rabbitmq,s3_bucket:rabbitmq s3_bucket"
+  "rabbitmq_email:--features=rabbitmq,email:rabbitmq email"
+  "s3_bucket_email:--features=s3_bucket,email:s3_bucket email"
+
+  "postgresql_rabbitmq_s3_bucket:--features=postgresql,rabbitmq,s3_bucket:postgresql rabbitmq s3_bucket"
+  "postgresql_rabbitmq_email:--features=postgresql,rabbitmq,email:postgresql rabbitmq email"
+  "postgresql_s3_bucket_email:--features=postgresql,s3_bucket,email:postgresql s3_bucket email"
+  "rabbitmq_s3_bucket_email:--features=rabbitmq,s3_bucket,email:rabbitmq s3_bucket email"
 )
+
 
 cleanup() {
   if [ -d "$BASE_TEST_DIR" ]; then
@@ -43,7 +47,8 @@ run_single_test() {
   local feature_flag="$2"
   local enabled_features="${3:-}"
 
-  local test_dir="$BASE_TEST_DIR/$test_name"
+  local concatained_test_name="${test_name//,/_}"
+  local test_dir="$BASE_TEST_DIR/$concatained_test_name"
   local project_dir="$test_dir/$ARTIFACT"
 
   print_info "+++++++++++++++++++++++++++++++++++++++++"

@@ -12,7 +12,7 @@ from src.ar_infra.application.use_cases.input_dto import GenerateProjectInput
 from src.ar_infra.cli.prompt.interactive_prompt import InteractivePrompt
 from src.ar_infra.cli.ui.banner import Banner
 from src.ar_infra.cli.ui.message import Messages
-from src.ar_infra.cli.ui.progress import ProgressIndicator
+from src.ar_infra.cli.ui.progress import PROJECT_GENERATION_STEPS, ProgressIndicator
 from src.ar_infra.domain.entities.path_resolver import (
     DangerousPathError,
     PathSecurityError,
@@ -109,14 +109,11 @@ class InitCommand:
             sys.exit(0)
 
     def _generate_project(self, project_input: GenerateProjectInput) -> None:
-        with ProgressIndicator.steps(7) as (progress, task):
-            progress.update(task, description="Fetching template...")
-            progress.advance(task)
-
-            result = self.use_case.execute(project_input)
+        with ProgressIndicator.steps(PROJECT_GENERATION_STEPS) as progress:
+            result = self.use_case.execute(project_input, progress=progress)
 
             if result.success:
-                progress.update(task, completed=7, description="Complete!")
+                progress.complete()
                 Messages.success(f"\n{result.message}")
                 Messages.info(f"Project created at: {result.project_path}")
                 if result.has_signature:

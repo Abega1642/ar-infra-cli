@@ -7,6 +7,7 @@ Security notes:
 - Excludes test/development dependencies
 - No code signing (users verify checksums)
 - UPX compression disabled by default (some antiviruses flag compressed binaries)
+- Secrets are injected at build time via sed/string replacement, not bundled files
 """
 
 import sys
@@ -83,10 +84,7 @@ if ar_infra_dir.exists():
                 rel_path = item.relative_to(base_path / 'src')
                 project_datas.append((str(item), str(rel_path.parent)))
 
-# Include .env file
-env_file = base_path / '.env'
-if env_file.exists():
-    project_datas.append((str(env_file), '.'))
+# NOTE: We do NOT include .env file - secrets are injected at build time via sed
 
 a = Analysis(
     ['src/ar_infra/cli/main.py'],

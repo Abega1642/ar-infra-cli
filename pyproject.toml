@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ar-infra-cli"
-version = "0.1.1"
+version = "0.1.2"
 description = "Production-ready Spring Boot project generator CLI"
 authors = [
     {name = "Abegà Razafindratelo", email = "a.razafindratelo@gmail.com"}
@@ -86,6 +86,19 @@ Homepage = "https://github.com/Abega1642/ar-infra-cli"
 Repository = "https://github.com/Abega1642/ar-infra-cli"
 Issues = "https://github.com/Abega1642/ar-infra-cli/issues"
 
+
+[tool.setuptools.package-data]
+"*" = [
+    "cli/resources/*",
+    "cli/resources/**/*",
+    "**/*.txt",
+    "**/*.json",
+    "**/*.yaml",
+    "**/*.yml",
+    "**/*.toml",
+    "**/*.j2",
+    "**/*.jinja2",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

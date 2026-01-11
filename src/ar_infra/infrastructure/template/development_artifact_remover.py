@@ -1,23 +1,13 @@
-"""Module for removing development artifacts from generated projects."""
-
 from pathlib import Path
 from typing import Final
 
 from src.ar_infra.logger import get_logger
 
 
-logger = get_logger(__name__)
+log = get_logger()
 
 
 class DevelopmentArtifactCleaner:
-    """
-    Removes development-specific files and directories from generated projects.
-
-    This class removes files and directories that were used during
-    infrastructure development but should not be included in the generated
-    project output.
-    """
-
     DEFAULT_ARTIFACTS: Final[list[str]] = [
         ".github/dependabot.yml",
         ".github/CODEOWNERS",
@@ -37,7 +27,7 @@ class DevelopmentArtifactCleaner:
             raise ValueError(f"Project root is not a directory: {project_root}")
 
         self._project_root = project_root.resolve()
-        logger.info("Initialized DevelopmentArtifactCleaner for: %s", self._project_root)
+        log.info("Initialized DevelopmentArtifactCleaner for: %s", self._project_root)
 
     def _validate_path(self, target_path: Path) -> Path:
         resolved = target_path.resolve()
@@ -56,7 +46,7 @@ class DevelopmentArtifactCleaner:
         validated_target = self._validate_path(target)
 
         if not validated_target.exists():
-            logger.debug("Template Artifact does not exist, skipping: %s", relative_path)
+            log.debug("Template Artifact does not exist, skipping: %s", relative_path)
             return False
 
         try:
@@ -67,10 +57,10 @@ class DevelopmentArtifactCleaner:
                 self._remove_directory_recursive(validated_target)
                 removed = True
             else:
-                logger.warning("Unknown artifact type, skipping: %s", relative_path)
+                log.warning("Unknown artifact type, skipping: %s", relative_path)
                 removed = False
         except OSError:
-            logger.exception("Failed to remove %s", relative_path)
+            log.exception("Failed to remove %s", relative_path)
             raise
 
         return removed
@@ -88,13 +78,13 @@ class DevelopmentArtifactCleaner:
         artifacts_to_remove = artifacts if artifacts is not None else self.DEFAULT_ARTIFACTS
         removed_count = 0
 
-        logger.info("Starting cleanup of %d template artifacts", len(artifacts_to_remove))
+        log.info("Starting cleanup of %d template artifacts", len(artifacts_to_remove))
 
         for artifact in artifacts_to_remove:
             if self.remove_artifact(artifact):
                 removed_count += 1
 
-        logger.info(
+        log.info(
             "Cleanup complete. Removed %d/%d template artifacts",
             removed_count,
             len(artifacts_to_remove),
@@ -118,7 +108,7 @@ class DevelopmentArtifactCleaner:
                 else:
                     break
             except OSError as exc:
-                logger.debug("Could not remove directory %s: %s", current, exc)
+                log.debug("Could not remove directory %s: %s", current, exc)
                 break
 
         return removed_count
