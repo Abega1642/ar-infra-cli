@@ -1,7 +1,2 @@
-import os
-
-
-BOT_ID = "__BOT_ID_PLACEHOLDER__"
-BOT_SLUG = "__BOT_SLUG_PLACEHOLDER__"
-
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", None)
+BOT_ID = "252012637"
+BOT_SLUG = "ar-infra-bot"
