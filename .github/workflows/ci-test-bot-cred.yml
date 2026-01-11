@@ -1,0 +1,308 @@
+name: CI - Test Bot Credentials
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-bot-credentials:
+    name: Test Bot Credentials - ${{ matrix.os-name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            os-name: Linux x86_64
+            artifact_name: ar-infra
+            asset_name: ar-infra-linux-amd64
+          - os: macos-14
+            os-name: macOS ARM64
+            artifact_name: ar-infra
+            asset_name: ar-infra-macos-arm64
+          - os: windows-2022
+            os-name: Windows x86_64
+            artifact_name: ar-infra.exe
+            asset_name: ar-infra-windows-amd64.exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Verify Java version
+        run: java -version
+        shell: bash
+
+      - name: Inject test secrets into config.py (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          # If secrets are empty, use fallback values
+          BOT_ID_VALUE="${{ secrets.BOT_ID_TEST }}"
+          BOT_SLUG_VALUE="${{ secrets.BOT_SLUG_TEST }}"
+
+          if [ -z "$BOT_ID_VALUE" ]; then
+            BOT_ID_VALUE="123456789"
+            echo "WARNING: BOT_ID_TEST is empty, using fallback value"
+          fi
+
+          if [ -z "$BOT_SLUG_VALUE" ]; then
+            BOT_SLUG_VALUE="ar-infra-bot"
+            echo "WARNING: BOT_SLUG_TEST is empty, using fallback value"
+          fi
+
+          sed -i.bak "s/__BOT_ID_PLACEHOLDER__/$BOT_ID_VALUE/g" src/ar_infra/infrastructure/config.py
+          sed -i.bak "s/__BOT_SLUG_PLACEHOLDER__/$BOT_SLUG_VALUE/g" src/ar_infra/infrastructure/config.py
+          rm src/ar_infra/infrastructure/config.py.bak
+
+          echo "Test secrets injected into config.py"
+          echo "BOT_ID: $BOT_ID_VALUE"
+          echo "BOT_SLUG: $BOT_SLUG_VALUE"
+        shell: bash
+
+      - name: Inject test secrets into config.py (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          # If secrets are empty, use fallback values
+          $BOT_ID_VALUE = "${{ secrets.BOT_ID_TEST }}"
+          $BOT_SLUG_VALUE = "${{ secrets.BOT_SLUG_TEST }}"
+
+          if ([string]::IsNullOrEmpty($BOT_ID_VALUE)) {
+            $BOT_ID_VALUE = "123456789"
+            Write-Host "WARNING: BOT_ID_TEST is empty, using fallback value"
+          }
+
+          if ([string]::IsNullOrEmpty($BOT_SLUG_VALUE)) {
+            $BOT_SLUG_VALUE = "ar-infra-bot"
+            Write-Host "WARNING: BOT_SLUG_TEST is empty, using fallback value"
+          }
+
+          (Get-Content src/ar_infra/infrastructure/config.py) -replace '__BOT_ID_PLACEHOLDER__', $BOT_ID_VALUE | Set-Content src/ar_infra/infrastructure/config.py
+          (Get-Content src/ar_infra/infrastructure/config.py) -replace '__BOT_SLUG_PLACEHOLDER__', $BOT_SLUG_VALUE | Set-Content src/ar_infra/infrastructure/config.py
+
+          Write-Host "Test secrets injected into config.py"
+          Write-Host "BOT_ID: $BOT_ID_VALUE"
+          Write-Host "BOT_SLUG: $BOT_SLUG_VALUE"
+        shell: pwsh
+
+      - name: Verify secrets injection
+        run: |
+          echo "Checking if secrets were injected..."
+          if grep -q "__BOT_ID_PLACEHOLDER__" src/ar_infra/infrastructure/config.py; then
+            echo "ERROR: BOT_ID placeholder still exists!"
+            cat src/ar_infra/infrastructure/config.py
+            exit 1
+          fi
+          if grep -q "__BOT_SLUG_PLACEHOLDER__" src/ar_infra/infrastructure/config.py; then
+            echo "ERROR: BOT_SLUG placeholder still exists!"
+            cat src/ar_infra/infrastructure/config.py
+            exit 1
+          fi
+
+          # Verify the actual values were injected (without revealing them)
+          if grep -q "BOT_ID = \"${{ secrets.BOT_ID_TEST }}\"" src/ar_infra/infrastructure/config.py; then
+            echo "BOT_ID_TEST successfully injected"
+          else
+            echo "BOT_ID_TEST was NOT injected correctly"
+            echo "Config file contents:"
+            cat src/ar_infra/infrastructure/config.py
+            exit 1
+          fi
+
+          if grep -q "BOT_SLUG = \"${{ secrets.BOT_SLUG_TEST }}\"" src/ar_infra/infrastructure/config.py; then
+            echo "BOT_SLUG_TEST successfully injected"
+          else
+            echo "BOT_SLUG_TEST was NOT injected correctly"
+            echo "Config file contents:"
+            cat src/ar_infra/infrastructure/config.py
+            exit 1
+          fi
+
+          echo "Test secrets successfully injected"
+        shell: bash
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+        shell: bash
+
+      - name: Install Linux-specific tools
+        if: runner.os == 'Linux'
+        run: |
+          pip install staticx patchelf
+        shell: bash
+
+      - name: Uninstall ar-infra if installed
+        run: |
+          echo "Checking if ar-infra is installed in site-packages..."
+          pip uninstall -y ar-infra 2>/dev/null || echo "ar-infra not installed (this is expected)"
+          pip uninstall -y ar-infra-cli 2>/dev/null || echo "ar-infra-cli not installed (this is expected)"
+
+          echo "Ensuring PyInstaller uses local source code only..."
+          pip list | grep -i infra || echo "No infra packages found in site-packages (good!)"
+        shell: bash
+
+      - name: Clear PyInstaller cache
+        run: |
+          echo "Clearing PyInstaller cache..."
+          rm -rf ~/.cache/pyinstaller 2>/dev/null || true
+          rm -rf build/ dist/ 2>/dev/null || true
+          echo "PyInstaller cache cleared"
+        shell: bash
+
+      - name: Clear all Python caches
+        run: |
+          echo "Clearing all Python caches..."
+          # Remove __pycache__ directories
+          find . -type d -name "__pycache__" -print0 | xargs -0 rm -rf 2>/dev/null || true
+          # Remove .pyc files
+          find . -type f -name "*.pyc" -print0 | xargs -0 rm -f 2>/dev/null || true
+          # Remove .pyo files
+          find . -type f -name "*.pyo" -print0 | xargs -0 rm -f 2>/dev/null || true
+          # Remove pip cache
+          python -m pip cache purge || true
+          echo "Cache cleared"
+        shell: bash
+
+      - name: Build binary with PyInstaller
+        run: |
+          echo "Building binary with PyInstaller (clean build)..."
+
+          # Remove any existing build artifacts
+          rm -rf build dist *.spec.bak 2>/dev/null || true
+
+          # CRITICAL: Update ar-infra.spec to use local source
+          # This ensures PyInstaller reads from src/ not site-packages
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            sed -i "s/pathex=\[\]/pathex=[str(base_path \/ 'src')]/" ar-infra.spec
+          else
+            sed -i.bak "s/pathex=\[\]/pathex=[str(base_path \/ 'src')]/" ar-infra.spec
+            rm -f ar-infra.spec.bak
+          fi
+
+          echo "Updated ar-infra.spec to use local source directory"
+
+          # Build with clean flag and prevent bytecode caching
+          PYTHONDONTWRITEBYTECODE=1 pyinstaller --clean --noconfirm ar-infra.spec
+
+          echo "Build complete"
+        shell: bash
+        env:
+          PYTHONDONTWRITEBYTECODE: 1
+
+      - name: Verify binary was created
+        run: |
+          cd dist
+          if [ ! -f "${{ matrix.artifact_name }}" ]; then
+            echo "ERROR: Binary not found!"
+            exit 1
+          fi
+          file ${{ matrix.artifact_name }} || echo "File type check not available on this platform"
+        shell: bash
+
+      - name: Make binary executable (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x dist/${{ matrix.artifact_name }}
+        shell: bash
+
+      - name: Verify binary works
+        run: |
+          cd dist
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            ./${{ matrix.artifact_name }} --version
+          else
+            ./${{ matrix.artifact_name }} --version
+          fi
+        shell: bash
+
+      - name: Verify secrets are in binary
+        run: |
+          echo "Checking if secrets are embedded in the compiled binary..."
+          cd dist
+
+          # Use strings command to check binary contents
+          if command -v strings &> /dev/null; then
+            echo "Searching for BOT_ID_TEST in binary..."
+            if strings ${{ matrix.artifact_name }} | grep -q "${{ secrets.BOT_ID_TEST }}"; then
+              echo "SUCCESS: BOT_ID_TEST found in binary"
+            else
+              echo "ERROR: BOT_ID_TEST NOT found in binary"
+              echo "Searching for fallback value instead..."
+              if strings ${{ matrix.artifact_name }} | grep -q "123456789"; then
+                echo "CRITICAL: Fallback value 123456789 found - secrets were NOT injected!"
+              fi
+              exit 1
+            fi
+
+            echo "Searching for BOT_SLUG_TEST in binary..."
+            if strings ${{ matrix.artifact_name }} | grep -q "${{ secrets.BOT_SLUG_TEST }}"; then
+              echo "SUCCESS: BOT_SLUG_TEST found in binary"
+            else
+              echo "ERROR: BOT_SLUG_TEST NOT found in binary"
+              exit 1
+            fi
+          else
+            echo "WARNING: 'strings' command not available, skipping binary content check"
+          fi
+        shell: bash
+
+      - name: Make test script executable (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x scripts/test-bot-cred.sh
+        shell: bash
+
+      - name: Run bot credentials test
+        env:
+          EXPECTED_BOT_ID: ${{ secrets.BOT_ID_TEST }}
+          EXPECTED_BOT_SLUG: ${{ secrets.BOT_SLUG_TEST }}
+        run: |
+          bash scripts/test-bot-cred.sh
+        shell: bash
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-failure-${{ matrix.os-name }}-${{ github.run_id }}
+          path: |
+            test-bot-credentials/
+            dist/
+          retention-days: 7
+
+  validate-all-platforms:
+    name: Validate All Platforms
+    needs: test-bot-credentials
+    runs-on: ubuntu-latest
+    steps:
+      - name: All tests passed
+        run: |
+          echo "Bot credentials validation passed on all platforms!"
+          echo "Test secrets are properly injected into binaries"
+          echo "Git commits are correctly authored by the test bot"
+          echo ""
+          echo "The release workflow with production secrets should work correctly."
