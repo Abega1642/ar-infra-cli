@@ -11,6 +11,7 @@ from src.ar_infra.cli.resources.documentation import (
     NO_FEATURES_OPTION_HELP,
     PATH_OPTION_HELP,
     PROJECT_DIR_OPTION_HELP,
+    SKIP_COMMAND,
     VERSION_OPTION_HELP,
 )
 from src.ar_infra.cli.ui.banner import Banner
@@ -61,6 +62,12 @@ def _show_help_and_exit(
 @click.option("--disable-features", type=str, help=NO_FEATURES_OPTION_HELP)
 @click.option("--no-cache", "no_cache", is_flag=True, help=NO_CACHE_OPTION_HELP)
 @click.option(
+    "--skip-github-app",
+    "skip_github_app",
+    is_flag=True,
+    help=SKIP_COMMAND,
+)
+@click.option(
     "--help",
     "-h",
     is_flag=True,
@@ -79,6 +86,7 @@ def init(
     disable_features: str | None,
     *,
     no_cache: bool,
+    skip_github_app: bool,
 ) -> None:
     command = InitCommand()
     args = InitCommandArgs(
@@ -90,6 +98,7 @@ def init(
         features=features,
         no_features=disable_features,
         no_cache=no_cache,
+        skip_github_app=skip_github_app,
     )
     command.execute(args)
 

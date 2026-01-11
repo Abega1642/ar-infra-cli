@@ -140,8 +140,9 @@ run_project_generation() {
         --project-version="$VERSION"
         --path=./
         --project-dir="$PROJECT_DIR"
-        --disable-features
+        --features
         --no-cache
+        --skip-github-app
     )
 
     if PYTHONPATH="$python_path" "${cmd[@]}"; then

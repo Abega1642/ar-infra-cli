@@ -84,6 +84,9 @@ class BotGitHandler:
         self._stage_all_files(project_path)
         self._create_initial_commit(project_path, commit_message)
 
+        # IMPORTANT: Unset bot identity so user's commits use their own identity
+        self._unset_bot_identity(project_path)
+
         log.info("Git repository initialized with bot commit at: %s", project_path)
 
     def generate_and_initialize_repo(
@@ -176,8 +179,22 @@ class BotGitHandler:
         self._run_git_command(["git", "init"], cwd=path)
 
     def _configure_bot_identity(self, path: Path) -> None:
-        self._run_git_command(["git", "config", "user.name", self.bot_identity.name], cwd=path)
-        self._run_git_command(["git", "config", "user.email", self.bot_identity.email], cwd=path)
+        self._run_git_command(
+            ["git", "config", "--local", "user.name", self.bot_identity.name], cwd=path
+        )
+        self._run_git_command(
+            ["git", "config", "--local", "user.email", self.bot_identity.email], cwd=path
+        )
+
+    def _unset_bot_identity(self, path: Path) -> None:
+        try:
+            self._run_git_command(["git", "config", "--unset", "user.name"], cwd=path)
+            self._run_git_command(["git", "config", "--unset", "user.email"], cwd=path)
+            log.info(
+                "Bot identity cleared from local config. User commits will use global/system config"
+            )
+        except GitCommandError as e:
+            log.debug("Could not unset git config (may not exist): %s", e)
 
     def _set_initial_branch(self, path: Path, branch_name: str) -> None:
         self._run_git_command(["git", "branch", "-M", branch_name], cwd=path)

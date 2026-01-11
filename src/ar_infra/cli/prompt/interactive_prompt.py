@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from questionary import (
-    Style,
     checkbox,
     confirm,
     select,
@@ -10,40 +9,42 @@ from questionary import (
 )
 
 from src.ar_infra.cli.prompt.validator import Validators
+from src.ar_infra.cli.ui.color_properties import PROMPT_STYLE
 from src.ar_infra.cli.ui.message import Messages
 from src.ar_infra.domain.entities.path_resolver import (
     DangerousPathError,
     PathSecurityError,
     PathSecurityValidator,
 )
-
-
-CLR = "fg:#673ab7"
-PROMPT_STYLE = Style(
-    [
-        ("qmark", f"{CLR} bold"),
-        ("question", "bold"),
-        ("answer", "fg:#f44336 bold"),
-        ("pointer", f"{CLR} bold"),
-        ("highlighted", f"{CLR} bold"),
-        ("selected", "fg:#cc5454"),
-        ("separator", "fg:#cc5454"),
-        ("instruction", ""),
-        ("text", ""),
-    ]
-)
+from src.ar_infra.infrastructure.processor.github_app import GitHubAppHandler
 
 
 class InteractivePrompt:
     def __init__(self) -> None:
         self.validators = Validators()
         self.security_validator = PathSecurityValidator()
+        self.github_app_handler = GitHubAppHandler()
 
-    def collect_inputs(self) -> dict[str, Any]:
+    def collect_inputs(self, *, skip_github_app: bool = False) -> dict[str, Any]:
         while True:
             inputs = self._collect_all_prompts()
 
             if self._confirm_and_proceed(inputs):
+                if not skip_github_app:
+                    try:
+                        self.github_app_handler.prompt_installation()
+                    except KeyboardInterrupt as exc:
+                        canceled_message_pref = "GitHub App installation was cancelled."
+                        canceled_message_suf = "Continue with project generation anyway?"
+                        continue_anyway = confirm(
+                            f"\n{canceled_message_pref} {canceled_message_suf}",
+                            default=True,
+                            style=PROMPT_STYLE,
+                        ).ask()
+
+                        if continue_anyway is None or not cast("bool", continue_anyway):
+                            raise KeyboardInterrupt("Operation cancelled by user") from exc
+
                 return inputs
 
             if not self._ask_to_start_over():

@@ -46,6 +46,7 @@ class InitCommandArgs:
     features: str | None
     no_features: str | None
     no_cache: bool
+    skip_github_app: bool
 
 
 class InitCommand:
@@ -84,14 +85,14 @@ class InitCommand:
         )
 
         if is_interactive:
-            self._execute_interactive()
+            self._execute_interactive(skip_github_app=args.skip_github_app)
         else:
             self._execute_cli(args)
 
-    def _execute_interactive(self) -> None:
+    def _execute_interactive(self, *, skip_github_app: bool = False) -> None:
         Banner.show(wait_for_enter=True)
         try:
-            inputs = self.interactive_prompt.collect_inputs()
+            inputs = self.interactive_prompt.collect_inputs(skip_github_app=skip_github_app)
 
             self._execute_common(
                 group_id=inputs["group_id"],
