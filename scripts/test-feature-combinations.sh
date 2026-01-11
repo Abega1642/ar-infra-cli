@@ -68,6 +68,7 @@ run_single_test() {
     --path=./
     --project-dir="$ARTIFACT"
     --no-cache
+    --skip-github-app
   )
 
   [ -n "$feature_flag" ] && cmd+=("$feature_flag")

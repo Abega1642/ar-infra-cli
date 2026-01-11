@@ -1,3 +1,7 @@
+SKIP_COMMAND = """
+Skip the GitHub App installation prompt. Use this flag if you want to install ar-infra-bot later.
+"""
+
 GROUP_OPTION_HELP = """
 Gradle group ID for the generated project.
 
