@@ -11,9 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import requests
-
-from src.ar_infra.infrastructure.config import BOT_ID, BOT_SLUG, GITHUB_TOKEN
+from src.ar_infra.infrastructure.config import BOT_ID, BOT_SLUG
 from src.ar_infra.infrastructure.fs_utilities import try_rename_locked_directory
 from src.ar_infra.logger import get_logger
 
@@ -27,32 +25,8 @@ class BotIdentity:
     email: str
 
     @classmethod
-    def from_github_app(
-        cls, bot_slug: str = "test-ar-infra-bot", bot_id: int | None = None
-    ) -> "BotIdentity":
-        if bot_id is None:
-            try:
-                headers = {}
-                github_token = GITHUB_TOKEN
-                if github_token:
-                    headers["Authorization"] = f"token {github_token}"
-
-                response = requests.get(
-                    f"https://api.github.com/users/{bot_slug}%5Bbot%5D",
-                    timeout=10,
-                    headers=headers,
-                )
-                response.raise_for_status()
-                bot_id = response.json()["id"]
-            except requests.RequestException as exc:
-                log.warning(
-                    "Failed to fetch bot user ID for %s[bot], using fallback. "
-                    "Set BOT_ID in .env for production use. Error: %s",
-                    bot_slug,
-                    str(exc),
-                )
-                bot_id = 123456789
-
+    def from_config(cls, bot_slug: str, bot_id: str) -> "BotIdentity":
+        """Create bot identity from config values."""
         return cls(
             name=f"{bot_slug}[bot]",
             email=f"{bot_id}+{bot_slug}[bot]@users.noreply.github.com",
@@ -83,16 +57,8 @@ class BotGitHandler:
     ):
         if bot_identity is None:
             bot_slug = bot_slug or BOT_SLUG
-            bot_id_str = BOT_ID
-
-            if bot_id_str:
-                try:
-                    bot_id = int(bot_id_str)
-                except (TypeError, ValueError) as exc:
-                    raise ValueError("BOT_ID in .env must be a valid integer") from exc
-                self.bot_identity = BotIdentity.from_github_app(bot_slug, bot_id)
-            else:
-                self.bot_identity = BotIdentity.from_github_app(bot_slug)
+            bot_id = BOT_ID
+            self.bot_identity = BotIdentity.from_config(bot_slug, bot_id)
         else:
             self.bot_identity = bot_identity
 
