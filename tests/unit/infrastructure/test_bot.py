@@ -67,11 +67,19 @@ class TestBotGitHandler:
         git_calls = [c[0][0] for c in mock_run.call_args_list[1:]]
         expected_git = [
             ["git", "init"],
-            ["git", "config", "user.name", "test-bot[bot]"],
-            ["git", "config", "user.email", "999+test-bot[bot]@users.noreply.github.com"],
+            ["git", "config", "--local", "user.name", "test-bot[bot]"],
+            [
+                "git",
+                "config",
+                "--local",
+                "user.email",
+                "999+test-bot[bot]@users.noreply.github.com",
+            ],
             ["git", "branch", "-M", "main"],
             ["git", "add", "."],
             ["git", "commit", "-m", "chore: initial setup"],
+            ["git", "config", "--unset", "user.name"],
+            ["git", "config", "--unset", "user.email"],
         ]
         assert git_calls == expected_git
 
@@ -132,3 +140,97 @@ class TestBotGitHandler:
 
         assert handler.bot_identity.name == "env-bot[bot]"
         assert handler.bot_identity.email == "123456+env-bot[bot]@users.noreply.github.com"
+
+    @patch("src.ar_infra.infrastructure.processor.bot.subprocess.run")
+    def test_unset_bot_identity_is_called_after_commit(
+        self,
+        mock_run: Mock,
+        handler: BotGitHandler,
+        temp_output: Path,
+    ) -> None:
+        """Verify that bot identity is removed after initial commit."""
+        temp_output.mkdir(parents=True, exist_ok=True)
+        mock_run.side_effect = None
+
+        handler.initialize_repository(
+            project_path=temp_output,
+            initial_branch="main",
+            commit_message="initial commit",
+        )
+
+        git_calls = [c[0][0] for c in mock_run.call_args_list]
+
+        commit_index = next(i for i, call in enumerate(git_calls) if call[:2] == ["git", "commit"])
+        unset_name_index = next(
+            i
+            for i, call in enumerate(git_calls)
+            if call == ["git", "config", "--unset", "user.name"]
+        )
+        unset_email_index = next(
+            i
+            for i, call in enumerate(git_calls)
+            if call == ["git", "config", "--unset", "user.email"]
+        )
+
+        assert unset_name_index > commit_index
+        assert unset_email_index > commit_index
+
+    @patch("src.ar_infra.infrastructure.processor.bot.subprocess.run")
+    def test_unset_bot_identity_handles_errors_gracefully(
+        self,
+        mock_run: Mock,
+        handler: BotGitHandler,
+        temp_output: Path,
+    ) -> None:
+        temp_output.mkdir(parents=True, exist_ok=True)
+
+        def side_effect(cmd, **kwargs):
+            if "--unset" in cmd:
+                raise subprocess.CalledProcessError(
+                    returncode=1,
+                    cmd=cmd,
+                    stderr="error: key does not contain a section",
+                )
+            return Mock(returncode=0, stdout="", stderr="")
+
+        mock_run.side_effect = side_effect
+
+        handler.initialize_repository(
+            project_path=temp_output,
+            initial_branch="main",
+            commit_message="initial commit",
+        )
+
+        assert mock_run.call_count > 0
+
+    @patch("src.ar_infra.infrastructure.processor.bot.subprocess.run")
+    def test_configure_bot_identity_uses_local_flag(
+        self,
+        mock_run: Mock,
+        handler: BotGitHandler,
+        temp_output: Path,
+    ) -> None:
+        temp_output.mkdir(parents=True, exist_ok=True)
+        mock_run.side_effect = None
+
+        handler.initialize_repository(
+            project_path=temp_output,
+            initial_branch="main",
+            commit_message="initial commit",
+        )
+
+        git_calls = [c[0][0] for c in mock_run.call_args_list]
+
+        config_name = next(
+            call
+            for call in git_calls
+            if len(call) > 2 and call[1] == "config" and call[3] == "user.name"
+        )
+        config_email = next(
+            call
+            for call in git_calls
+            if len(call) > 2 and call[1] == "config" and call[3] == "user.email"
+        )
+
+        assert "--local" in config_name
+        assert "--local" in config_email
