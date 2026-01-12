@@ -35,13 +35,13 @@ class FacadeITHandler:
             token for feature in disabled_features for token in self._FEATURE_CONF_MAPPING[feature]
         }
 
-        lines = facade_path.read_text(encoding="utf-8").splitlines()
-        filtered = self._remove_disabled_feature_lines(lines, disabled_tokens)
+        content = facade_path.read_text(encoding="utf-8")
+        filtered = self._remove_disabled_feature_lines(content, disabled_tokens)
 
         if not enabled_features:
             filtered = self._remove_empty_before_all(filtered)
 
-        facade_path.write_text("\n".join(filtered) + "\n", encoding="utf-8")
+        facade_path.write_text(filtered, encoding="utf-8")
 
     @staticmethod
     def _find_facade_it(template_dir: Path) -> Path | None:
@@ -54,22 +54,32 @@ class FacadeITHandler:
 
     @staticmethod
     def _remove_disabled_feature_lines(
-        lines: list[str],
+        content: str,
         disabled_tokens: set[str],
-    ) -> list[str]:
+    ) -> str:
+        lines = content.splitlines(keepends=True)
         result: list[str] = []
+        in_import_section = False
 
         for line in lines:
             stripped = line.strip()
-            if any(token in stripped for token in disabled_tokens):
+
+            if stripped.startswith("import "):
+                in_import_section = True
+            elif in_import_section and stripped and not stripped.startswith("import "):
+                in_import_section = False
+
+            if not in_import_section and any(token in stripped for token in disabled_tokens):
                 continue
+
             result.append(line)
 
-        return result
+        return "".join(result)
 
     @staticmethod
-    def _remove_empty_before_all(lines: list[str]) -> list[str]:
-        """Remove @BeforeAll annotated methods from the lines."""
+    def _remove_empty_before_all(content: str) -> str:
+        """Remove @BeforeAll annotated methods from the content."""
+        lines = content.splitlines(keepends=True)
         result: list[str] = []
         i = 0
 
@@ -81,7 +91,7 @@ class FacadeITHandler:
             result.append(lines[i])
             i += 1
 
-        return result
+        return "".join(result)
 
     @staticmethod
     def _skip_before_all_method(lines: list[str], start_index: int) -> int:
