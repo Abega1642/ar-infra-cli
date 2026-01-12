@@ -106,7 +106,7 @@ class InitCommand:
             )
 
         except KeyboardInterrupt:
-            Messages.warning("\n\nOperation cancelled by user.")
+            Messages.warning("Operation cancelled by user.")
             sys.exit(0)
 
     def _generate_project(self, project_input: GenerateProjectInput) -> None:
@@ -115,12 +115,12 @@ class InitCommand:
 
             if result.success:
                 progress.complete()
-                Messages.success(f"\n{result.message}")
+                Messages.success(f"{result.message}")
                 Messages.info(f"Project created at: {result.project_path}")
                 if result.has_signature:
                     Messages.info(f"Project signature: {result.signature}")
             else:
-                Messages.error(f"\n{result.message}")
+                Messages.error(f"{result.message}")
                 sys.exit(1)
 
     def _execute_cli(self, args: InitCommandArgs) -> None:

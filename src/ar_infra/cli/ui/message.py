@@ -1,28 +1,43 @@
-"""User-facing messages with beautiful formatting."""
-
 from pathlib import Path
 
 from rich.panel import Panel
+from rich.text import Text
 
-from .console import console
+from src.ar_infra.cli.ui.console import console
 
 
 class Messages:
     @staticmethod
     def success(message: str) -> None:
-        console.print(f"✓ {message}", style="success")
+        text = Text.assemble(
+            ("✔ [SUCCESS] ", "bold green"),
+            (message, "green"),
+        )
+        console.print(text)
 
     @staticmethod
     def error(message: str) -> None:
-        console.print(f"✗ {message}", style="error")
+        text = Text.assemble(
+            ("✘ [ERROR] ", "bold red"),
+            (message, "red"),
+        )
+        console.print(text)
 
     @staticmethod
     def warning(message: str) -> None:
-        console.print(f"⚠ {message}", style="warning")
+        text = Text.assemble(
+            ("⚠ [WARNING] ", "bold yellow"),
+            (message, "yellow"),
+        )
+        console.print(text)
 
     @staticmethod
     def info(message: str) -> None:
-        console.print(f"[bold cyan]i[/] {message}", style="info")
+        text = Text.assemble(
+            ("i [INFO] ", "bold cyan"),
+            (message, "cyan"),
+        )
+        console.print(text)
 
     @staticmethod
     def project_summary(
@@ -33,18 +48,18 @@ class Messages:
         features: list[str],
     ) -> None:
         summary = f"""
-[bold]Project Configuration:[/bold]
+[bold]Project Configuration[/bold]
 
-  [prompt]Group ID:[/prompt]        {group}
-  [prompt]Artifact ID:[/prompt]     {artifact}
-  [prompt]Version:[/prompt]         {version}
-  [prompt]Location:[/prompt]        {path}
-  [prompt]Features:[/prompt]        {", ".join(features) if features else "None selected"}
+  [prompt]Group ID:[/prompt]     [bold]{group}[/bold]
+  [prompt]Artifact ID:[/prompt]  [bold]{artifact}[/bold]
+  [prompt]Version:[/prompt]      [bold]{version}[/bold]
+  [prompt]Location:[/prompt]     [italic]{path}[/italic]
+  [prompt]Features:[/prompt]     {", ".join(features) if features else "[dim]None selected[/dim]"}
 """
         panel = Panel(
             summary.strip(),
-            border_style="blue",
-            title="[bold]Summary[/bold]",
+            border_style="bright_blue",
+            title="[bold cyan]Summary[/bold cyan]",
             padding=(1, 2),
         )
         console.print(panel)
