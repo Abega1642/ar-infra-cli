@@ -22,7 +22,7 @@ jobs:
       - name: Verify tag format
         run: |
           if [[ ! "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Error: Tag must follow semantic versioning (e.g., v0.1.1)"
+            echo "Error: Tag must follow semantic versioning (e.g., v0.1.3)"
             exit 1
           fi
 
@@ -85,23 +85,6 @@ jobs:
         with:
           python-version: "3.11"
           cache: "pip"
-
-      - name: Inject secrets into config.py (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          sed -i.bak "s/__BOT_ID_PLACEHOLDER__/${{ secrets.BOT_ID }}/g" src/ar_infra/infrastructure/config.py
-          sed -i.bak "s/__BOT_SLUG_PLACEHOLDER__/${{ secrets.BOT_SLUG }}/g" src/ar_infra/infrastructure/config.py
-          rm src/ar_infra/infrastructure/config.py.bak
-          echo "Secrets injected into config.py"
-        shell: bash
-
-      - name: Inject secrets into config.py (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          (Get-Content src/ar_infra/infrastructure/config.py) -replace '__BOT_ID_PLACEHOLDER__', '${{ secrets.BOT_ID }}' | Set-Content src/ar_infra/infrastructure/config.py
-          (Get-Content src/ar_infra/infrastructure/config.py) -replace '__BOT_SLUG_PLACEHOLDER__', '${{ secrets.BOT_SLUG }}' | Set-Content src/ar_infra/infrastructure/config.py
-          Write-Host "Secrets injected into config.py"
-        shell: pwsh
 
       - name: Install dependencies
         run: |
@@ -188,7 +171,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: dist-artifacts
 
@@ -224,7 +207,7 @@ jobs:
             cat > release_notes.md << 'EOF'
           ## AR-Infra CLI ${{ github.ref_name }}
 
-          Production-ready Spring Boot project generator.
+          Production-ready Spring Boot project generator with GitHub integration.
 
           ### What's Changed
 
@@ -283,6 +266,13 @@ jobs:
           ar-infra init --group=com.example --artifact=myapp --features=postgresql,rabbitmq
           ```
 
+          ### What's New in This Release
+
+          - **GitHub App Integration**: Seamless repository setup with ar-infra-bot
+          - **Working CI/CD**: CodeQL and Semgrep workflows configured automatically
+          - **Enhanced UX**: Improved CLI messaging and user feedback
+          - **Bug Fixes**: Formatting now works with zero features selected
+
           ### Platform Compatibility
 
           - **Linux**: Static binary compatible with glibc 2.17+ (Ubuntu 14.04+, Debian 8+, CentOS 7+, Fedora, Arch, etc.)
@@ -332,12 +322,6 @@ jobs:
         with:
           python-version: "3.11"
           cache: "pip"
-
-      - name: Inject secrets into config.py
-        run: |
-          sed -i "s/__BOT_ID_PLACEHOLDER__/${{ secrets.BOT_ID }}/g" src/ar_infra/infrastructure/config.py
-          sed -i "s/__BOT_SLUG_PLACEHOLDER__/${{ secrets.BOT_SLUG }}/g" src/ar_infra/infrastructure/config.py
-          echo "Secrets injected into config.py"
 
       - name: Install build tools
         run: |
