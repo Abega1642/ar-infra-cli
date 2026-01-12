@@ -17,7 +17,11 @@ from src.ar_infra.infrastructure.template.project_signature import (
     InfraGeneratedAnnotationWriter,
     ProjectSignature,
 )
+from src.ar_infra.logger import get_logger
 from src.ar_infra.properties import CLI_VERSION
+
+
+log = get_logger(use_rich=True)
 
 
 class ProgressReporter(Protocol):
@@ -54,6 +58,14 @@ class GenerateProjectUseCase:
             placeholder_package = self._fetch_template(input_dto, progress)
             self._apply_features(input_dto, progress)
             self._remove_unwanted_dependencies(input_dto, progress)
+
+            # We need to format immediately after feature removal if no features selected
+            # This handles the case where Google Java Format needs two passes
+            # to fully clean up unused imports (e.g., static imports from removed @BeforeAll)
+            if not input_dto.enabled_features:
+                log.info("SCRIPT FORMATTING ACTIVATED. First run of the Format Script ...")
+                self._run_formatter(input_dto, progress)
+
             self._update_build_gradle(input_dto, progress)
             self._rename_packages(input_dto, placeholder_package, progress)
             self._update_settings_gradle(input_dto, progress)
