@@ -45,9 +45,6 @@ jobs:
 
       - name: Run interactive mode tests
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BOT_ID: ${{ secrets.BOT_ID_TEST }}
-          BOT_SLUG: ${{ secrets.BOT_SLUG_TEST }}
           TERM: xterm-256color
         run: |
           chmod +x scripts/test-interactive-mode.sh

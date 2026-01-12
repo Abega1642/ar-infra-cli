@@ -16,7 +16,6 @@ from src.ar_infra.domain.value_objects.version import Version
 
 @pytest.fixture(autouse=True)
 def mock_bot_env(monkeypatch):
-    """Prevent GitHub API calls by setting bot env vars."""
     monkeypatch.setenv("BOT_ID", "123456")
     monkeypatch.setenv("BOT_SLUG", "ar-infra-bot")
 
@@ -254,7 +253,6 @@ class TestGenerateProjectUseCase:
         use_case: GenerateProjectUseCase,
         valid_input: GenerateProjectInput,
     ) -> None:
-        """Test that cleaner failures are wrapped in GenerateProjectError."""
         use_case._artifact_cleaner.clean.side_effect = OSError("Permission denied")
 
         result = use_case.execute(valid_input)
@@ -267,7 +265,6 @@ class TestGenerateProjectUseCase:
         use_case: GenerateProjectUseCase,
         valid_input: GenerateProjectInput,
     ) -> None:
-        """Test that artifact cleaning happens before git initialization."""
         call_order = []
         use_case._artifact_cleaner.clean.side_effect = (
             lambda *args: call_order.append("cleaner") or 8
@@ -390,7 +387,6 @@ class TestArtifactCleanerIntegration:
         package_renamer_simple: Mock,
         tmp_path: Path,
     ) -> None:
-        """Test that generation succeeds even if some artifacts don't exist."""
         fetcher = Mock()
 
         def create_partial_template(url, destination, use_cache=False):
@@ -447,7 +443,6 @@ class TestArtifactCleanerIntegration:
         package_renamer_simple: Mock,
         tmp_path: Path,
     ) -> None:
-        """Test that use case creates cleaner instance when not injected."""
         fake_git_initializer = Mock()
         fake_annotation_writer = Mock()
 

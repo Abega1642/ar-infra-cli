@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-import requests
 from pytest_mock import MockerFixture
 
 from src.ar_infra.infrastructure.processor.bot import (
@@ -17,82 +16,10 @@ from src.ar_infra.infrastructure.processor.bot import (
 
 
 class TestBotIdentity:
-    def test_from_github_app_with_provided_id(self) -> None:
-        identity = BotIdentity.from_github_app(bot_slug="my-bot", bot_id=123456)
+    def test_from_config(self) -> None:
+        identity = BotIdentity.from_config(bot_slug="my-bot", bot_id="123456")
         assert identity.name == "my-bot[bot]"
         assert identity.email == "123456+my-bot[bot]@users.noreply.github.com"
-
-    @patch("src.ar_infra.infrastructure.processor.bot.GITHUB_TOKEN", None)
-    @patch("src.ar_infra.infrastructure.processor.bot.requests.get")
-    def test_from_github_app_fetches_id_from_api(self, mock_get: Mock) -> None:
-        """Test fetching bot ID from API when GITHUB_TOKEN is not set."""
-        mock_response = Mock()
-        mock_response.raise_for_status.return_value = None
-        mock_response.json.return_value = {"id": 987654}
-        mock_get.return_value = mock_response
-
-        identity = BotIdentity.from_github_app(bot_slug="fetch-bot")
-
-        assert identity.name == "fetch-bot[bot]"
-        assert identity.email == "987654+fetch-bot[bot]@users.noreply.github.com"
-        mock_get.assert_called_once_with(
-            "https://api.github.com/users/fetch-bot%5Bbot%5D",
-            timeout=10,
-            headers={},
-        )
-
-    @patch("src.ar_infra.infrastructure.processor.bot.GITHUB_TOKEN", "ghp_test_token_123")
-    @patch("src.ar_infra.infrastructure.processor.bot.requests.get")
-    def test_from_github_app_uses_github_token_when_available(self, mock_get: Mock) -> None:
-        mock_response = Mock()
-        mock_response.raise_for_status.return_value = None
-        mock_response.json.return_value = {"id": 987654}
-        mock_get.return_value = mock_response
-
-        identity = BotIdentity.from_github_app(bot_slug="fetch-bot")
-
-        assert identity.name == "fetch-bot[bot]"
-        assert identity.email == "987654+fetch-bot[bot]@users.noreply.github.com"
-        mock_get.assert_called_once_with(
-            "https://api.github.com/users/fetch-bot%5Bbot%5D",
-            timeout=10,
-            headers={"Authorization": "token ghp_test_token_123"},
-        )
-
-    @patch("src.ar_infra.infrastructure.processor.bot.requests.get")
-    @patch("src.ar_infra.infrastructure.processor.bot.log")
-    def test_from_github_app_uses_fallback_on_api_failure(
-        self, mock_log: Mock, mock_get: Mock
-    ) -> None:
-        """Test that API failure returns fallback identity instead of crashing."""
-        mock_get.side_effect = requests.RequestException("Connection failed")
-
-        identity = BotIdentity.from_github_app(bot_slug="fail-bot")
-
-        assert identity.name == "fail-bot[bot]"
-        assert identity.email == "123456789+fail-bot[bot]@users.noreply.github.com"
-
-        mock_log.warning.assert_called_once()
-        warning_call = mock_log.warning.call_args[0]
-        assert "Failed to fetch bot user ID" in warning_call[0]
-        assert "fail-bot" in warning_call[1]
-
-    @patch("src.ar_infra.infrastructure.processor.bot.requests.get")
-    @patch("src.ar_infra.infrastructure.processor.bot.log")
-    def test_from_github_app_uses_fallback_on_rate_limit(
-        self, mock_log: Mock, mock_get: Mock
-    ) -> None:
-        """Test that rate limit (403) returns fallback identity."""
-        mock_response = Mock()
-        mock_response.raise_for_status.side_effect = requests.HTTPError("403 Rate limit")
-        mock_get.return_value = mock_response
-
-        identity = BotIdentity.from_github_app(bot_slug="rate-limited-bot")
-
-        assert identity.name == "rate-limited-bot[bot]"
-        assert identity.email == "123456789+rate-limited-bot[bot]@users.noreply.github.com"
-
-        mock_log.warning.assert_called_once()
 
 
 class TestBotGitHandler:
@@ -140,11 +67,19 @@ class TestBotGitHandler:
         git_calls = [c[0][0] for c in mock_run.call_args_list[1:]]
         expected_git = [
             ["git", "init"],
-            ["git", "config", "user.name", "test-bot[bot]"],
-            ["git", "config", "user.email", "999+test-bot[bot]@users.noreply.github.com"],
+            ["git", "config", "--local", "user.name", "test-bot[bot]"],
+            [
+                "git",
+                "config",
+                "--local",
+                "user.email",
+                "999+test-bot[bot]@users.noreply.github.com",
+            ],
             ["git", "branch", "-M", "main"],
             ["git", "add", "."],
             ["git", "commit", "-m", "chore: initial setup"],
+            ["git", "config", "--unset", "user.name"],
+            ["git", "config", "--unset", "user.email"],
         ]
         assert git_calls == expected_git
 
@@ -198,28 +133,104 @@ class TestBotGitHandler:
         with pytest.raises(GitRepositoryError, match="git"):
             handler._run_command(["git", "init"])
 
-    @patch("src.ar_infra.infrastructure.processor.bot.BotIdentity.from_github_app")
     @patch("src.ar_infra.infrastructure.processor.bot.BOT_ID", "123456")
     @patch("src.ar_infra.infrastructure.processor.bot.BOT_SLUG", "env-bot")
-    def test_init_uses_env_vars_when_no_identity_provided(
+    def test_init_uses_config_when_no_identity_provided(self) -> None:
+        handler = BotGitHandler()
+
+        assert handler.bot_identity.name == "env-bot[bot]"
+        assert handler.bot_identity.email == "123456+env-bot[bot]@users.noreply.github.com"
+
+    @patch("src.ar_infra.infrastructure.processor.bot.subprocess.run")
+    def test_unset_bot_identity_is_called_after_commit(
         self,
-        mock_from_github: Mock,
+        mock_run: Mock,
+        handler: BotGitHandler,
+        temp_output: Path,
     ) -> None:
-        expected_identity = BotIdentity(
-            name="env-bot[bot]", email="123456+env-bot[bot]@users.noreply.github.com"
+        """Verify that bot identity is removed after initial commit."""
+        temp_output.mkdir(parents=True, exist_ok=True)
+        mock_run.side_effect = None
+
+        handler.initialize_repository(
+            project_path=temp_output,
+            initial_branch="main",
+            commit_message="initial commit",
         )
-        mock_from_github.return_value = expected_identity
 
-        handler = BotGitHandler()  # No explicit identity
+        git_calls = [c[0][0] for c in mock_run.call_args_list]
 
-        assert handler.bot_identity == expected_identity
-        mock_from_github.assert_called_once_with("env-bot", 123456)
+        commit_index = next(i for i, call in enumerate(git_calls) if call[:2] == ["git", "commit"])
+        unset_name_index = next(
+            i
+            for i, call in enumerate(git_calls)
+            if call == ["git", "config", "--unset", "user.name"]
+        )
+        unset_email_index = next(
+            i
+            for i, call in enumerate(git_calls)
+            if call == ["git", "config", "--unset", "user.email"]
+        )
 
-    @patch("src.ar_infra.infrastructure.processor.bot.BotIdentity.from_github_app")
-    @patch("src.ar_infra.infrastructure.processor.bot.BOT_ID", None)
-    def test_init_falls_back_to_api_when_no_env_id(
+        assert unset_name_index > commit_index
+        assert unset_email_index > commit_index
+
+    @patch("src.ar_infra.infrastructure.processor.bot.subprocess.run")
+    def test_unset_bot_identity_handles_errors_gracefully(
         self,
-        mock_from_github: Mock,
+        mock_run: Mock,
+        handler: BotGitHandler,
+        temp_output: Path,
     ) -> None:
-        BotGitHandler()
-        mock_from_github.assert_called_once_with("ar-infra-bot")
+        temp_output.mkdir(parents=True, exist_ok=True)
+
+        def side_effect(cmd, **kwargs):
+            if "--unset" in cmd:
+                raise subprocess.CalledProcessError(
+                    returncode=1,
+                    cmd=cmd,
+                    stderr="error: key does not contain a section",
+                )
+            return Mock(returncode=0, stdout="", stderr="")
+
+        mock_run.side_effect = side_effect
+
+        handler.initialize_repository(
+            project_path=temp_output,
+            initial_branch="main",
+            commit_message="initial commit",
+        )
+
+        assert mock_run.call_count > 0
+
+    @patch("src.ar_infra.infrastructure.processor.bot.subprocess.run")
+    def test_configure_bot_identity_uses_local_flag(
+        self,
+        mock_run: Mock,
+        handler: BotGitHandler,
+        temp_output: Path,
+    ) -> None:
+        temp_output.mkdir(parents=True, exist_ok=True)
+        mock_run.side_effect = None
+
+        handler.initialize_repository(
+            project_path=temp_output,
+            initial_branch="main",
+            commit_message="initial commit",
+        )
+
+        git_calls = [c[0][0] for c in mock_run.call_args_list]
+
+        config_name = next(
+            call
+            for call in git_calls
+            if len(call) > 2 and call[1] == "config" and call[3] == "user.name"
+        )
+        config_email = next(
+            call
+            for call in git_calls
+            if len(call) > 2 and call[1] == "config" and call[3] == "user.email"
+        )
+
+        assert "--local" in config_name
+        assert "--local" in config_email

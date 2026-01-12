@@ -35,10 +35,6 @@ jobs:
 
       - name: Run basic project generation test (Unix)
         if: runner.os != 'Windows'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BOT_ID: ${{ secrets.BOT_ID_TEST }}
-          BOT_SLUG: ${{ secrets.BOT_SLUG_TEST }}
         run: |
           chmod +x scripts/project-generation.sh
           bash scripts/project-generation.sh
@@ -47,9 +43,6 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BOT_ID: ${{ secrets.BOT_ID_TEST }}
-          BOT_SLUG: ${{ secrets.BOT_SLUG_TEST }}
           PYTHONIOENCODING: utf-8
         run: bash scripts/project-generation.sh
 
@@ -156,10 +149,6 @@ jobs:
 
       - name: Run feature combination tests (Unix)
         if: runner.os != 'Windows'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BOT_ID: ${{ secrets.BOT_ID_TEST }}
-          BOT_SLUG: ${{ secrets.BOT_SLUG_TEST }}
         run: |
           chmod +x scripts/test-feature-combinations.sh
           bash scripts/test-feature-combinations.sh
@@ -168,9 +157,6 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BOT_ID: ${{ secrets.BOT_ID_TEST }}
-          BOT_SLUG: ${{ secrets.BOT_SLUG_TEST }}
           PYTHONIOENCODING: utf-8
         run: bash scripts/test-feature-combinations.sh
 

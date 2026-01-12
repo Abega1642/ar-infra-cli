@@ -1,5 +1,3 @@
-"""Gradle build file writer."""
-
 import re
 import shutil
 from pathlib import Path
@@ -43,8 +41,6 @@ JAVA_BLOCK_WITH_GROUP_PATTERN = re.compile(
 
 
 class GradleWriter:
-    """Writer for modifying Gradle build files."""
-
     def update_group(self, build_file: Path, group: GroupId) -> None:
         self._validate_file(build_file)
         content = build_file.read_text(encoding="utf-8")
@@ -104,7 +100,6 @@ class GradleWriter:
         self._atomic_write(build_file, updated)
 
     def remove_dependencies(self, build_file: Path, dependencies_to_remove: list[str]) -> None:
-        """Remove only the specified dependencies from build.gradle."""
         self._validate_file(build_file)
         content = build_file.read_text(encoding="utf-8")
 
@@ -125,7 +120,6 @@ class GradleWriter:
         self._atomic_write(build_file, updated_content)
 
     def remove_dependency(self, build_file: Path, dependency_notation: str) -> None:
-        """Remove a specific dependency from build.gradle."""
         self._validate_file(build_file)
         content = build_file.read_text(encoding="utf-8")
 
@@ -147,7 +141,6 @@ class GradleWriter:
         self._atomic_write(build_file, updated_content)
 
     def _remove_matching_dependencies(self, deps_content: str, to_remove_set: set[str]) -> str:
-        """Remove only lines that match dependencies in to_remove_set."""
         lines = deps_content.split("\n")
         filtered = []
 
@@ -165,8 +158,8 @@ class GradleWriter:
 
         return "\n".join(filtered)
 
-    def _should_remove_dependency(self, line: str, to_remove_set: set[str]) -> bool:
-        """Check if this dependency line should be removed."""
+    @staticmethod
+    def _should_remove_dependency(line: str, to_remove_set: set[str]) -> bool:
         match = DEP_PATTERN.match(line)
         if not match:
             return False
@@ -179,7 +172,8 @@ class GradleWriter:
         group_artifact = f"{parts[0]}:{parts[1]}"
         return group_artifact in to_remove_set or full_notation in to_remove_set
 
-    def _is_non_dependency_line(self, line: str) -> bool:
+    @staticmethod
+    def _is_non_dependency_line(line: str) -> bool:
         stripped = line.strip()
         if not stripped:
             return False
@@ -187,12 +181,13 @@ class GradleWriter:
             return False
         return not any(conf in line for conf in CONFIGURATIONS)
 
-    def _is_comment_or_empty(self, line: str) -> bool:
+    @staticmethod
+    def _is_comment_or_empty(line: str) -> bool:
         stripped = line.strip()
         return stripped.startswith("//") or not stripped
 
-    def _replace_or_insert_version(self, content: str, version_value: str) -> str:
-        """Replace existing version or insert it in the right place."""
+    @staticmethod
+    def _replace_or_insert_version(content: str, version_value: str) -> str:
         if VERSION_PATTERN.search(content):
             return VERSION_PATTERN.sub(f"version = '{version_value}'", content)
 
@@ -216,17 +211,20 @@ class GradleWriter:
 
         raise GradleWriteError("Cannot find suitable location for version")
 
-    def _dependency_exists(self, content: str, dependency: GradleDependency) -> bool:
+    @staticmethod
+    def _dependency_exists(content: str, dependency: GradleDependency) -> bool:
         pattern = re.compile(
             rf"{dependency.configuration.value}\s+['\"].*{re.escape(dependency.name)}.*['\"]"
         )
         return pattern.search(content) is not None
 
-    def _format_dependency(self, dependency: GradleDependency) -> str:
+    @staticmethod
+    def _format_dependency(dependency: GradleDependency) -> str:
         notation = dependency.to_gradle_notation()
         return f"    {dependency.configuration.value} '{notation}'"
 
-    def _add_to_existing_dependencies(self, content: str, dependency_line: str) -> str:
+    @staticmethod
+    def _add_to_existing_dependencies(content: str, dependency_line: str) -> str:
         dependencies_pattern = re.compile(DEP_REG, re.DOTALL)
         match = dependencies_pattern.search(content)
         if not match:
@@ -236,23 +234,27 @@ class GradleWriter:
         updated_deps = f"{opening}{deps_content}\n{dependency_line}{closing}"
         return content[: match.start()] + updated_deps + content[match.end() :]
 
-    def _create_dependencies_block(self, content: str, dependency_line: str) -> str:
+    @staticmethod
+    def _create_dependencies_block(content: str, dependency_line: str) -> str:
         return content + f"\ndependencies {{\n{dependency_line}\n}}\n"
 
-    def _validate_file(self, file_path: Path) -> None:
+    @staticmethod
+    def _validate_file(file_path: Path) -> None:
         if not file_path.exists():
             raise GradleWriteError(f"File does not exist: {file_path}")
         if not file_path.is_file():
             raise GradleWriteError(f"Not a file: {file_path}")
 
-    def _detect_malicious_content(self, content: str) -> None:
+    @staticmethod
+    def _detect_malicious_content(content: str) -> None:
         for pattern in MALICIOUS_PATTERNS:
             if pattern.search(content):
                 raise MaliciousContentError(
                     f"Potentially malicious content detected. Pattern: {pattern.pattern}",
                 )
 
-    def _atomic_write(self, file_path: Path, content: str) -> None:
+    @staticmethod
+    def _atomic_write(file_path: Path, content: str) -> None:
         backup_path = file_path.with_suffix(".gradle.bak")
         try:
             shutil.copy2(file_path, backup_path)

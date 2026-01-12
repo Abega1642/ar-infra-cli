@@ -1,10 +1,3 @@
-"""Path security and validation for project generation.
-
-This module provides cross-platform path validation and security checking
-for project generation. It handles platform-specific path formats and
-dangerous system directories across Linux, macOS, and Windows.
-"""
-
 import platform
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Final
@@ -32,7 +25,10 @@ class DangerousPathError(PathSecurityError):
 
 
 class PathTraversalError(PathSecurityError):
-    """Raised when path traversal is detected."""
+    """Raised when path traversal causes project to escape destination."""
+
+
+MAX_LENGTH_NAME = 255
 
 
 class PathSecurityValidator:
@@ -41,9 +37,11 @@ class PathSecurityValidator:
 
     def validate_destination_path(self, path_str: str) -> Path:
         self._validate_not_empty(path_str)
-        self._check_path_traversal_in_input(path_str)
 
-        path = Path(path_str).expanduser()
+        try:
+            path = Path(path_str).expanduser()
+        except (ValueError, RuntimeError) as err:
+            raise ValueError(f"Invalid path format: {err}") from err
 
         resolved = path.resolve(strict=False)
 
@@ -71,21 +69,12 @@ class PathSecurityValidator:
 
         return name
 
-    def _validate_not_empty(self, value: str) -> None:
+    @staticmethod
+    def _validate_not_empty(value: str) -> None:
         if not value or not value.strip():
             raise ValueError("Path or name cannot be empty")
 
-    def _check_path_traversal_in_input(self, path_str: str) -> None:
-        try:
-            parts = Path(path_str).expanduser().parts
-        except (ValueError, RuntimeError) as err:
-            raise ValueError("Invalid path format") from err
-
-        if ".." in parts:
-            raise PathTraversalError("path traversal detected")
-
     def _check_dangerous_path(self, resolved: Path) -> None:
-        """Check if the resolved path is a system-critical directory."""
         path_str = self._normalize_path_for_comparison(resolved)
 
         if self._is_safe_path(path_str):
@@ -127,21 +116,21 @@ class PathSecurityValidator:
         return path_str
 
     def _is_safe_path(self, path_str: str) -> bool:
+        safe_paths: set[str] = set()
+        safe_prefixes: list[str] = []
+
         if self._system == "Darwin":
-            if path_str in SAFE_MACOS_PATHS:
-                return True
-            for prefix in SAFE_MACOS_PREFIX_PATHS:
-                if path_str.startswith(prefix):
-                    return True
+            safe_paths.update(SAFE_MACOS_PATHS)
+            safe_prefixes.extend(SAFE_MACOS_PREFIX_PATHS)
 
         if self._system in ("Linux", "Darwin"):
-            if path_str in SAFE_UNIX_PATHS:
-                return True
-            for prefix in SAFE_UNIX_PREFIX_PATHS:
-                if path_str.startswith(prefix):
-                    return True
+            safe_paths.update(SAFE_UNIX_PATHS)
+            safe_prefixes.extend(SAFE_UNIX_PREFIX_PATHS)
 
-        return False
+        if path_str in safe_paths:
+            return True
+
+        return any(path_str.startswith(prefix) for prefix in safe_prefixes)
 
     def _is_exact_dangerous_match(self, path_str: str) -> bool:
         dangerous_paths = self._get_dangerous_exact_paths()
@@ -172,25 +161,29 @@ class PathSecurityValidator:
         # Linux and other Unix-like systems
         return DANGEROUS_UNIX_PREFIX_PATHS
 
-    def _check_path_separators(self, name: str) -> None:
+    @staticmethod
+    def _check_path_separators(name: str) -> None:
         if ".." in name or "/" in name or "\\" in name:
             raise ValueError(
                 "Project directory name cannot contain path separators or '..' sequences"
             )
 
-    def _check_hidden_directory(self, name: str) -> None:
+    @staticmethod
+    def _check_hidden_directory(name: str) -> None:
         if name.startswith("."):
             raise ValueError("Project directory name cannot start with '.' (hidden directory)")
 
-    def _check_valid_characters(self, name: str) -> None:
+    @staticmethod
+    def _check_valid_characters(name: str) -> None:
         if not all(c.isalnum() or c in "-_" for c in name):
             raise ValueError(
                 "Project directory name can only contain alphanumeric characters, "
                 "hyphens, and underscores"
             )
 
-    def _check_name_length(self, name: str) -> None:
-        if len(name) > 255:
+    @staticmethod
+    def _check_name_length(name: str) -> None:
+        if len(name) > MAX_LENGTH_NAME:
             raise ValueError("Project directory name too long (max 255 characters)")
 
 
@@ -236,7 +229,6 @@ class SafeProjectPathResolver:
             raise OSError(f"Cannot resolve project path: {exc}") from exc
 
     def _verify_path_containment(self, project_dir: Path) -> None:
-        """Verify that project directory is contained within destination."""
         try:
             resolved_project = project_dir.resolve(strict=False)
             resolved_destination = self.destination.resolve(strict=False)
@@ -259,8 +251,8 @@ class SafeProjectPathResolver:
         except (ValueError, TypeError) as exc:
             raise PathSecurityError(f"Cannot verify project path safety: {exc}") from exc
 
-    def _check_windows_path_containment(self, project_path: Path, dest_path: Path) -> bool:
-        """Check path containment on Windows (case-insensitive)."""
+    @staticmethod
+    def _check_windows_path_containment(project_path: Path, dest_path: Path) -> bool:
         project_str = str(project_path).lower().replace("/", "\\")
         dest_str = str(dest_path).lower().replace("/", "\\")
 
@@ -273,8 +265,8 @@ class SafeProjectPathResolver:
             return False
         return True
 
-    def _check_unix_path_containment(self, project_path: Path, dest_path: Path) -> bool:
-        """Check path containment on Unix-like systems."""
+    @staticmethod
+    def _check_unix_path_containment(project_path: Path, dest_path: Path) -> bool:
         project_str = str(project_path)
         dest_str = str(dest_path)
 
@@ -302,7 +294,8 @@ class SafeProjectPathResolver:
         if not self.destination.is_dir():
             raise ValueError(f"Destination path '{self.destination}' exists but is not a directory")
 
-    def _check_project_not_exists(self, project_dir: Path) -> None:
+    @staticmethod
+    def _check_project_not_exists(project_dir: Path) -> None:
         if project_dir.exists():
             raise FileExistsError(
                 f"Directory '{project_dir}' already exists. "
@@ -322,7 +315,8 @@ class SafeProjectPathResolver:
             if test_file and test_file.exists():
                 test_file.unlink(missing_ok=True)
 
-    def _directory_has_content(self, directory: Path) -> bool:
+    @staticmethod
+    def _directory_has_content(directory: Path) -> bool:
         try:
             return any(directory.iterdir())
         except OSError:

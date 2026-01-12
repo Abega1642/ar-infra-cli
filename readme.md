@@ -16,7 +16,7 @@
   <a href="https://github.com/Abega1642/ar-infra-cli/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/Abega1642/ar-infra-cli?style=for-the-badge" />
   </a>
-  <img src="https://img.shields.io/badge/version-0.1.0-blue?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/version-0.1.3-blue?style=for-the-badge" />
   <img src="https://img.shields.io/badge/python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white" />
   <img src="https://img.shields.io/badge/CLI-Typer-000000?style=for-the-badge" />
 </p>
@@ -40,9 +40,11 @@
 ## Table of Contents
 
 - [Introduction](#introduction)
+- [What's New in v0.1.3](#whats-new-in-v013)
 - [What is ar-infra?](#what-is-ar-infra)
 - [What is ar-infra-template?](#what-is-ar-infra-template)
 - [What is ar-infra-cli?](#what-is-ar-infra-cli)
+- [Installation](#installation)
 - [Usage](#usage)
   - [Interactive Mode](#interactive-mode)
   - [Command Line Mode](#command-line-mode)
@@ -50,6 +52,7 @@
   - [Feature Flags](#feature-flags)
 - [Examples](#examples)
 - [Generated Project Structure](#generated-project-structure)
+- [System Requirements](#system-requirements)
 - [Conclusion](#conclusion)
 
 ---
@@ -59,6 +62,28 @@
 The **ar-infra-cli** is a command-line tool designed to generate **production-ready Spring Boot applications**. It leverages the [ar-infra-template](https://github.com/Abega1642/ar-infra-template.git) as its foundation, ensuring that every generated project starts with a complete, enterprise-grade infrastructure.
 
 This CLI automates the creation of new backend services, eliminating the repetitive setup work and enforcing consistent architecture and security practices across projects.
+
+---
+
+## What's New in v0.1.3
+
+### GitHub App Integration
+
+- **Automated repository setup**: The ar-infra-bot GitHub App now handles repository authorization during project generation
+- **Working CI/CD out-of-the-box**: CodeQL and Semgrep workflows are automatically configured with proper permissions
+- **Secure authorization flow**: GitHub App provides secure, scoped access without requiring personal access tokens
+- **Optional integration**: Use `--skip-github-app` flag if you want to set up GitHub manually or don't need CI/CD
+
+### Enhanced User Experience
+
+- **Improved CLI messaging**: Clearer, more informative messages throughout the project generation process
+- **Intuitive workflow**: Smoother project setup experience with contextual prompts
+
+### Bug Fixes
+
+- **Fixed formatting with no features**: Project formatting now works correctly even when no infrastructure features are selected
+- **Resolved CI authorization issues**: CodeQL and Semgrep workflows no longer fail due to permission problems
+- **Improved error handling**: Better error messages when GitHub authorization is needed
 
 ---
 
@@ -99,8 +124,68 @@ The **ar-infra-cli** is the tool that generates new Spring Boot projects based o
 - **Project version**
 - **Feature selection** (add or remove components as needed)
 - **Target location** customization
+- **GitHub App integration** for automated CI/CD setup
 
 By running a single command, developers can bootstrap a fully configured Spring Boot application based on the ar-infra architecture without manual setup.
+
+---
+
+## Installation
+
+### Binary Installation (Recommended)
+
+#### Linux (x64)
+
+```bash
+curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.1.3/ar-infra-linux-amd64
+curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.1.3/ar-infra-linux-amd64.sha256
+shasum -a 256 -c ar-infra-linux-amd64.sha256
+chmod +x ar-infra-linux-amd64
+sudo mv ar-infra-linux-amd64 /usr/local/bin/ar-infra
+```
+
+#### macOS (Intel)
+
+```bash
+curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.1.3/ar-infra-macos-amd64
+curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.1.3/ar-infra-macos-amd64.sha256
+shasum -a 256 -c ar-infra-macos-amd64.sha256
+chmod +x ar-infra-macos-amd64
+sudo mv ar-infra-macos-amd64 /usr/local/bin/ar-infra
+```
+
+#### macOS (Apple Silicon)
+
+```bash
+curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.1.3/ar-infra-macos-arm64
+curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.1.3/ar-infra-macos-arm64.sha256
+shasum -a 256 -c ar-infra-macos-arm64.sha256
+chmod +x ar-infra-macos-arm64
+sudo mv ar-infra-macos-arm64 /usr/local/bin/ar-infra
+```
+
+#### Windows (PowerShell as Administrator)
+
+```powershell
+Invoke-WebRequest -Uri "https://github.com/Abega1642/ar-infra-cli/releases/download/v0.1.3/ar-infra-windows-amd64.exe" -OutFile "ar-infra.exe"
+Invoke-WebRequest -Uri "https://github.com/Abega1642/ar-infra-cli/releases/download/v0.1.3/ar-infra-windows-amd64.exe.sha256" -OutFile "ar-infra.exe.sha256"
+certutil -hashfile ar-infra.exe SHA256
+Move-Item ar-infra.exe C:\Windows\System32\ar-infra.exe
+```
+
+### Python Package Installation
+
+Using pipx (recommended for CLI tools):
+
+```bash
+pipx install ar-infra-cli
+```
+
+Using pip:
+
+```bash
+pip install ar-infra-cli
+```
 
 ---
 
@@ -123,6 +208,9 @@ The CLI will ask you to provide:
 - Project version (e.g., `1.0.0`)
 - Output path
 - Features to include or exclude
+- GitHub repository setup (optional)
+
+When you choose to push your project to a repository, the CLI will guide you through automated authorization via the ar-infra-bot GitHub App, ensuring your CI/CD workflows work immediately.
 
 ### Command Line Mode
 
@@ -130,6 +218,15 @@ For automation or quick generation, all options can be provided directly via com
 
 ```bash
 ar-infra init --group=com.example --artifact=myapp --project-version=1.0.0
+```
+
+Skip GitHub App integration if you don't need CI/CD setup:
+
+```bash
+ar-infra init \
+  --group=com.example \
+  --artifact=backend-api \
+  --skip-github-app
 ```
 
 ### Available Options
@@ -143,6 +240,8 @@ ar-infra init --group=com.example --artifact=myapp --project-version=1.0.0
 | `--project-dir`      | Name of the project directory               | `my-project`           |
 | `--features`         | Comma-separated list of features to include | `postgresql,s3_bucket` |
 | `--disable-features` | Comma-separated list of features to exclude | `rabbitmq,email`       |
+| `--no-cache`         | Skip template caching and fetch fresh       | N/A                    |
+| `--skip-github-app`  | Skip GitHub App integration                 | N/A                    |
 
 ### Feature Flags
 
@@ -152,7 +251,7 @@ The following features can be enabled or disabled during project generation:
 | ------------ | -------------------------------------------------- |
 | `postgresql` | PostgreSQL database support with Flyway migrations |
 | `rabbitmq`   | RabbitMQ message broker integration                |
-| `s3_bucket`  | AWS S3-compatible storage integration              |
+| `s3_bucket`  | AWS S3-compatible storage integration (BackBlaze)  |
 | `email`      | Email sending capabilities                         |
 
 By default, all features are enabled. Use `--disable-features` to exclude specific components.
@@ -202,6 +301,17 @@ ar-infra init \
     --disable-features=rabbitmq,email
 ```
 
+### Fresh Template Fetch
+
+Generate a project with fresh template (bypass cache):
+
+```bash
+ar-infra init \
+    --group=com.example \
+    --artifact=myapp \
+    --no-cache
+```
+
 ---
 
 ## Generated Project Structure
@@ -223,10 +333,52 @@ Projects generated by **ar-infra-cli** include:
 
 ---
 
+## System Requirements
+
+### Binary Distribution
+
+- **Linux**: x86_64 architecture, GLIBC 2.17+
+- **macOS**: 10.13+ (Intel), 11.0+ (Apple Silicon)
+- **Windows**: Windows 10/11, x86_64 architecture
+
+### Python Package
+
+- **Python**: 3.11 or higher
+- **Package Manager**: pip or pipx
+
+### Additional Requirements
+
+- Internet connectivity for GitHub App integration (optional)
+- Git installed for repository operations
+
+---
+
 ## Conclusion
 
 The **ar-infra-cli** is the entry point for teams adopting the ar-infra architecture. By combining the solid foundation of **ar-infra-template** with the automation of a CLI tool, it enables developers to start new backend projects quickly, consistently, and securely.
 
+With v0.1.3, GitHub App integration ensures your CI/CD pipelines work immediately after your first push, eliminating the friction of manual repository setup.
+
 This tool is maintained by **Abegà Razafindratelo**. For questions, issues, or contributions, please refer to the project repository or contact directly at [a.razafindratelo@gmail.com](mailto:a.razafindratelo@gmail.com).
 
 For more information, visit the [ar-infra-template repository](https://github.com/Abega1642/ar-infra-template).
+
+---
+
+## Support and Documentation
+
+- **Repository**: [https://github.com/Abega1642/ar-infra-cli](https://github.com/Abega1642/ar-infra-cli)
+- **Issue Tracker**: [https://github.com/Abega1642/ar-infra-cli/issues](https://github.com/Abega1642/ar-infra-cli/issues)
+- **Template Repository**: [https://github.com/Abega1642/ar-infra-template](https://github.com/Abega1642/ar-infra-template)
+- **GitHub App**: ar-infra-bot (installation guided during project setup)
+
+---
+
+## Security Considerations
+
+- Binary integrity verification via SHA256 checksums is strongly recommended
+- All binaries are built via GitHub Actions with full transparency
+- Secrets are now injected at build time rather than bundled, improving security
+- The ar-infra-bot GitHub App uses minimal, scoped permissions
+- No code signing is provided; users should verify checksums before execution
+- Source code is available for audit

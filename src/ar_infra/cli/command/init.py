@@ -46,11 +46,10 @@ class InitCommandArgs:
     features: str | None
     no_features: str | None
     no_cache: bool
+    skip_github_app: bool
 
 
 class InitCommand:
-    """Handles the init command logic."""
-
     DEFAULT_TEMPLATE_URL = "https://github.com/Abega1642/ar-infra-template.git"
 
     def __init__(self) -> None:
@@ -58,18 +57,7 @@ class InitCommand:
         self.interactive_prompt = InteractivePrompt()
         self.security_validator = PathSecurityValidator()
 
-    def _create_use_case(self) -> GenerateProjectUseCase:
-        return GenerateProjectUseCase(
-            template_fetcher=GitHubTemplateFetcher(),
-            feature_manager=FeatureManager(),
-            gradle_writer=GradleWriter(),
-            package_renamer=PackageRenamer(),
-            git_initializer=GitRepositoryInitializer(),
-            annotation_writer=InfraGeneratedAnnotationWriter(),
-        )
-
     def execute(self, args: InitCommandArgs) -> None:
-        """Execute the init command."""
         is_interactive = all(
             param is None
             for param in (
@@ -84,14 +72,14 @@ class InitCommand:
         )
 
         if is_interactive:
-            self._execute_interactive()
+            self._execute_interactive(skip_github_app=args.skip_github_app)
         else:
             self._execute_cli(args)
 
-    def _execute_interactive(self) -> None:
+    def _execute_interactive(self, *, skip_github_app: bool = False) -> None:
         Banner.show(wait_for_enter=True)
         try:
-            inputs = self.interactive_prompt.collect_inputs()
+            inputs = self.interactive_prompt.collect_inputs(skip_github_app=skip_github_app)
 
             self._execute_common(
                 group_id=inputs["group_id"],
@@ -105,7 +93,7 @@ class InitCommand:
             )
 
         except KeyboardInterrupt:
-            Messages.warning("\n\nOperation cancelled by user.")
+            Messages.warning("Operation cancelled by user.")
             sys.exit(0)
 
     def _generate_project(self, project_input: GenerateProjectInput) -> None:
@@ -114,12 +102,12 @@ class InitCommand:
 
             if result.success:
                 progress.complete()
-                Messages.success(f"\n{result.message}")
+                Messages.success(f"{result.message}")
                 Messages.info(f"Project created at: {result.project_path}")
                 if result.has_signature:
                     Messages.info(f"Project signature: {result.signature}")
             else:
-                Messages.error(f"\n{result.message}")
+                Messages.error(f"{result.message}")
                 sys.exit(1)
 
     def _execute_cli(self, args: InitCommandArgs) -> None:
@@ -163,7 +151,7 @@ class InitCommand:
             )
 
         except KeyboardInterrupt:
-            Messages.warning("\n\nOperation cancelled by user.")
+            Messages.warning("Operation cancelled by user.")
             sys.exit(0)
 
     def _execute_common(
@@ -208,10 +196,6 @@ class InitCommand:
         except OSError as exc:
             self._abort(f"I/O error: {exc}")
 
-    def _abort(self, message: str) -> NoReturn:
-        Messages.error(message)
-        raise SystemExit(1)
-
     def _validate_destination_path(self, destination_path: str) -> Path:
         try:
             return self.security_validator.validate_destination_path(destination_path)
@@ -249,8 +233,24 @@ class InitCommand:
             Messages.error(str(exc))
             raise SystemExit(1) from exc
 
+    @staticmethod
+    def _abort(message: str) -> NoReturn:
+        Messages.error(message)
+        raise SystemExit(1)
+
+    @staticmethod
+    def _create_use_case() -> GenerateProjectUseCase:
+        return GenerateProjectUseCase(
+            template_fetcher=GitHubTemplateFetcher(),
+            feature_manager=FeatureManager(),
+            gradle_writer=GradleWriter(),
+            package_renamer=PackageRenamer(),
+            git_initializer=GitRepositoryInitializer(),
+            annotation_writer=InfraGeneratedAnnotationWriter(),
+        )
+
+    @staticmethod
     def _parse_features(
-        self,
         features: str | None,
         no_features: str | None,
     ) -> set[str]:
@@ -267,7 +267,8 @@ class InitCommand:
 
         return all_features
 
-    def _convert_features(self, feature_names: set[str]) -> set[TemplateFeature]:
+    @staticmethod
+    def _convert_features(feature_names: set[str]) -> set[TemplateFeature]:
         feature_map = {
             "postgresql": TemplateFeature.POSTGRESQL,
             "rabbitmq": TemplateFeature.RABBITMQ,

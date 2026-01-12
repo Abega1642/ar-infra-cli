@@ -79,14 +79,14 @@ def main():
     # Use popen_spawn on Windows, regular spawn on Unix
     if IS_WINDOWS:
         child = pexpect_spawn.PopenSpawn(
-            f'python -m src.ar_infra.cli.main init',
+            f'python -m src.ar_infra.cli.main init --skip-github-app',
             encoding='utf-8',
             timeout=120
         )
     else:
         child = pexpect.spawn(
             'python',
-            ['-m', 'src.ar_infra.cli.main', 'init'],
+            ['-m', 'src.ar_infra.cli.main', 'init', '--skip-github-app'],
             encoding='utf-8',
             timeout=120
         )

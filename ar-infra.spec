@@ -84,11 +84,9 @@ if ar_infra_dir.exists():
                 rel_path = item.relative_to(base_path / 'src')
                 project_datas.append((str(item), str(rel_path.parent)))
 
-# NOTE: We do NOT include .env file - secrets are injected at build time via sed
-
 a = Analysis(
     ['src/ar_infra/cli/main.py'],
-    pathex=[],
+    pathex=[str(base_path / 'src')],
     binaries=binaries,
     datas=datas + project_datas,
     hiddenimports=hiddenimports,

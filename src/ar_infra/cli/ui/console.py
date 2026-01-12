@@ -1,5 +1,3 @@
-"""Rich console configuration for beautiful CLI output."""
-
 from rich.console import Console
 from rich.theme import Theme
 

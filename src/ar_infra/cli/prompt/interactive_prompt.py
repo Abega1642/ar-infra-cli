@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from questionary import (
-    Style,
     checkbox,
     confirm,
     select,
@@ -10,40 +9,45 @@ from questionary import (
 )
 
 from src.ar_infra.cli.prompt.validator import Validators
+from src.ar_infra.cli.ui.color_properties import PROMPT_STYLE
 from src.ar_infra.cli.ui.message import Messages
 from src.ar_infra.domain.entities.path_resolver import (
     DangerousPathError,
     PathSecurityError,
     PathSecurityValidator,
 )
+from src.ar_infra.infrastructure.processor.github_app import GitHubAppHandler
 
 
-CLR = "fg:#673ab7"
-PROMPT_STYLE = Style(
-    [
-        ("qmark", f"{CLR} bold"),
-        ("question", "bold"),
-        ("answer", "fg:#f44336 bold"),
-        ("pointer", f"{CLR} bold"),
-        ("highlighted", f"{CLR} bold"),
-        ("selected", "fg:#cc5454"),
-        ("separator", "fg:#cc5454"),
-        ("instruction", ""),
-        ("text", ""),
-    ]
-)
+OPERATION_CANCELLED_ERR_MESSAGE = "The operation was cancelled by the user."
 
 
 class InteractivePrompt:
     def __init__(self) -> None:
         self.validators = Validators()
         self.security_validator = PathSecurityValidator()
+        self.github_app_handler = GitHubAppHandler()
 
-    def collect_inputs(self) -> dict[str, Any]:
+    def collect_inputs(self, *, skip_github_app: bool = False) -> dict[str, Any]:
         while True:
             inputs = self._collect_all_prompts()
 
             if self._confirm_and_proceed(inputs):
+                if not skip_github_app:
+                    try:
+                        self.github_app_handler.prompt_installation()
+                    except KeyboardInterrupt as exc:
+                        canceled_message_pref = "GitHub App installation was cancelled."
+                        canceled_message_suf = "Continue with project generation anyway?"
+                        continue_anyway = confirm(
+                            f"\n{canceled_message_pref} {canceled_message_suf}",
+                            default=True,
+                            style=PROMPT_STYLE,
+                        ).ask()
+
+                        if continue_anyway is None or not cast("bool", continue_anyway):
+                            raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from exc
+
                 return inputs
 
             if not self._ask_to_start_over():
@@ -71,7 +75,7 @@ class InteractivePrompt:
                 print()
                 continue
             print("\nOperation cancelled.\n")
-            raise KeyboardInterrupt("Operation cancelled by user") from None
+            raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
 
         features = self._prompt_features()
         use_cache = self._prompt_use_cache()
@@ -94,7 +98,7 @@ class InteractivePrompt:
             validate=lambda val: self.validators.group_id(val) is None,
         ).ask()
         if result is None:
-            raise KeyboardInterrupt("Operation cancelled by user") from None
+            raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
         return cast("str", result)
 
     def _prompt_artifact_id(self) -> str:
@@ -105,7 +109,7 @@ class InteractivePrompt:
             validate=lambda val: self.validators.artifact_id(val) is None,
         ).ask()
         if result is None:
-            raise KeyboardInterrupt("Operation cancelled by user") from None
+            raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
         return cast("str", result)
 
     def _prompt_version(self) -> str:
@@ -116,10 +120,11 @@ class InteractivePrompt:
             validate=lambda val: self.validators.version(val) is None,
         ).ask()
         if result is None:
-            raise KeyboardInterrupt("Operation cancelled by user") from None
+            raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
         return cast("str", result)
 
-    def _prompt_features(self) -> list[str]:
+    @staticmethod
+    def _prompt_features() -> list[str]:
         result = checkbox(
             "Select Features to Include:",
             choices=[
@@ -131,20 +136,22 @@ class InteractivePrompt:
             style=PROMPT_STYLE,
         ).ask()
         if result is None:
-            raise KeyboardInterrupt("Operation cancelled by user") from None
+            raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
         return cast("list[str]", result)
 
-    def _prompt_use_cache(self) -> bool:
+    @staticmethod
+    def _prompt_use_cache() -> bool:
         result = confirm(
             "Use cached template (faster)?",
             default=True,
             style=PROMPT_STYLE,
         ).ask()
         if result is None:
-            raise KeyboardInterrupt("Operation cancelled by user") from None
+            raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
         return cast("bool", result)
 
-    def _confirm_and_proceed(self, inputs: dict[str, Any]) -> bool:
+    @staticmethod
+    def _confirm_and_proceed(inputs: dict[str, Any]) -> bool:
         Messages.project_summary(
             group=inputs["group_id"],
             artifact=inputs["artifact_id"],
@@ -159,17 +166,18 @@ class InteractivePrompt:
             style=PROMPT_STYLE,
         ).ask()
         if result is None:
-            raise KeyboardInterrupt("Operation cancelled by user") from None
+            raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
         return cast("bool", result)
 
-    def _ask_to_start_over(self) -> bool:
+    @staticmethod
+    def _ask_to_start_over() -> bool:
         result = confirm(
             "Would you like to start over with different values?",
             default=True,
             style=PROMPT_STYLE,
         ).ask()
         if result is None:
-            raise KeyboardInterrupt("Operation cancelled by user") from None
+            raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
         return cast("bool", result)
 
     def _prompt_destination_path(self) -> Path:
@@ -196,7 +204,7 @@ class InteractivePrompt:
             validate=lambda val: self.validators.path(val) is None,
         ).ask()
         if result is None:
-            raise KeyboardInterrupt("Operation cancelled by user") from None
+            raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
         return cast("str", result)
 
     def _handle_validated_path(self, validated_path: Path) -> Path:
@@ -216,7 +224,7 @@ class InteractivePrompt:
             style=PROMPT_STYLE,
         ).ask()
         if create is None:
-            raise KeyboardInterrupt("Operation cancelled by user") from None
+            raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
 
         if not cast("bool", create):
             print("\nPlease provide an existing directory.\n")
@@ -227,16 +235,17 @@ class InteractivePrompt:
                 style=PROMPT_STYLE,
             ).ask()
             if retry is None:
-                raise KeyboardInterrupt("Operation cancelled by user") from None
+                raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
 
             if not cast("bool", retry):
-                raise KeyboardInterrupt("Operation cancelled by user") from None
+                raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
 
             return self._prompt_destination_path()
 
         return self._create_directory(path)
 
-    def _create_directory(self, path: Path) -> Path:
+    @staticmethod
+    def _create_directory(path: Path) -> Path:
         try:
             path.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
@@ -252,17 +261,19 @@ class InteractivePrompt:
         print(f"\nError: {exc}\n")
         return self._ask_retry("Would you like to try again?")
 
-    def _ask_retry(self, message: str) -> bool:
+    @staticmethod
+    def _ask_retry(message: str) -> bool:
         result = confirm(
             message,
             default=True,
             style=PROMPT_STYLE,
         ).ask()
         if result is None:
-            raise KeyboardInterrupt("Operation cancelled by user") from None
+            raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
         return cast("bool", result)
 
-    def _print_directory_error(self, path: Path) -> None:
+    @staticmethod
+    def _print_directory_error(path: Path) -> None:
         print(
             f"\nError: '{path}' exists but is not a directory.\nPlease choose a different path.\n"
         )
@@ -275,7 +286,7 @@ class InteractivePrompt:
                 style=PROMPT_STYLE,
             ).ask()
             if dir_name is None:
-                raise KeyboardInterrupt("Operation cancelled by user") from None
+                raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
 
             try:
                 return self.security_validator.validate_project_directory_name(
@@ -289,7 +300,7 @@ class InteractivePrompt:
                     style=PROMPT_STYLE,
                 ).ask()
                 if retry is None:
-                    raise KeyboardInterrupt("Operation cancelled by user") from None
+                    raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
 
                 if not cast("bool", retry):
                     raise
@@ -307,7 +318,8 @@ class InteractivePrompt:
 
         return self._ask_directory_conflict_resolution(project_path)
 
-    def _check_path_conflicts(self, project_path: Path) -> str | None:
+    @staticmethod
+    def _check_path_conflicts(project_path: Path) -> str | None:
         if not project_path.exists():
             return "proceed"
 
@@ -320,7 +332,8 @@ class InteractivePrompt:
 
         return None
 
-    def _handle_empty_directory(self, project_path: Path) -> str | None:
+    @staticmethod
+    def _handle_empty_directory(project_path: Path) -> str | None:
         try:
             has_content = any(project_path.iterdir())
         except OSError as exc:
@@ -341,7 +354,8 @@ class InteractivePrompt:
 
         return "proceed"
 
-    def _ask_directory_conflict_resolution(self, project_path: Path) -> str:
+    @staticmethod
+    def _ask_directory_conflict_resolution(project_path: Path) -> str:
         print(f"\nWarning: Directory '{project_path}' already exists and contains files.\n")
 
         action = select(

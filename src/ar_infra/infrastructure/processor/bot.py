@@ -1,5 +1,3 @@
-"""Git repository initialization with bot commit."""
-
 import gc
 import platform
 import shutil
@@ -11,9 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import requests
-
-from src.ar_infra.infrastructure.config import BOT_ID, BOT_SLUG, GITHUB_TOKEN
+from src.ar_infra.infrastructure.config import BOT_ID, BOT_SLUG
 from src.ar_infra.infrastructure.fs_utilities import try_rename_locked_directory
 from src.ar_infra.logger import get_logger
 
@@ -27,32 +23,7 @@ class BotIdentity:
     email: str
 
     @classmethod
-    def from_github_app(
-        cls, bot_slug: str = "test-ar-infra-bot", bot_id: int | None = None
-    ) -> "BotIdentity":
-        if bot_id is None:
-            try:
-                headers = {}
-                github_token = GITHUB_TOKEN
-                if github_token:
-                    headers["Authorization"] = f"token {github_token}"
-
-                response = requests.get(
-                    f"https://api.github.com/users/{bot_slug}%5Bbot%5D",
-                    timeout=10,
-                    headers=headers,
-                )
-                response.raise_for_status()
-                bot_id = response.json()["id"]
-            except requests.RequestException as exc:
-                log.warning(
-                    "Failed to fetch bot user ID for %s[bot], using fallback. "
-                    "Set BOT_ID in .env for production use. Error: %s",
-                    bot_slug,
-                    str(exc),
-                )
-                bot_id = 123456789
-
+    def from_config(cls, bot_slug: str, bot_id: str) -> "BotIdentity":
         return cls(
             name=f"{bot_slug}[bot]",
             email=f"{bot_id}+{bot_slug}[bot]@users.noreply.github.com",
@@ -74,8 +45,6 @@ class GitCommandError(GitRepositoryError):
 
 
 class BotGitHandler:
-    """Handles project generation and Git initialization with bot-authored commit."""
-
     def __init__(
         self,
         bot_identity: BotIdentity | None = None,
@@ -83,16 +52,8 @@ class BotGitHandler:
     ):
         if bot_identity is None:
             bot_slug = bot_slug or BOT_SLUG
-            bot_id_str = BOT_ID
-
-            if bot_id_str:
-                try:
-                    bot_id = int(bot_id_str)
-                except (TypeError, ValueError) as exc:
-                    raise ValueError("BOT_ID in .env must be a valid integer") from exc
-                self.bot_identity = BotIdentity.from_github_app(bot_slug, bot_id)
-            else:
-                self.bot_identity = BotIdentity.from_github_app(bot_slug)
+            bot_id = BOT_ID
+            self.bot_identity = BotIdentity.from_config(bot_slug, bot_id)
         else:
             self.bot_identity = bot_identity
 
@@ -117,6 +78,9 @@ class BotGitHandler:
         self._set_initial_branch(project_path, initial_branch)
         self._stage_all_files(project_path)
         self._create_initial_commit(project_path, commit_message)
+
+        # IMPORTANT: Unset bot identity so user's commits use their own identity
+        self._unset_bot_identity(project_path)
 
         log.info("Git repository initialized with bot commit at: %s", project_path)
 
@@ -178,7 +142,8 @@ class BotGitHandler:
             else:
                 return
 
-    def _log_retry_attempt(self, attempt: int, max_retries: int, exc: Exception) -> None:
+    @staticmethod
+    def _log_retry_attempt(attempt: int, max_retries: int, exc: Exception) -> None:
         log.warning(
             "Failed to remove directory (attempt %d/%d): %s. Retrying in 8s...",
             attempt + 1,
@@ -203,15 +168,30 @@ class BotGitHandler:
 
         raise last_exception
 
-    def _try_rename_locked_directory(self, path: Path, max_retries: int) -> bool:
+    @staticmethod
+    def _try_rename_locked_directory(path: Path, max_retries: int) -> bool:
         return try_rename_locked_directory(path, max_retries, context="Windows")
 
     def _initialize_git(self, path: Path) -> None:
         self._run_git_command(["git", "init"], cwd=path)
 
     def _configure_bot_identity(self, path: Path) -> None:
-        self._run_git_command(["git", "config", "user.name", self.bot_identity.name], cwd=path)
-        self._run_git_command(["git", "config", "user.email", self.bot_identity.email], cwd=path)
+        self._run_git_command(
+            ["git", "config", "--local", "user.name", self.bot_identity.name], cwd=path
+        )
+        self._run_git_command(
+            ["git", "config", "--local", "user.email", self.bot_identity.email], cwd=path
+        )
+
+    def _unset_bot_identity(self, path: Path) -> None:
+        try:
+            self._run_git_command(["git", "config", "--unset", "user.name"], cwd=path)
+            self._run_git_command(["git", "config", "--unset", "user.email"], cwd=path)
+            log.info(
+                "Bot identity cleared from local config. User commits will use global/system config"
+            )
+        except GitCommandError as e:
+            log.debug("Could not unset git config (may not exist): %s", e)
 
     def _set_initial_branch(self, path: Path, branch_name: str) -> None:
         self._run_git_command(["git", "branch", "-M", branch_name], cwd=path)
@@ -228,7 +208,6 @@ class BotGitHandler:
     def _run_git_command_with_retry(
         self, command: list[str], cwd: Path, max_retries: int = 5
     ) -> None:
-        """Run git command with retry logic for Windows file lock issues."""
         is_windows = platform.system() == "Windows"
 
         for attempt in range(max_retries):
@@ -248,8 +227,8 @@ class BotGitHandler:
             else:
                 return
 
+    @staticmethod
     def _run_command(
-        self,
         command: list[str],
         cwd: Path | None = None,
     ) -> None:
