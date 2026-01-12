@@ -4,12 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ar-infra-cli"
-version = "0.1.2"
+version = "0.1.3"
 description = "Production-ready Spring Boot project generator CLI"
+long_description_content_type = "text/markdown"
 authors = [
     {name = "Abegà Razafindratelo", email = "a.razafindratelo@gmail.com"}
 ]
-readme = "README.md"
+readme = "readme.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 keywords = ["cli", "spring-boot", "generator", "java", "gradle"]
