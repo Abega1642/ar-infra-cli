@@ -39,8 +39,8 @@ class FeatureManager:
 
         self._remove_env_variables_for_disabled_features(template_dir, features_to_remove)
 
+    @staticmethod
     def remove_feature(
-        self,
         template_dir: Path,
         feature: TemplateFeature,
     ) -> None:
@@ -58,11 +58,13 @@ class FeatureManager:
             if file_path.exists():
                 file_path.unlink()
 
-    def get_feature_dependencies(self, feature: TemplateFeature) -> list[str]:
+    @staticmethod
+    def get_feature_dependencies(feature: TemplateFeature) -> list[str]:
         feature_files = FEATURE_MAPPINGS.get(feature)
         return feature_files.dependencies if feature_files else []
 
-    def get_feature_env_variables(self, feature: TemplateFeature) -> list[str]:
+    @staticmethod
+    def get_feature_env_variables(feature: TemplateFeature) -> list[str]:
         feature_files = FEATURE_MAPPINGS.get(feature)
         return feature_files.env_variables if feature_files else []
 

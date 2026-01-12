@@ -1,5 +1,3 @@
-"""Domain-level constants shared across value objects and entities."""
-
 import re
 from typing import Final
 

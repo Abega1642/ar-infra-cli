@@ -1,6 +1,3 @@
-"""Template infrastructure exceptions."""
-
-
 class TemplateError(Exception):
     """Base exception for template operations."""
 

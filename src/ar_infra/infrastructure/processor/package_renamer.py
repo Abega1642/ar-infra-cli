@@ -1,5 +1,3 @@
-"""Java package renamer."""
-
 import re
 import shutil
 from pathlib import Path
@@ -18,8 +16,6 @@ TEST_PKG = "test"
 
 
 class PackageRenamer:
-    """Rename Java package structures and update all references."""
-
     def rename_package(
         self,
         project_root: Path,
@@ -54,7 +50,8 @@ class PackageRenamer:
 
         self._cleanup_empty_directories(project_root)
 
-    def _validate_project_root(self, project_root: Path) -> None:
+    @staticmethod
+    def _validate_project_root(project_root: Path) -> None:
         try:
             resolved = project_root.resolve(strict=True)
             if ".." in str(resolved):
@@ -62,14 +59,16 @@ class PackageRenamer:
         except Exception as e:
             raise SecurityViolationError(f"Invalid or inaccessible project root: {e}") from e
 
-    def _check_for_symlinks(self, directory: Path) -> None:
+    @staticmethod
+    def _check_for_symlinks(directory: Path) -> None:
         for item in directory.rglob("*"):
             if item.is_symlink():
                 raise SecurityViolationError(
                     f"Symlink detected: {item}. This could be a security risk."
                 )
 
-    def _move_package_directory(self, old_dir: Path, new_dir: Path) -> None:
+    @staticmethod
+    def _move_package_directory(old_dir: Path, new_dir: Path) -> None:
         new_dir.parent.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -107,8 +106,8 @@ class PackageRenamer:
         except Exception as e:
             raise PackageRenameError(f"Failed to write {java_file}: {e}") from e
 
+    @staticmethod
     def _update_package_declaration(
-        self,
         content: str,
         old_package: PackageName,
         new_package: PackageName,
@@ -124,8 +123,8 @@ class PackageRenamer:
 
         return pattern.sub(replace_package, content)
 
+    @staticmethod
     def _update_import_statements(
-        self,
         content: str,
         old_package: PackageName,
         new_package: PackageName,
@@ -142,7 +141,8 @@ class PackageRenamer:
 
         return pattern.sub(replace_import, content)
 
-    def _cleanup_empty_directories(self, project_root: Path) -> None:
+    @staticmethod
+    def _cleanup_empty_directories(project_root: Path) -> None:
         source_dirs = [
             project_root / SRC_PKG / MAIN_PKG / JAVA_PKG,
             project_root / SRC_PKG / TEST_PKG / JAVA_PKG,

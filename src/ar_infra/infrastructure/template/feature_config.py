@@ -1,5 +1,3 @@
-"""Feature configuration mapping."""
-
 from dataclasses import dataclass
 from typing import Final
 

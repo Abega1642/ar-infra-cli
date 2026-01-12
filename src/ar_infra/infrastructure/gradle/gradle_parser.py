@@ -1,5 +1,3 @@
-"""Gradle build file parser."""
-
 from pathlib import Path
 
 from src.ar_infra.domain.constant import (
@@ -22,17 +20,6 @@ from src.ar_infra.infrastructure.gradle.gradle_exception import (
 
 
 class GradleParser:
-    """
-     Parser for Gradle build files.
-
-    Features:
-    - Input validation and sanitization
-    - Malicious content detection
-    - File size limits (DoS prevention)
-    - Path traversal protection
-    - Command injection prevention
-    """
-
     def parse_group_and_version(self, build_file: Path) -> tuple[str, str]:
         content = self._read_and_validate_file(build_file)
 
@@ -131,7 +118,8 @@ class GradleParser:
 
         return content
 
-    def _detect_malicious_content(self, content: str, file_path: Path) -> None:
+    @staticmethod
+    def _detect_malicious_content(content: str, file_path: Path) -> None:
         for pattern in MALICIOUS_PATTERNS:
             if pattern.search(content):
                 raise MaliciousContentError(
@@ -139,21 +127,24 @@ class GradleParser:
                     f"Pattern matched: {pattern.pattern}",
                 )
 
-    def _validate_group(self, group: str) -> None:
+    @staticmethod
+    def _validate_group(group: str) -> None:
         if not group or not group.strip():
             raise GradleParseError("Group ID cannot be empty")
 
         if ".." in group or "/" in group or "\\" in group:
             raise GradleParseError(f"Invalid group ID: {group}")
 
-    def _validate_version(self, version: str) -> None:
+    @staticmethod
+    def _validate_version(version: str) -> None:
         if not version or not version.strip():
             raise GradleParseError("Version cannot be empty")
 
         if any(char in version for char in [";", "&", "|", "`", "$"]):
             raise GradleParseError(f"Invalid version: {version}")
 
-    def _parse_configuration(self, config_str: str) -> GradleConfiguration:
+    @staticmethod
+    def _parse_configuration(config_str: str) -> GradleConfiguration:
         config_map = {
             "implementation": GradleConfiguration.IMPLEMENTATION,
             "testImplementation": GradleConfiguration.TEST_IMPLEMENTATION,

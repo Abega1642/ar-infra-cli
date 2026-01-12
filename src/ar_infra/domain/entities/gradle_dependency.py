@@ -45,5 +45,4 @@ class GradleDependency:
         return f"{self.group}:{self.name}"
 
     def __str__(self) -> str:
-        """Return string representation."""
         return f"{self.configuration.value} '{self.to_gradle_notation()}'"

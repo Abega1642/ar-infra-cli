@@ -1,5 +1,3 @@
-"""ArtifactId value object - represents a Maven/Gradle artifact identifier."""
-
 from dataclasses import dataclass
 from typing import final
 

@@ -1,5 +1,3 @@
-"""GroupId value object - represents a Maven/Gradle group identifier."""
-
 from dataclasses import dataclass
 from typing import final
 
@@ -51,25 +49,6 @@ def _validate_segment(segment: str) -> None:
 @final
 @dataclass(frozen=True, slots=True)
 class GroupId:
-    """
-    Immutable value object representing a Maven/Gradle group identifier.
-
-    A group ID must:
-    - Be in reverse domain name notation (e.g., 'dev.razafindratelo')
-    - Contain at least 2 segments separated by dots
-    - Use only lowercase letters, numbers, and hyphens
-    - Not start or end with hyphens or dots
-    - Not contain consecutive dots
-    - Not use Java reserved keywords
-    - Be within reasonable length limits
-
-    Security features:
-    - Input sanitization to prevent path traversal
-    - Command injection prevention
-    - Length limits to prevent DoS
-    - Reserved keyword checking
-    """
-
     value: str
 
     def __post_init__(self) -> None:
@@ -116,12 +95,6 @@ class GroupId:
         return self.value.split(".")
 
     def to_path(self) -> str:
-        """
-        Convert group ID to file system path.
-
-        Returns:
-            Path string with forward slashes (e.g., 'dev/razafindratelo').
-        """
         return self.value.replace(".", "/")
 
     def __str__(self) -> str:

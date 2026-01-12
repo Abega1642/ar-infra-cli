@@ -14,7 +14,6 @@ class EnvHandler:
         features_to_remove: set[TemplateFeature],
         env_variable_mappings: dict[TemplateFeature, list[str]],
     ) -> None:
-        """Remove environment variables for disabled features from .env.template."""
         if not env_file.exists():
             return
 
@@ -33,7 +32,8 @@ class EnvHandler:
         updated_content = "\n".join(filtered_lines)
         env_file.write_text(updated_content, encoding="utf-8")
 
-    def _should_remove_line(self, line: str, prefixes_to_remove: set[str]) -> bool:
+    @staticmethod
+    def _should_remove_line(line: str, prefixes_to_remove: set[str]) -> bool:
         stripped = line.strip()
 
         if not stripped or stripped.startswith("#"):

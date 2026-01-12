@@ -1,5 +1,3 @@
-"""Version value object - represents semantic versioning."""
-
 import re
 from dataclasses import dataclass, field
 from typing import final
