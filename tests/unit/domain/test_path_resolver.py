@@ -138,8 +138,6 @@ class TestPathSecurityValidatorCommon:
 
 @pytest.mark.skipif(platform.system() != "Linux", reason="Linux-specific tests")
 class TestPathSecurityValidatorLinux:
-    """Test suite for PathSecurityValidator - Linux-specific tests."""
-
     def test_reject_root_directory(self, validator: PathSecurityValidator) -> None:
         with pytest.raises(DangerousPathError, match="system directory"):
             validator.validate_destination_path("/")
@@ -215,8 +213,6 @@ class TestPathSecurityValidatorLinux:
 
 @pytest.mark.skipif(platform.system() != "Darwin", reason="macOS-specific tests")
 class TestPathSecurityValidatorMacOS:
-    """Test suite for PathSecurityValidator - macOS-specific tests."""
-
     def test_reject_root_directory(self, validator: PathSecurityValidator) -> None:
         with pytest.raises(DangerousPathError, match="system directory"):
             validator.validate_destination_path("/")
@@ -247,7 +243,6 @@ class TestPathSecurityValidatorMacOS:
             validator.validate_destination_path("/Applications/Utilities")
 
     def test_allow_tmp_directory(self, validator: PathSecurityValidator) -> None:
-        """Test that /tmp is allowed on macOS."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = validator.validate_destination_path(tmpdir)
             assert result.is_absolute()
@@ -256,7 +251,6 @@ class TestPathSecurityValidatorMacOS:
             assert "/tmp" in resolved_str or "/private/tmp" in resolved_str  # noqa: S108
 
     def test_allow_var_tmp_directory(self, validator: PathSecurityValidator) -> None:
-        """Test that /var/tmp is allowed on macOS."""
         # On macOS, check if /var/tmp exists before testing
         var_tmp = Path("/var/tmp")  # noqa: S108
         if var_tmp.exists():
@@ -265,14 +259,12 @@ class TestPathSecurityValidatorMacOS:
                 assert result.is_absolute()
 
     def test_allow_private_var_folders(self, validator: PathSecurityValidator) -> None:
-        """Test that /private/var/folders (temp dir structure) is allowed on macOS."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = validator.validate_destination_path(tmpdir)
             assert result.is_absolute()
             # Should not raise an error for /private/var/folders/
 
     def test_reject_private_etc_directory(self, validator: PathSecurityValidator) -> None:
-        """Test that /private/etc is rejected on macOS."""
         with pytest.raises(DangerousPathError):
             validator.validate_destination_path("/private/etc")
 
@@ -309,7 +301,6 @@ class TestPathSecurityValidatorMacOS:
 @pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific tests")
 class TestPathSecurityValidatorWindows:
     def test_reject_c_drive_root(self, validator: PathSecurityValidator) -> None:
-        """Test that C:\\ drive root is rejected on Windows."""
         with pytest.raises(DangerousPathError, match="system directory"):
             validator.validate_destination_path("C:\\")
 
@@ -556,8 +547,6 @@ class TestSafeProjectPathResolverLinux:
 
 @pytest.mark.skipif(platform.system() != "Darwin", reason="macOS-specific tests")
 class TestSafeProjectPathResolverMacOS:
-    """Test suite for SafeProjectPathResolver - macOS-specific tests."""
-
     def test_reject_dangerous_system_path(self) -> None:
         with pytest.raises(DangerousPathError):
             SafeProjectPathResolver(
@@ -603,8 +592,6 @@ class TestSafeProjectPathResolverMacOS:
 
 @pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific tests")
 class TestSafeProjectPathResolverWindows:
-    """Test suite for SafeProjectPathResolver - Windows-specific tests."""
-
     def test_reject_dangerous_system_path(self) -> None:
         with pytest.raises(DangerousPathError):
             SafeProjectPathResolver(

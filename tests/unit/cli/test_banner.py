@@ -35,7 +35,6 @@ class TestBanner:
             assert "Operation cancelled" in captured.out
 
     def test_banner_handles_eof_error(self, capsys):
-        """Test that banner handles EOF error gracefully."""
         with patch("builtins.input", side_effect=EOFError):
             with pytest.raises(KeyboardInterrupt, match="Banner display cancelled by user"):
                 Banner.show(wait_for_enter=True)
@@ -91,7 +90,6 @@ class TestBanner:
         assert 100 < size < 5000, f"Banner file size should be reasonable (got {size} bytes)"
 
     def test_load_banner_returns_string(self):
-        """Test that _load_banner returns a non-empty string."""
         banner = Banner._load_banner()
         assert isinstance(banner, str), "Banner should be a string"
         assert len(banner) > 0, "Banner should not be empty"
