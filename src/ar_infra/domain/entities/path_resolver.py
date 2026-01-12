@@ -32,7 +32,7 @@ class DangerousPathError(PathSecurityError):
 
 
 class PathTraversalError(PathSecurityError):
-    """Raised when path traversal is detected."""
+    """Raised when path traversal causes project to escape destination."""
 
 
 class PathSecurityValidator:
@@ -41,9 +41,11 @@ class PathSecurityValidator:
 
     def validate_destination_path(self, path_str: str) -> Path:
         self._validate_not_empty(path_str)
-        self._check_path_traversal_in_input(path_str)
 
-        path = Path(path_str).expanduser()
+        try:
+            path = Path(path_str).expanduser()
+        except (ValueError, RuntimeError) as err:
+            raise ValueError(f"Invalid path format: {err}") from err
 
         resolved = path.resolve(strict=False)
 
@@ -75,17 +77,7 @@ class PathSecurityValidator:
         if not value or not value.strip():
             raise ValueError("Path or name cannot be empty")
 
-    def _check_path_traversal_in_input(self, path_str: str) -> None:
-        try:
-            parts = Path(path_str).expanduser().parts
-        except (ValueError, RuntimeError) as err:
-            raise ValueError("Invalid path format") from err
-
-        if ".." in parts:
-            raise PathTraversalError("path traversal detected")
-
     def _check_dangerous_path(self, resolved: Path) -> None:
-        """Check if the resolved path is a system-critical directory."""
         path_str = self._normalize_path_for_comparison(resolved)
 
         if self._is_safe_path(path_str):
@@ -236,7 +228,6 @@ class SafeProjectPathResolver:
             raise OSError(f"Cannot resolve project path: {exc}") from exc
 
     def _verify_path_containment(self, project_dir: Path) -> None:
-        """Verify that project directory is contained within destination."""
         try:
             resolved_project = project_dir.resolve(strict=False)
             resolved_destination = self.destination.resolve(strict=False)

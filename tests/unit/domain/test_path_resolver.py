@@ -1,5 +1,6 @@
 """Unit tests for path security validation - Cross-platform."""
 
+import os
 import platform
 import re
 import tempfile
@@ -13,7 +14,6 @@ from src.ar_infra.domain.entities.path_resolver import (
     DangerousPathError,
     PathSecurityError,
     PathSecurityValidator,
-    PathTraversalError,
     SafeProjectPathResolver,
 )
 
@@ -33,8 +33,6 @@ def temp_dir() -> Generator[Path, Any, None]:
 
 
 class TestPathSecurityValidatorCommon:
-    """Test suite for PathSecurityValidator - common tests for all platforms."""
-
     def test_reject_empty_path(self, validator: PathSecurityValidator) -> None:
         with pytest.raises(ValueError, match="cannot be empty"):
             validator.validate_destination_path("")
@@ -119,6 +117,21 @@ class TestPathSecurityValidatorCommon:
         result = validator.validate_destination_path(str(temp_dir))
         assert result.is_absolute()
 
+    def test_allow_legitimate_relative_paths_to_safe_locations(
+        self, validator: PathSecurityValidator, temp_dir: Path
+    ) -> None:
+        subdir = temp_dir / "subdir"
+        nested = subdir / "nested"
+        nested.mkdir(parents=True)
+
+        original_cwd = Path.cwd()
+        try:
+            os.chdir(nested)
+            result = validator.validate_destination_path("../..")
+            assert result.resolve() == temp_dir.resolve()
+        finally:
+            os.chdir(original_cwd)
+
 
 # ===>  Linux-Specific Tests
 
@@ -166,22 +179,23 @@ class TestPathSecurityValidatorLinux:
             assert result.is_absolute()
             assert "/var/tmp/" in str(result)  # noqa: S108
 
-    def test_reject_var_log_directory(self, validator: PathSecurityValidator) -> None:
-        """Test that /var/log is rejected on Linux (not in safe list)."""
-        # /var/log is not in the safe list, should be rejected
-        # Note: This test assumes /var is dangerous but /var/tmp is safe
-        # /var itself is in dangerous list
+    def test_allow_relative_navigation_to_safe_paths(
+        self, validator: PathSecurityValidator, temp_dir: Path
+    ) -> None:
+        projects = temp_dir / "projects"
+        myapp = projects / "myapp"
+        myapp.mkdir(parents=True)
 
-    def test_reject_path_traversal_patterns(self, validator: PathSecurityValidator) -> None:
-        traversal_patterns = [
-            "../../../etc",
-            "/tmp/../../../etc",  # noqa: S108
-            "foo/../../bar",
-        ]
+        original_cwd = Path.cwd()
+        try:
+            os.chdir(myapp)
+            result = validator.validate_destination_path("../")
+            assert result.resolve() == projects.resolve()
 
-        for pattern in traversal_patterns:
-            with pytest.raises(PathTraversalError, match="path traversal"):
-                validator.validate_destination_path(pattern)
+            result = validator.validate_destination_path("../../")
+            assert result.resolve() == temp_dir.resolve()
+        finally:
+            os.chdir(original_cwd)
 
     def test_reject_symlink_destination(
         self, validator: PathSecurityValidator, temp_dir: Path
@@ -262,16 +276,20 @@ class TestPathSecurityValidatorMacOS:
         with pytest.raises(DangerousPathError):
             validator.validate_destination_path("/private/etc")
 
-    def test_reject_path_traversal_patterns(self, validator: PathSecurityValidator) -> None:
-        traversal_patterns = [
-            "../../../etc",
-            "/tmp/../../../etc",  # noqa: S108
-            "foo/../../bar",
-        ]
+    def test_allow_relative_navigation_to_safe_paths(
+        self, validator: PathSecurityValidator, temp_dir: Path
+    ) -> None:
+        projects = temp_dir / "projects"
+        myapp = projects / "myapp"
+        myapp.mkdir(parents=True)
 
-        for pattern in traversal_patterns:
-            with pytest.raises(PathTraversalError, match="path traversal"):
-                validator.validate_destination_path(pattern)
+        original_cwd = Path.cwd()
+        try:
+            os.chdir(myapp)
+            result = validator.validate_destination_path("../")
+            assert result.resolve() == projects.resolve()
+        finally:
+            os.chdir(original_cwd)
 
     def test_reject_symlink_destination(
         self, validator: PathSecurityValidator, temp_dir: Path
@@ -290,8 +308,6 @@ class TestPathSecurityValidatorMacOS:
 
 @pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific tests")
 class TestPathSecurityValidatorWindows:
-    """Test suite for PathSecurityValidator - Windows-specific tests."""
-
     def test_reject_c_drive_root(self, validator: PathSecurityValidator) -> None:
         """Test that C:\\ drive root is rejected on Windows."""
         with pytest.raises(DangerousPathError, match="system directory"):
@@ -345,24 +361,40 @@ class TestPathSecurityValidatorWindows:
             result = validator.validate_destination_path(tmpdir)
             assert result.is_absolute()
 
-    def test_reject_path_traversal_patterns(self, validator: PathSecurityValidator) -> None:
-        traversal_patterns = [
-            "..\\..\\..\\Windows",
-            "C:\\Temp\\..\\..\\Windows",
-            "foo\\..\\..\\bar",
-        ]
+    def test_reject_paths_resolving_to_system_directories(
+        self, validator: PathSecurityValidator
+    ) -> None:
+        # C:\Temp\..\Windows resolves to C:\Windows (dangerous)
+        with pytest.raises(DangerousPathError, match="system directory"):
+            validator.validate_destination_path("C:\\Temp\\..\\Windows")
 
-        for pattern in traversal_patterns:
-            with pytest.raises(PathTraversalError, match="path traversal"):
-                validator.validate_destination_path(pattern)
+        # C:\Users\..\Program Files resolves to C:\Program Files (dangerous)
+        with pytest.raises(DangerousPathError, match="system directory"):
+            validator.validate_destination_path("C:\\Users\\..\\Program Files")
+
+        with pytest.raises(DangerousPathError, match="system directory"):
+            validator.validate_destination_path("C:/Temp/../Windows")
+
+    def test_allow_relative_navigation_to_safe_paths(
+        self, validator: PathSecurityValidator, temp_dir: Path
+    ) -> None:
+        projects = temp_dir / "projects"
+        myapp = projects / "myapp"
+        myapp.mkdir(parents=True)
+
+        original_cwd = Path.cwd()
+        try:
+            os.chdir(myapp)
+            result = validator.validate_destination_path("..\\")
+            assert result.resolve() == projects.resolve()
+        finally:
+            os.chdir(original_cwd)
 
 
 # ===>  SafeProjectPathResolver - Common Tests
 
 
 class TestSafeProjectPathResolverCommon:
-    """Test suite for SafeProjectPathResolver - common tests for all platforms."""
-
     def test_resolve_valid_project_path(self, temp_dir: Path) -> None:
         resolver = SafeProjectPathResolver(
             destination_path=str(temp_dir),
@@ -479,8 +511,6 @@ class TestSafeProjectPathResolverCommon:
 
 @pytest.mark.skipif(platform.system() != "Linux", reason="Linux-specific tests")
 class TestSafeProjectPathResolverLinux:
-    """Test suite for SafeProjectPathResolver - Linux-specific tests."""
-
     def test_reject_dangerous_system_path(self) -> None:
         with pytest.raises(DangerousPathError):
             SafeProjectPathResolver(
@@ -503,7 +533,7 @@ class TestSafeProjectPathResolverLinux:
         assert project_path.parent == destination.resolve()
         assert not project_path.exists()
 
-    def test_prevent_directory_escape(self, temp_dir: Path) -> None:
+    def test_prevent_directory_escape_via_project_name(self, temp_dir: Path) -> None:
         destination = temp_dir / "safe-zone"
         destination.mkdir()
 
@@ -550,7 +580,7 @@ class TestSafeProjectPathResolverMacOS:
         assert project_path.parent == destination.resolve()
         assert not project_path.exists()
 
-    def test_prevent_directory_escape(self, temp_dir: Path) -> None:
+    def test_prevent_directory_escape_via_project_name(self, temp_dir: Path) -> None:
         destination = temp_dir / "safe-zone"
         destination.mkdir()
 
@@ -597,7 +627,7 @@ class TestSafeProjectPathResolverWindows:
         assert project_path.parent == destination.resolve()
         assert not project_path.exists()
 
-    def test_prevent_directory_escape(self, temp_dir: Path) -> None:
+    def test_prevent_directory_escape_via_project_name(self, temp_dir: Path) -> None:
         destination = temp_dir / "safe-zone"
         destination.mkdir()
 
