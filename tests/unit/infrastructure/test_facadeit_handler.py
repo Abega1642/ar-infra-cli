@@ -3,57 +3,10 @@
 from pathlib import Path
 
 import pytest
+from tests.fixtures.sample_FacadeIT import FACADE_CONTENT
 
 from src.ar_infra.domain.enums.template_feature import TemplateFeature
 from src.ar_infra.infrastructure.template.facadeit_handler import FacadeITHandler
-
-
-FACADE_CONTENT = """
-@Slf4j
-@InfraGenerated
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureMockMvc(addFilters = false)
-public abstract class FacadeIT {
-
-  private static final PostgresConf POSTGRES_CONF = new PostgresConf();
-  private static final RabbitMQConf RABBITMQ_CONF = new RabbitMQConf();
-  private static final BucketConf BUCKET_CONF = new BucketConf();
-  private static final EmailConf EMAIL_CONF = new EmailConf();
-
-  @BeforeAll
-  static void beforeAll() {
-    POSTGRES_CONF.start();
-    RABBITMQ_CONF.start();
-    BUCKET_CONF.start();
-    EMAIL_CONF.start();
-
-    getRuntime()
-        .addShutdownHook(
-            new Thread(
-                () -> {
-                  POSTGRES_CONF.stop();
-                  RABBITMQ_CONF.stop();
-                  BUCKET_CONF.stop();
-                  EMAIL_CONF.stop();
-                }));
-  }
-
-  @SneakyThrows
-  @DynamicPropertySource
-  static void configureProperties(DynamicPropertyRegistry registry) {
-    POSTGRES_CONF.configureProperties(registry);
-    RABBITMQ_CONF.configureProperties(registry);
-    BUCKET_CONF.configureProperties(registry);
-    EMAIL_CONF.configureProperties(registry);
-
-    Class<?> envConfClazz = EnvConf.class;
-    var configureMethod =
-        envConfClazz.getDeclaredMethod("configureProperties", DynamicPropertyRegistry.class);
-    var envConfInstance = envConfClazz.getConstructor().newInstance();
-    configureMethod.invoke(envConfInstance, registry);
-  }
-}
-""".lstrip()
 
 
 class TestFacadeITHandler:
@@ -76,10 +29,10 @@ class TestFacadeITHandler:
 
         content = self._read(facade_path)
 
-        assert "PostgresConf" in content
-        assert "RabbitMQConf" not in content
-        assert "BucketConf" not in content
-        assert "EmailConf" not in content
+        assert "POSTGRES_CONF" in content
+        assert "RABBITMQ_CONF" not in content
+        assert "BUCKET_CONF" not in content
+        assert "EMAIL_CONF" not in content
 
     def test_multiple_features_enabled(self, facade_path: Path) -> None:
         FacadeITHandler().apply_feature_selection(
@@ -89,10 +42,10 @@ class TestFacadeITHandler:
 
         content = self._read(facade_path)
 
-        assert "PostgresConf" in content
-        assert "RabbitMQConf" in content
-        assert "BucketConf" not in content
-        assert "EmailConf" not in content
+        assert "POSTGRES_CONF" in content
+        assert "RABBITMQ_CONF" in content
+        assert "BUCKET_CONF" not in content
+        assert "EMAIL_CONF" not in content
 
     def test_all_features_enabled(self, facade_path: Path) -> None:
         FacadeITHandler().apply_feature_selection(
@@ -102,10 +55,10 @@ class TestFacadeITHandler:
 
         content = self._read(facade_path)
 
-        assert "PostgresConf" in content
-        assert "RabbitMQConf" in content
-        assert "BucketConf" in content
-        assert "EmailConf" in content
+        assert "POSTGRES_CONF" in content
+        assert "RABBITMQ_CONF" in content
+        assert "BUCKET_CONF" in content
+        assert "EMAIL_CONF" in content
 
     def test_before_all_removed_when_no_features_enabled(self, facade_path: Path) -> None:
         FacadeITHandler().apply_feature_selection(
@@ -126,10 +79,10 @@ class TestFacadeITHandler:
 
         content = self._read(facade_path)
 
-        assert "PostgresConf" not in content
-        assert "RabbitMQConf" not in content
-        assert "BucketConf" not in content
-        assert "EmailConf" not in content
+        assert "POSTGRES_CONF" not in content
+        assert "RABBITMQ_CONF" not in content
+        assert "BUCKET_CONF" not in content
+        assert "EMAIL_CONF" not in content
         assert "class FacadeIT" in content
 
     def test_idempotency(self, facade_path: Path) -> None:
@@ -176,3 +129,17 @@ class TestFacadeITHandler:
 
         content = self._read(facade_path)
         assert content.strip() != ""
+
+    def test_standard_imports_preserved(self, facade_path: Path) -> None:
+        FacadeITHandler().apply_feature_selection(
+            facade_path.parents[5],
+            set(),
+        )
+
+        content = self._read(facade_path)
+
+        assert "import static java.lang.Runtime.getRuntime;" in content
+        assert "import com.example.arinfra.InfraGenerated;" in content
+        assert "import lombok.SneakyThrows;" in content
+        assert "import lombok.extern.slf4j.Slf4j;" in content
+        assert "import org.springframework.test.context.DynamicPropertySource;" in content
