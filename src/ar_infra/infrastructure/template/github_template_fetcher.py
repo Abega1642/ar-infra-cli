@@ -87,7 +87,8 @@ class GitHubTemplateFetcher:
 
             raise
 
-    def _create_temp_directory(self) -> Path:
+    @staticmethod
+    def _create_temp_directory() -> Path:
         temp_dir = Path(tempfile.mkdtemp(prefix="ar-infra-template-"))
         log.info("Created temporary directory: %s", temp_dir)
         return temp_dir
@@ -129,7 +130,8 @@ class GitHubTemplateFetcher:
         except (OSError, RuntimeError) as e:
             self._handle_unexpected_error(url, e)
 
-    def _wait_for_git_locks(self) -> None:
+    @staticmethod
+    def _wait_for_git_locks() -> None:
         if platform.system() == "Windows":
             log.info("Windows: waiting for Git to release file locks...")
             time.sleep(10)
@@ -148,13 +150,15 @@ class GitHubTemplateFetcher:
         hint = self._get_error_hint(error)
         raise TemplateFetchError(f"Git clone failed: {hint}. Check logs for details.") from error
 
-    def _handle_unexpected_error(self, url: str, error: Exception) -> None:
+    @staticmethod
+    def _handle_unexpected_error(url: str, error: Exception) -> None:
         log.error("Unexpected error: %s", type(error).__name__)
         log.error("Message: %s", error)
 
         raise TemplateFetchError(f"Failed to fetch template from {url}: {error}") from error
 
-    def _get_error_hint(self, error: git.exc.GitCommandError) -> str:
+    @staticmethod
+    def _get_error_hint(error: git.exc.GitCommandError) -> str:
         error_text = str(error.stderr or error.stdout or "").lower()
 
         if "could not resolve" in error_text or "name resolution" in error_text:
@@ -195,7 +199,8 @@ class GitHubTemplateFetcher:
             else:
                 return
 
-    def _handle_readonly_file(self, func: Callable[[str], None], path_str: str, _exc: Any) -> None:
+    @staticmethod
+    def _handle_readonly_file(func: Callable[[str], None], path_str: str, _exc: Any) -> None:
         if platform.system() == "Windows":
             Path(path_str).chmod(stat.S_IWRITE)
             func(path_str)
@@ -207,10 +212,12 @@ class GitHubTemplateFetcher:
         log.error("Failed to remove directory after %d attempts", max_retries)
         raise error
 
-    def _try_rename_locked_dir(self, path: Path, max_retries: int) -> bool:
+    @staticmethod
+    def _try_rename_locked_dir(path: Path, max_retries: int) -> bool:
         return try_rename_locked_directory(path, max_retries)
 
-    def _validate_url(self, url: str) -> None:
+    @staticmethod
+    def _validate_url(url: str) -> None:
         if not GITHUB_URL_PATTERN.match(url):
             log.error("Invalid URL format: %s", url)
             raise SecurityViolationError("Only GitHub URLs are allowed")
@@ -225,7 +232,8 @@ class GitHubTemplateFetcher:
             log.error("Blocked hostname: %s", parsed.hostname)
             raise SecurityViolationError(f"Blocked hostname: {parsed.hostname}")
 
-    def _validate_template_structure(self, template_dir: Path) -> None:
+    @staticmethod
+    def _validate_template_structure(template_dir: Path) -> None:
         if not (template_dir / "build.gradle").exists():
             log.error("Missing build.gradle")
             raise InvalidTemplateError("build.gradle not found in template")
@@ -249,7 +257,8 @@ class GitHubTemplateFetcher:
             "Expected structure: src/main/java/com/example/arinfra"
         )
 
-    def _is_base_package(self, path: Path) -> bool:
+    @staticmethod
+    def _is_base_package(path: Path) -> bool:
         java_files = list(path.glob("*.java"))
         if not java_files:
             return False

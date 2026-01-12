@@ -1,5 +1,3 @@
-"""Template feature enumeration."""
-
 from enum import Enum
 
 

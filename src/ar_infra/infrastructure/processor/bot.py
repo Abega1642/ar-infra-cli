@@ -1,5 +1,3 @@
-"""Git repository initialization with bot commit."""
-
 import gc
 import platform
 import shutil
@@ -26,7 +24,6 @@ class BotIdentity:
 
     @classmethod
     def from_config(cls, bot_slug: str, bot_id: str) -> "BotIdentity":
-        """Create bot identity from config values."""
         return cls(
             name=f"{bot_slug}[bot]",
             email=f"{bot_id}+{bot_slug}[bot]@users.noreply.github.com",
@@ -48,8 +45,6 @@ class GitCommandError(GitRepositoryError):
 
 
 class BotGitHandler:
-    """Handles project generation and Git initialization with bot-authored commit."""
-
     def __init__(
         self,
         bot_identity: BotIdentity | None = None,
@@ -147,7 +142,8 @@ class BotGitHandler:
             else:
                 return
 
-    def _log_retry_attempt(self, attempt: int, max_retries: int, exc: Exception) -> None:
+    @staticmethod
+    def _log_retry_attempt(attempt: int, max_retries: int, exc: Exception) -> None:
         log.warning(
             "Failed to remove directory (attempt %d/%d): %s. Retrying in 8s...",
             attempt + 1,
@@ -172,7 +168,8 @@ class BotGitHandler:
 
         raise last_exception
 
-    def _try_rename_locked_directory(self, path: Path, max_retries: int) -> bool:
+    @staticmethod
+    def _try_rename_locked_directory(path: Path, max_retries: int) -> bool:
         return try_rename_locked_directory(path, max_retries, context="Windows")
 
     def _initialize_git(self, path: Path) -> None:
@@ -211,7 +208,6 @@ class BotGitHandler:
     def _run_git_command_with_retry(
         self, command: list[str], cwd: Path, max_retries: int = 5
     ) -> None:
-        """Run git command with retry logic for Windows file lock issues."""
         is_windows = platform.system() == "Windows"
 
         for attempt in range(max_retries):
@@ -231,8 +227,8 @@ class BotGitHandler:
             else:
                 return
 
+    @staticmethod
     def _run_command(
-        self,
         command: list[str],
         cwd: Path | None = None,
     ) -> None:

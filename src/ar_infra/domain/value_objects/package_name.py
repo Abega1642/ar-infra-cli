@@ -1,5 +1,3 @@
-"""PackageName value object - represents a full Java package name."""
-
 from dataclasses import dataclass
 from typing import final
 
@@ -23,7 +21,6 @@ class PackageName:
 
     @classmethod
     def from_parts(cls, group: GroupId, artifact: ArtifactId) -> "PackageName":
-        """Create PackageName from GroupId and ArtifactId, removing hyphens from artifact."""
         artifact_cleaned = artifact.value.replace("-", "_")
         full_package = f"{group.value}.{artifact_cleaned}"
         return cls(full_package)
@@ -60,7 +57,8 @@ class PackageName:
         for segment in segments:
             self._validate_segment(segment)
 
-    def _validate_segment(self, segment: str) -> None:
+    @staticmethod
+    def _validate_segment(segment: str) -> None:
         if not segment:
             raise InvalidPackageNameError("Package segments cannot be empty")
 

@@ -1,6 +1,3 @@
-"""Processor infrastructure exceptions."""
-
-
 class ProcessorError(Exception):
     """Base exception for processor operations."""
 

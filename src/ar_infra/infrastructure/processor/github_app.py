@@ -68,7 +68,8 @@ class GitHubAppHandler:
         console.print("\n")
         console.print(panel)
 
-    def _prompt_user_choice(self) -> str:
+    @staticmethod
+    def _prompt_user_choice() -> str:
         result = select(
             "\nWhat would you like to do?",
             choices=[
@@ -108,7 +109,8 @@ class GitHubAppHandler:
 
         self._show_installation_steps()
 
-    def _show_installation_steps(self) -> None:
+    @staticmethod
+    def _show_installation_steps() -> None:
         steps = """
 [bold]Installation Steps:[/bold]
 

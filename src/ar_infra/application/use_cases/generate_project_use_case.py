@@ -228,7 +228,8 @@ class GenerateProjectUseCase:
 
         return signature
 
-    def _find_infra_generated_annotation(self, project_path: Path) -> Path | None:
+    @staticmethod
+    def _find_infra_generated_annotation(project_path: Path) -> Path | None:
         java_dir = project_path / "src" / "main" / "java"
         if not java_dir.exists():
             return None

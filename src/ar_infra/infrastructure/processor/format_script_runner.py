@@ -1,5 +1,3 @@
-"""Runner for project format script."""
-
 from __future__ import annotations
 
 import os
@@ -19,8 +17,6 @@ log = get_logger()
 
 
 class FormatScriptRunner:
-    """Run the format script at the root of a generated project."""
-
     _SCRIPT_NAME_UNIX = "format.sh"
     _SCRIPT_NAME_WINDOWS = "format.bat"
 
@@ -92,7 +88,8 @@ class FormatScriptRunner:
             log.exception("format.sh failed with exit code %s", exc.returncode)
             raise RuntimeError("Project formatting failed") from exc
 
-    def _execute_windows_batch(self, script_path: Path, project_root: Path) -> None:
+    @staticmethod
+    def _execute_windows_batch(script_path: Path, project_root: Path) -> None:
         if not script_path.resolve().is_relative_to(project_root):
             raise RuntimeError("Refusing to execute format.bat outside project root")
 
@@ -109,7 +106,8 @@ class FormatScriptRunner:
             log.exception("format.bat failed with exit code %s", exc.returncode)
             raise RuntimeError("Project formatting failed") from exc
 
-    def _execute_with_bash(self, script_path: Path, project_root: Path, bash_path: str) -> None:
+    @staticmethod
+    def _execute_with_bash(script_path: Path, project_root: Path, bash_path: str) -> None:
         if not script_path.resolve().is_relative_to(project_root):
             raise RuntimeError("Refusing to execute format.sh outside project root")
 

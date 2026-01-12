@@ -1,5 +1,3 @@
-"""Input DTO for Generate Project use case."""
-
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,8 +9,6 @@ from src.ar_infra.domain.value_objects.version import Version
 
 @dataclass(frozen=True)
 class GenerateProjectInput:
-    """Input data for generating a project."""
-
     group_id: GroupId
     artifact_id: ArtifactId
     version: Version

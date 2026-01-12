@@ -1,5 +1,6 @@
 """Tests for InteractivePrompt class."""
 
+import re
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -230,7 +231,9 @@ class TestInteractivePrompt:
     ) -> None:
         mock_text.return_value.ask.return_value = None
 
-        with pytest.raises(KeyboardInterrupt, match="Operation cancelled by user"):
+        with pytest.raises(
+            KeyboardInterrupt, match=re.escape("The operation was cancelled by the user.")
+        ):
             prompt._prompt_group_id()
 
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
@@ -241,7 +244,9 @@ class TestInteractivePrompt:
     ) -> None:
         mock_text.return_value.ask.return_value = None
 
-        with pytest.raises(KeyboardInterrupt, match="Operation cancelled by user"):
+        with pytest.raises(
+            KeyboardInterrupt, match=re.escape("The operation was cancelled by the user.")
+        ):
             prompt._prompt_artifact_id()
 
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
@@ -252,7 +257,9 @@ class TestInteractivePrompt:
     ) -> None:
         mock_text.return_value.ask.return_value = None
 
-        with pytest.raises(KeyboardInterrupt, match="Operation cancelled by user"):
+        with pytest.raises(
+            KeyboardInterrupt, match=re.escape("The operation was cancelled by the user.")
+        ):
             prompt._prompt_version()
 
     @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
@@ -263,7 +270,9 @@ class TestInteractivePrompt:
     ) -> None:
         mock_checkbox.return_value.ask.return_value = None
 
-        with pytest.raises(KeyboardInterrupt, match="Operation cancelled by user"):
+        with pytest.raises(
+            KeyboardInterrupt, match=re.escape("The operation was cancelled by the user.")
+        ):
             prompt._prompt_features()
 
     @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
@@ -274,7 +283,9 @@ class TestInteractivePrompt:
     ) -> None:
         mock_confirm.return_value.ask.return_value = None
 
-        with pytest.raises(KeyboardInterrupt, match="Operation cancelled by user"):
+        with pytest.raises(
+            KeyboardInterrupt, match=re.escape("The operation was cancelled by the user.")
+        ):
             prompt._prompt_use_cache()
 
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
@@ -331,7 +342,9 @@ class TestInteractivePrompt:
         mock_text.return_value.ask.return_value = str(new_dir)
         mock_confirm.return_value.ask.side_effect = [False, False]
 
-        with pytest.raises(KeyboardInterrupt, match="Operation cancelled by user"):
+        with pytest.raises(
+            KeyboardInterrupt, match=re.escape("The operation was cancelled by the user.")
+        ):
             prompt._prompt_destination_path()
 
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
@@ -493,7 +506,9 @@ class TestInteractivePrompt:
     ) -> None:
         mock_text.return_value.ask.return_value = None
 
-        with pytest.raises(KeyboardInterrupt, match="Operation cancelled by user"):
+        with pytest.raises(
+            KeyboardInterrupt, match=re.escape("The operation was cancelled by the user.")
+        ):
             prompt._prompt_project_directory_name("default")
 
     def test_handle_existing_directory_not_exists(
@@ -725,7 +740,9 @@ class TestInteractivePrompt:
                 "prompt_installation",
                 side_effect=KeyboardInterrupt(),
             ),
-            pytest.raises(KeyboardInterrupt, match="Operation cancelled by user"),
+            pytest.raises(
+                KeyboardInterrupt, match=re.escape("The operation was cancelled by the user.")
+            ),
         ):
             prompt.collect_inputs(skip_github_app=False)
 
@@ -761,7 +778,9 @@ class TestInteractivePrompt:
         mock_select.return_value.ask.return_value = "cancel"
         mock_confirm.return_value.ask.return_value = True
 
-        with pytest.raises(KeyboardInterrupt, match="Operation cancelled by user"):
+        with pytest.raises(
+            KeyboardInterrupt, match=re.escape("The operation was cancelled by the user.")
+        ):
             prompt.collect_inputs(skip_github_app=True)
 
     def test_prompt_has_validators(self, prompt: InteractivePrompt) -> None:
