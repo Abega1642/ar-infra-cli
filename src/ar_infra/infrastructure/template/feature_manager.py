@@ -6,6 +6,7 @@ from src.ar_infra.infrastructure.template.env_handler import EnvHandler
 from src.ar_infra.infrastructure.template.facadeit_handler import FacadeITHandler
 from src.ar_infra.infrastructure.template.feature_config import FEATURE_MAPPINGS
 from src.ar_infra.infrastructure.template.rest_exception_manager import RestExceptionHandlerManager
+from src.ar_infra.infrastructure.template.swagger_handler import SwaggerHandler
 
 
 class FeatureManager:
@@ -14,10 +15,12 @@ class FeatureManager:
         env_handler: EnvHandler | None = None,
         facadeit_handler: FacadeITHandler | None = None,
         rest_exception_handler: RestExceptionHandlerManager | None = None,
+        swagger_handler: SwaggerHandler | None = None,
     ) -> None:
         self._env_handler = env_handler or EnvHandler()
         self._facadeit_handler = facadeit_handler or FacadeITHandler()
         self._rest_exception_handler = rest_exception_handler or RestExceptionHandlerManager()
+        self._swagger_handler = swagger_handler
 
     def apply_feature_selection(
         self,
@@ -34,10 +37,9 @@ class FeatureManager:
             template_dir,
             enabled_features,
         )
-
         self._rest_exception_handler.apply_feature_selection(template_dir, enabled_features)
-
         self._remove_env_variables_for_disabled_features(template_dir, features_to_remove)
+        self._update_swagger_documentation(template_dir, enabled_features)
 
     @staticmethod
     def remove_feature(
@@ -84,3 +86,13 @@ class FeatureManager:
         self._env_handler.remove_feature_env_variables(
             env_file, features_to_remove, env_variable_mappings
         )
+
+    def _update_swagger_documentation(
+        self,
+        template_dir: Path,
+        enabled_features: set[TemplateFeature],
+    ) -> None:
+        api_file = template_dir / "doc" / "api.yml"
+
+        swagger_handler = self._swagger_handler or SwaggerHandler(api_file)
+        swagger_handler.update_swagger(enabled_features)
