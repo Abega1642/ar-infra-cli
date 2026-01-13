@@ -92,7 +92,7 @@ class FeatureManager:
         template_dir: Path,
         enabled_features: set[TemplateFeature],
     ) -> None:
-        api_file = template_dir / "doc" / "api.yml"
+        api_file = template_dir / "doc" / "api.yaml"
 
         swagger_handler = self._swagger_handler or SwaggerHandler(api_file)
         swagger_handler.update_swagger(enabled_features)
