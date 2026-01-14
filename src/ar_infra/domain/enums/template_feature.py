@@ -12,5 +12,4 @@ class TemplateFeature(str, Enum):
 
     @classmethod
     def database_features(cls) -> set["TemplateFeature"]:
-        """Return all database-related features."""
         return {cls.POSTGRESQL, cls.MYSQL}

@@ -18,19 +18,28 @@ class FeatureFiles:
     env_variables: list[str]
 
 
+DATABASE_DIR: list[str] = [
+    SRC_PACKAGE + "repository",
+    "src/main/resources/db",
+    TEST_PACKAGE + "conf/db",
+]
+
+DATABASE_FILES: list[str] = [
+    SRC_PACKAGE + "endpoint/rest/controller/health/HealthRepositoryController.java",
+    SRC_PACKAGE + "service/health/HealthRepositoryService.java",
+    TEST_PACKAGE + "endpoint/rest/controller/health/HealthRepositoryControllerIT.java",
+]
+
+DATABASE_ENV_VARIABLES: list[str] = [
+    "SPRING_DATASOURCE_URL",
+    "SPRING_DATASOURCE_USERNAME",
+    "SPRING_DATASOURCE_PASSWORD",
+]
+
 FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
     TemplateFeature.POSTGRESQL: FeatureFiles(
-        directories=[
-            SRC_PACKAGE + "repository",
-            "src/main/resources/db",
-            TEST_PACKAGE + "service/health",
-        ],
-        files=[
-            SRC_PACKAGE + "endpoint/rest/controller/health/HealthRepositoryController.java",
-            SRC_PACKAGE + "service/health/HealthRepositoryService.java",
-            TEST_PACKAGE + "conf/PostgresConf.java",
-            TEST_PACKAGE + "endpoint/rest/controller/health/HealthRepositoryControllerIT.java",
-        ],
+        directories=DATABASE_DIR,
+        files=DATABASE_FILES,
         dependencies=[
             "org.springframework.boot:spring-boot-starter-data-jpa",
             "org.postgresql:postgresql",
@@ -38,11 +47,19 @@ FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
             "org.flywaydb:flyway-database-postgresql",
             "org.testcontainers:postgresql",
         ],
-        env_variables=[
-            "SPRING_DATASOURCE_URL",
-            "SPRING_DATASOURCE_USERNAME",
-            "SPRING_DATASOURCE_PASSWORD",
+        env_variables=DATABASE_ENV_VARIABLES,
+    ),
+    TemplateFeature.MYSQL: FeatureFiles(
+        directories=DATABASE_DIR,
+        files=DATABASE_FILES,
+        dependencies=[
+            "org.springframework.boot:spring-boot-starter-data-jpa",
+            "com.mysql:mysql-connector-j",
+            "org.flywaydb:flyway-core",
+            "org.flywaydb:flyway-mysql",
+            "org.testcontainers:mysql",
         ],
+        env_variables=DATABASE_ENV_VARIABLES,
     ),
     TemplateFeature.RABBITMQ: FeatureFiles(
         directories=[
@@ -95,13 +112,11 @@ FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
             "org.testcontainers:localstack",
         ],
         env_variables=[
-            "B2_KEY_ID",
-            "B2_APPLICATION_KEY",
-            "B2_BUCKET_NAME",
-            "B2_ENDPOINT",
-            "B2_ENDPOINT_PREFIX",
-            "B2_ENDPOINT_SUFFIX",
-            "B2_REGION",
+            "CLOUD_STORAGE_KEY_ID",
+            "CLOUD_STORAGE_APPLICATION_KEY",
+            "CLOUD_STORAGE_BUCKET_NAME",
+            "CLOUD_STORAGE_FULL_ENDPOINT",
+            "CLOUD_STORAGE_REGION",
         ],
     ),
     TemplateFeature.EMAIL: FeatureFiles(

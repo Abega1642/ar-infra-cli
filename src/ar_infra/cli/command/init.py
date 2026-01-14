@@ -254,7 +254,7 @@ class InitCommand:
         features: str | None,
         no_features: str | None,
     ) -> set[str]:
-        all_features = {"postgresql", "rabbitmq", "s3_bucket", "email"}
+        all_features = {"postgresql", "mysql", "rabbitmq", "s3_bucket", "email"}
 
         if features is not None:
             if features == "":
@@ -271,6 +271,7 @@ class InitCommand:
     def _convert_features(feature_names: set[str]) -> set[TemplateFeature]:
         feature_map = {
             "postgresql": TemplateFeature.POSTGRESQL,
+            "mysql": TemplateFeature.MYSQL,
             "rabbitmq": TemplateFeature.RABBITMQ,
             "s3_bucket": TemplateFeature.S3_BUCKET,
             "email": TemplateFeature.EMAIL,

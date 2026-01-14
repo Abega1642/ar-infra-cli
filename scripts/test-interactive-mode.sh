@@ -15,20 +15,23 @@ readonly ARTIFACT="interactive-test"
 readonly VERSION="0.0.1"
 
 declare -a FEATURE_COMBINATIONS=(
-  "postgresql:postgresql:postgresql"
-  "rabbitmq:rabbitmq:rabbitmq"
-  "s3_bucket:s3_bucket:s3_bucket"
-  "email:email:email"
-  "postgresql,rabbitmq:postgresql rabbitmq:postgresql rabbitmq"
-  "postgresql,s3_bucket:postgresql s3_bucket:postgresql s3_bucket"
-  "postgresql,email:postgresql email:postgresql email"
-  "rabbitmq,s3_bucket:rabbitmq s3_bucket:rabbitmq s3_bucket"
-  "rabbitmq,email:rabbitmq email:rabbitmq email"
-  "s3_bucket,email:s3_bucket email:s3_bucket email"
-  "postgresql,rabbitmq,s3_bucket:postgresql rabbitmq s3_bucket:postgresql rabbitmq s3_bucket"
-  "postgresql,rabbitmq,email:postgresql rabbitmq email:postgresql rabbitmq email"
-  "postgresql,s3_bucket,email:postgresql s3_bucket email:postgresql s3_bucket email"
-  "rabbitmq,s3_bucket,email:rabbitmq s3_bucket email:rabbitmq s3_bucket email"
+  "no-db:n:::"
+  "postgresql:y:postgresql:postgresql:postgresql"
+  "mysql:y:mysql:mysql:mysql"
+  "postgresql-rabbitmq:y:postgresql:rabbitmq:postgresql rabbitmq"
+  "postgresql-s3:y:postgresql:s3_bucket:postgresql s3_bucket"
+  "postgresql-email:y:postgresql:email:postgresql email"
+  "mysql-rabbitmq:y:mysql:rabbitmq:mysql rabbitmq"
+  "mysql-s3:y:mysql:s3_bucket:mysql s3_bucket"
+  "mysql-email:y:mysql:email:mysql email"
+  "postgresql-rabbitmq-s3:y:postgresql:rabbitmq s3_bucket:postgresql rabbitmq s3_bucket"
+  "postgresql-rabbitmq-email:y:postgresql:rabbitmq email:postgresql rabbitmq email"
+  "postgresql-s3-email:y:postgresql:s3_bucket email:postgresql s3_bucket email"
+  "mysql-rabbitmq-s3:y:mysql:rabbitmq s3_bucket:mysql rabbitmq s3_bucket"
+  "mysql-rabbitmq-email:y:mysql:rabbitmq email:mysql rabbitmq email"
+  "mysql-s3-email:y:mysql:s3_bucket email:mysql s3_bucket email"
+  "postgresql-all:y:postgresql:rabbitmq s3_bucket email:postgresql rabbitmq s3_bucket email"
+  "mysql-all:y:mysql:rabbitmq s3_bucket email:mysql rabbitmq s3_bucket email"
 )
 
 check_pexpect_installed() {
@@ -53,8 +56,10 @@ generate_pexpect_script() {
   local artifact="$2"
   local version="$3"
   local dest_path="$4"
-  local features="$5"
-  local output_file="$6"
+  local add_database="$5"
+  local database_choice="$6"
+  local other_features="$7"
+  local output_file="$8"
 
   cat > "$output_file" << 'EOF_PEXPECT'
 #!/usr/bin/env python
@@ -74,7 +79,9 @@ def main():
     artifact = sys.argv[2]
     version = sys.argv[3]
     dest_path = sys.argv[4]
-    features = sys.argv[5] if len(sys.argv) > 5 else ""
+    add_database = sys.argv[5] if len(sys.argv) > 5 else "n"
+    database_choice = sys.argv[6] if len(sys.argv) > 6 else ""
+    other_features = sys.argv[7] if len(sys.argv) > 7 else ""
 
     # Use popen_spawn on Windows, regular spawn on Unix
     if IS_WINDOWS:
@@ -142,19 +149,36 @@ def main():
         child.sendline(artifact)
         time.sleep(0.5)
 
-        child.expect('Select Features to Include:', timeout=30)
+        # NEW: Database prompt
+        child.expect('Would you like to add a database', timeout=30)
+        time.sleep(0.3)
+        child.sendline(add_database)
         time.sleep(0.5)
 
-        if features:
-            # Parse features: "postgresql rabbitmq" -> ["postgresql", "rabbitmq"]
-            feature_list = features.strip().split()
+        if add_database.lower() in ['y', 'yes', '']:
+            child.expect('Select database:', timeout=30)
+            time.sleep(0.5)
+
+            if database_choice.lower() == 'mysql':
+                child.send('\x1b[B')
+                time.sleep(0.3)
+
+            child.sendline('')
+            time.sleep(0.5)
+
+        # Other features prompt
+        child.expect('Select other features to Include:', timeout=30)
+        time.sleep(0.5)
+
+        if other_features:
+            # Parse features: "rabbitmq s3_bucket" -> ["rabbitmq", "s3_bucket"]
+            feature_list = other_features.strip().split()
 
             # Map features to their checkbox positions (0-indexed)
             feature_map = {
-                'postgresql': 0,
-                'rabbitmq': 1,
-                's3_bucket': 2,
-                'email': 3
+                'rabbitmq': 0,
+                's3_bucket': 1,
+                'email': 2
             }
 
             for feature in feature_list:
@@ -226,8 +250,10 @@ EOF_PEXPECT
 
 run_single_test() {
   local test_name="$1"
-  local feature_input="$2"
-  local enabled_features="${3:-}"
+  local add_database="$2"
+  local database_choice="$3"
+  local other_features_input="$4"
+  local enabled_features="${5:-}"
 
   local test_dir="$BASE_TEST_DIR/$test_name"
   local project_dir="$test_dir/$ARTIFACT"
@@ -244,11 +270,11 @@ run_single_test() {
   local python_path
   python_path="$(setup_python_path "$PROJECT_ROOT")"
 
-  generate_pexpect_script "$GROUP" "$ARTIFACT" "$VERSION" "./" "$feature_input" "$pexpect_script"
+  generate_pexpect_script "$GROUP" "$ARTIFACT" "$VERSION" "./" "$add_database" "$database_choice" "$other_features_input" "$pexpect_script"
 
   cd "$test_dir" || return 1
 
-  if ! PYTHONPATH="$python_path" python "$pexpect_script" "$GROUP" "$ARTIFACT" "$VERSION" "./" "$feature_input"; then
+  if ! PYTHONPATH="$python_path" python "$pexpect_script" "$GROUP" "$ARTIFACT" "$VERSION" "./" "$add_database" "$database_choice" "$other_features_input"; then
     print_error "Project generation failed"
     cd "$PROJECT_ROOT" || exit 1
     return 1
@@ -307,9 +333,9 @@ main() {
   mkdir -p "$BASE_TEST_DIR"
 
   for combination in "${FEATURE_COMBINATIONS[@]}"; do
-    IFS=':' read -r test_name feature_input enabled_features <<< "$combination"
+    IFS=':' read -r test_name add_database database_choice other_features enabled_features <<< "$combination"
 
-    if run_single_test "$test_name" "$feature_input" "$enabled_features"; then
+    if run_single_test "$test_name" "$add_database" "$database_choice" "$other_features" "$enabled_features"; then
       passed_tests=$((passed_tests + 1))
     else
       failed_tests=$((failed_tests + 1))

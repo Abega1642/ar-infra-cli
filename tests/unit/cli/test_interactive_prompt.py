@@ -20,12 +20,14 @@ class TestInteractivePrompt:
 
     @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.select")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
-    def test_collect_inputs_success(
+    def test_collect_inputs_success_with_postgresql(
         self,
         mock_confirm: Mock,
         mock_checkbox: Mock,
+        mock_select: Mock,
         mock_text: Mock,
         mock_messages: Mock,
         prompt: InteractivePrompt,
@@ -38,9 +40,9 @@ class TestInteractivePrompt:
             str(tmp_path),
             "my-app",
         ]
-        mock_checkbox.return_value.ask.return_value = ["postgresql", "email"]
-
-        mock_confirm.return_value.ask.side_effect = [True, True]
+        mock_confirm.return_value.ask.side_effect = [True, True, True]
+        mock_select.return_value.ask.return_value = "postgresql"
+        mock_checkbox.return_value.ask.return_value = ["email"]
 
         result = prompt.collect_inputs(skip_github_app=True)
 
@@ -56,9 +58,45 @@ class TestInteractivePrompt:
 
     @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.select")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
-    def test_collect_inputs_no_features(
+    def test_collect_inputs_success_with_mysql(
+        self,
+        mock_confirm: Mock,
+        mock_checkbox: Mock,
+        mock_select: Mock,
+        mock_text: Mock,
+        mock_messages: Mock,
+        prompt: InteractivePrompt,
+        tmp_path: Path,
+    ) -> None:
+        mock_text.return_value.ask.side_effect = [
+            "com.example",
+            "my-app",
+            "1.0.0",
+            str(tmp_path),
+            "my-app",
+        ]
+        mock_confirm.return_value.ask.side_effect = [True, True, True]
+        mock_select.return_value.ask.return_value = "mysql"
+        mock_checkbox.return_value.ask.return_value = ["rabbitmq"]
+
+        result = prompt.collect_inputs(skip_github_app=True)
+
+        assert result["group_id"] == "com.example"
+        assert result["artifact_id"] == "my-app"
+        assert result["version"] == "1.0.0"
+        assert result["destination"] == tmp_path
+        assert result["project_dir_name"] == "my-app"
+        assert result["enabled_features"] == {"mysql", "rabbitmq"}
+        assert result["use_template_cache"] is True
+
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
+    def test_collect_inputs_no_database(
         self,
         mock_confirm: Mock,
         mock_checkbox: Mock,
@@ -75,7 +113,7 @@ class TestInteractivePrompt:
             "backend-api",
         ]
         mock_checkbox.return_value.ask.return_value = []
-        mock_confirm.return_value.ask.side_effect = [False, True]
+        mock_confirm.return_value.ask.side_effect = [False, False, True]
 
         result = prompt.collect_inputs(skip_github_app=True)
 
@@ -89,12 +127,14 @@ class TestInteractivePrompt:
 
     @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.select")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
     def test_collect_inputs_all_features(
         self,
         mock_confirm: Mock,
         mock_checkbox: Mock,
+        mock_select: Mock,
         mock_text: Mock,
         mock_messages: Mock,
         prompt: InteractivePrompt,
@@ -107,14 +147,13 @@ class TestInteractivePrompt:
             str(tmp_path),
             "full-app",
         ]
+        mock_confirm.return_value.ask.side_effect = [True, True, True]
+        mock_select.return_value.ask.return_value = "postgresql"
         mock_checkbox.return_value.ask.return_value = [
-            "postgresql",
             "rabbitmq",
             "s3_bucket",
             "email",
         ]
-
-        mock_confirm.return_value.ask.side_effect = [True, True]
 
         result = prompt.collect_inputs(skip_github_app=True)
 
@@ -127,12 +166,14 @@ class TestInteractivePrompt:
 
     @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.select")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
     def test_collect_inputs_custom_project_dir_name(
         self,
         mock_confirm: Mock,
         mock_checkbox: Mock,
+        mock_select: Mock,
         mock_text: Mock,
         mock_messages: Mock,
         prompt: InteractivePrompt,
@@ -145,9 +186,9 @@ class TestInteractivePrompt:
             str(tmp_path),
             "custom-project-name",
         ]
-        mock_checkbox.return_value.ask.return_value = ["postgresql"]
-
-        mock_confirm.return_value.ask.side_effect = [True, True]
+        mock_confirm.return_value.ask.side_effect = [True, True, True]
+        mock_select.return_value.ask.return_value = "postgresql"
+        mock_checkbox.return_value.ask.return_value = []
 
         result = prompt.collect_inputs(skip_github_app=True)
 
@@ -157,6 +198,7 @@ class TestInteractivePrompt:
 
     @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.select")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
     @patch("builtins.print")
@@ -165,6 +207,7 @@ class TestInteractivePrompt:
         mock_print: Mock,
         mock_confirm: Mock,
         mock_checkbox: Mock,
+        mock_select: Mock,
         mock_text: Mock,
         mock_messages: Mock,
         prompt: InteractivePrompt,
@@ -177,14 +220,16 @@ class TestInteractivePrompt:
             str(tmp_path),
             "my-app",
         ]
-        mock_checkbox.return_value.ask.return_value = ["postgresql"]
-        mock_confirm.return_value.ask.side_effect = [True, False, False]
+        mock_confirm.return_value.ask.side_effect = [True, True, False, False]
+        mock_select.return_value.ask.return_value = "postgresql"
+        mock_checkbox.return_value.ask.return_value = []
 
         with pytest.raises(KeyboardInterrupt, match="Configuration cancelled by user"):
             prompt.collect_inputs(skip_github_app=True)
 
     @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.select")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
     @patch("builtins.print")
@@ -193,6 +238,7 @@ class TestInteractivePrompt:
         mock_print: Mock,
         mock_confirm: Mock,
         mock_checkbox: Mock,
+        mock_select: Mock,
         mock_text: Mock,
         mock_messages: Mock,
         prompt: InteractivePrompt,
@@ -210,11 +256,20 @@ class TestInteractivePrompt:
             str(tmp_path),
             "new-app",
         ]
-        mock_checkbox.return_value.ask.side_effect = [
-            ["postgresql"],
-            ["email"],
+        mock_confirm.return_value.ask.side_effect = [
+            True,
+            True,
+            False,
+            True,  # First iteration: wants DB, proceed with config, declines, starts over
+            False,
+            False,
+            True,  # Second iteration: no DB, no cache, proceeds
         ]
-        mock_confirm.return_value.ask.side_effect = [True, False, True, True, True]
+        mock_select.return_value.ask.return_value = "postgresql"
+        mock_checkbox.return_value.ask.side_effect = [
+            [],  # First iteration: no other features
+            ["email"],  # Second iteration: email feature
+        ]
 
         result = prompt.collect_inputs(skip_github_app=True)
 
@@ -262,12 +317,95 @@ class TestInteractivePrompt:
         ):
             prompt._prompt_version()
 
-    @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
-    def test_prompt_features_cancelled(
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.select")
+    def test_prompt_features_postgresql(
         self,
-        mock_checkbox: Mock,
+        mock_select: Mock,
+        mock_confirm: Mock,
         prompt: InteractivePrompt,
     ) -> None:
+        mock_confirm.return_value.ask.return_value = True
+        mock_select.return_value.ask.return_value = "postgresql"
+
+        with patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox") as mock_checkbox:
+            mock_checkbox.return_value.ask.return_value = ["email"]
+            result = prompt._prompt_features()
+
+        assert result == ["postgresql", "email"]
+
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.select")
+    def test_prompt_features_mysql(
+        self,
+        mock_select: Mock,
+        mock_confirm: Mock,
+        prompt: InteractivePrompt,
+    ) -> None:
+        mock_confirm.return_value.ask.return_value = True
+        mock_select.return_value.ask.return_value = "mysql"
+
+        with patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox") as mock_checkbox:
+            mock_checkbox.return_value.ask.return_value = ["rabbitmq"]
+            result = prompt._prompt_features()
+
+        assert result == ["mysql", "rabbitmq"]
+
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
+    def test_prompt_features_no_database(
+        self,
+        mock_confirm: Mock,
+        prompt: InteractivePrompt,
+    ) -> None:
+        mock_confirm.return_value.ask.return_value = False
+
+        with patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox") as mock_checkbox:
+            mock_checkbox.return_value.ask.return_value = []
+            result = prompt._prompt_features()
+
+        assert result == []
+
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
+    def test_prompt_features_database_prompt_cancelled(
+        self,
+        mock_confirm: Mock,
+        prompt: InteractivePrompt,
+    ) -> None:
+        mock_confirm.return_value.ask.return_value = None
+
+        with pytest.raises(
+            KeyboardInterrupt, match=re.escape("The operation was cancelled by the user.")
+        ):
+            prompt._prompt_features()
+
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.select")
+    def test_prompt_features_database_selection_cancelled(
+        self,
+        mock_select: Mock,
+        mock_confirm: Mock,
+        prompt: InteractivePrompt,
+    ) -> None:
+        mock_confirm.return_value.ask.return_value = True
+        mock_select.return_value.ask.return_value = None
+
+        with pytest.raises(
+            KeyboardInterrupt, match=re.escape("The operation was cancelled by the user.")
+        ):
+            prompt._prompt_features()
+
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.select")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
+    def test_prompt_features_other_features_cancelled(
+        self,
+        mock_checkbox: Mock,
+        mock_select: Mock,
+        mock_confirm: Mock,
+        prompt: InteractivePrompt,
+    ) -> None:
+        mock_confirm.return_value.ask.return_value = True
+        mock_select.return_value.ask.return_value = "postgresql"
         mock_checkbox.return_value.ask.return_value = None
 
         with pytest.raises(
@@ -648,12 +786,14 @@ class TestInteractivePrompt:
 
     @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.select")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
     def test_collect_inputs_with_github_app_success(
         self,
         mock_confirm: Mock,
         mock_checkbox: Mock,
+        mock_select: Mock,
         mock_text: Mock,
         mock_messages: Mock,
         prompt: InteractivePrompt,
@@ -666,8 +806,8 @@ class TestInteractivePrompt:
             str(tmp_path),
             "my-app",
         ]
+        mock_confirm.return_value.ask.side_effect = [False, False, True]
         mock_checkbox.return_value.ask.return_value = []
-        mock_confirm.return_value.ask.side_effect = [True, True]
 
         with patch.object(prompt.github_app_handler, "prompt_installation") as mock_gh:
             result = prompt.collect_inputs(skip_github_app=False)
@@ -677,6 +817,7 @@ class TestInteractivePrompt:
 
     @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.select")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
     @patch("builtins.print")
@@ -685,6 +826,7 @@ class TestInteractivePrompt:
         mock_print: Mock,
         mock_confirm: Mock,
         mock_checkbox: Mock,
+        mock_select: Mock,
         mock_text: Mock,
         mock_messages: Mock,
         prompt: InteractivePrompt,
@@ -697,8 +839,8 @@ class TestInteractivePrompt:
             str(tmp_path),
             "my-app",
         ]
+        mock_confirm.return_value.ask.side_effect = [False, False, True, True]
         mock_checkbox.return_value.ask.return_value = []
-        mock_confirm.return_value.ask.side_effect = [True, True, True]
 
         with patch.object(
             prompt.github_app_handler,
@@ -711,6 +853,7 @@ class TestInteractivePrompt:
 
     @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.select")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
     @patch("builtins.print")
@@ -719,6 +862,7 @@ class TestInteractivePrompt:
         mock_print: Mock,
         mock_confirm: Mock,
         mock_checkbox: Mock,
+        mock_select: Mock,
         mock_text: Mock,
         mock_messages: Mock,
         prompt: InteractivePrompt,
@@ -731,8 +875,8 @@ class TestInteractivePrompt:
             str(tmp_path),
             "my-app",
         ]
+        mock_confirm.return_value.ask.side_effect = [False, False, True, False]
         mock_checkbox.return_value.ask.return_value = []
-        mock_confirm.return_value.ask.side_effect = [True, True, False]
 
         with (
             patch.object(
@@ -748,16 +892,16 @@ class TestInteractivePrompt:
 
     @patch("src.ar_infra.cli.prompt.interactive_prompt.Messages")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.text")
+    @patch("src.ar_infra.cli.prompt.interactive_prompt.select")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.checkbox")
     @patch("src.ar_infra.cli.prompt.interactive_prompt.confirm")
-    @patch("src.ar_infra.cli.prompt.interactive_prompt.select")
     @patch("builtins.print")
     def test_collect_inputs_directory_conflict_cancel(
         self,
         mock_print: Mock,
-        mock_select: Mock,
         mock_confirm: Mock,
         mock_checkbox: Mock,
+        mock_select: Mock,
         mock_text: Mock,
         mock_messages: Mock,
         prompt: InteractivePrompt,
@@ -774,9 +918,9 @@ class TestInteractivePrompt:
             str(tmp_path),
             "my-app",
         ]
+        mock_confirm.return_value.ask.side_effect = [False, False]
+        mock_select.return_value.ask.side_effect = ["cancel"]
         mock_checkbox.return_value.ask.return_value = []
-        mock_select.return_value.ask.return_value = "cancel"
-        mock_confirm.return_value.ask.return_value = True
 
         with pytest.raises(
             KeyboardInterrupt, match=re.escape("The operation was cancelled by the user.")
