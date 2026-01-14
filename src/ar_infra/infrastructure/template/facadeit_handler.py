@@ -14,11 +14,12 @@ if TYPE_CHECKING:
 class FacadeITHandler:
     """Prune FacadeIT.java based on enabled infrastructure features."""
 
-    _FEATURE_CONF_MAPPING: Final[dict[TemplateFeature, tuple[str, str]]] = {
-        TemplateFeature.POSTGRESQL: ("PostgresConf", "POSTGRES_CONF"),
-        TemplateFeature.RABBITMQ: ("RabbitMQConf", "RABBITMQ_CONF"),
-        TemplateFeature.S3_BUCKET: ("BucketConf", "BUCKET_CONF"),
-        TemplateFeature.EMAIL: ("EmailConf", "EMAIL_CONF"),
+    _FEATURE_CONF_MAPPING: Final[dict[TemplateFeature, str]] = {
+        TemplateFeature.POSTGRESQL: "DB_CONF",
+        TemplateFeature.MYSQL: "DB_CONF",
+        TemplateFeature.RABBITMQ: "RABBITMQ_CONF",
+        TemplateFeature.S3_BUCKET: "BUCKET_CONF",
+        TemplateFeature.EMAIL: "EMAIL_CONF",
     }
 
     def apply_feature_selection(
@@ -31,9 +32,14 @@ class FacadeITHandler:
             return
 
         disabled_features = set(self._FEATURE_CONF_MAPPING) - enabled_features
-        disabled_tokens = {
-            token for feature in disabled_features for token in self._FEATURE_CONF_MAPPING[feature]
-        }
+
+        disabled_tokens: set[str] = set()
+        has_db_feature = bool(enabled_features & TemplateFeature.database_features())
+
+        for feature in disabled_features:
+            const_name = self._FEATURE_CONF_MAPPING[feature]
+            if const_name != "DB_CONF" or not has_db_feature:
+                disabled_tokens.add(const_name)
 
         content = facade_path.read_text(encoding="utf-8")
         filtered = self._remove_disabled_feature_lines(content, disabled_tokens)
@@ -59,17 +65,11 @@ class FacadeITHandler:
     ) -> str:
         lines = content.splitlines(keepends=True)
         result: list[str] = []
-        in_import_section = False
 
         for line in lines:
             stripped = line.strip()
 
-            if stripped.startswith("import "):
-                in_import_section = True
-            elif in_import_section and stripped and not stripped.startswith("import "):
-                in_import_section = False
-
-            if not in_import_section and any(token in stripped for token in disabled_tokens):
+            if any(token in stripped for token in disabled_tokens):
                 continue
 
             result.append(line)
