@@ -15,22 +15,40 @@ readonly ARTIFACT="feature-test"
 readonly VERSION="0.0.1"
 
 declare -a FEATURE_COMBINATIONS=(
+  # No features
+  "no_features:--features=:"
+
+  # Single database features
   "postgresql:--features=postgresql:postgresql"
+  "mysql:--features=mysql:mysql"
+
+  # Single non-database features
   "rabbitmq:--features=rabbitmq:rabbitmq"
   "s3_bucket:--features=s3_bucket:s3_bucket"
   "email:--features=email:email"
 
+  # PostgreSQL combinations
   "postgresql_rabbitmq:--features=postgresql,rabbitmq:postgresql rabbitmq"
   "postgresql_s3_bucket:--features=postgresql,s3_bucket:postgresql s3_bucket"
   "postgresql_email:--features=postgresql,email:postgresql email"
-
-  "rabbitmq_s3_bucket:--features=rabbitmq,s3_bucket:rabbitmq s3_bucket"
-  "rabbitmq_email:--features=rabbitmq,email:rabbitmq email"
-  "s3_bucket_email:--features=s3_bucket,email:s3_bucket email"
-
   "postgresql_rabbitmq_s3_bucket:--features=postgresql,rabbitmq,s3_bucket:postgresql rabbitmq s3_bucket"
   "postgresql_rabbitmq_email:--features=postgresql,rabbitmq,email:postgresql rabbitmq email"
   "postgresql_s3_bucket_email:--features=postgresql,s3_bucket,email:postgresql s3_bucket email"
+  "postgresql_all:--features=postgresql,rabbitmq,s3_bucket,email:postgresql rabbitmq s3_bucket email"
+
+  # MySQL combinations
+  "mysql_rabbitmq:--features=mysql,rabbitmq:mysql rabbitmq"
+  "mysql_s3_bucket:--features=mysql,s3_bucket:mysql s3_bucket"
+  "mysql_email:--features=mysql,email:mysql email"
+  "mysql_rabbitmq_s3_bucket:--features=mysql,rabbitmq,s3_bucket:mysql rabbitmq s3_bucket"
+  "mysql_rabbitmq_email:--features=mysql,rabbitmq,email:mysql rabbitmq email"
+  "mysql_s3_bucket_email:--features=mysql,s3_bucket,email:mysql s3_bucket email"
+  "mysql_all:--features=mysql,rabbitmq,s3_bucket,email:mysql rabbitmq s3_bucket email"
+
+  # Non-database combinations
+  "rabbitmq_s3_bucket:--features=rabbitmq,s3_bucket:rabbitmq s3_bucket"
+  "rabbitmq_email:--features=rabbitmq,email:rabbitmq email"
+  "s3_bucket_email:--features=s3_bucket,email:s3_bucket email"
   "rabbitmq_s3_bucket_email:--features=rabbitmq,s3_bucket,email:rabbitmq s3_bucket email"
 )
 
@@ -96,7 +114,11 @@ run_single_test() {
   read -ra feature_array <<< "$enabled_features"
 
   local validation_errors
-  validation_errors="$(validate_features "$project_dir" "$GROUP" "$ARTIFACT" "${feature_array[@]}")"
+  if [ "${#feature_array[@]}" -eq 0 ]; then
+    validation_errors="$(validate_features "$project_dir" "$GROUP" "$ARTIFACT")"
+  else
+    validation_errors="$(validate_features "$project_dir" "$GROUP" "$ARTIFACT" "${feature_array[@]}")"
+  fi
 
   if [ "$validation_errors" -eq 0 ]; then
     print_success "Feature validation passed"

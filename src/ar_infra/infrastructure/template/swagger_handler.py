@@ -15,6 +15,7 @@ log = get_logger(use_rich=True)
 class SwaggerHandler:
     FEATURE_ENDPOINTS: ClassVar[dict[TemplateFeature, str]] = {
         TemplateFeature.POSTGRESQL: "/health/db",
+        TemplateFeature.MYSQL: "/health/db",
         TemplateFeature.RABBITMQ: "/health/message",
         TemplateFeature.S3_BUCKET: "/health/bucket",
         TemplateFeature.EMAIL: "/health/email",
@@ -86,10 +87,15 @@ class SwaggerHandler:
             )
 
     def _get_endpoints_to_remove(self, selected_features: set[TemplateFeature]) -> set[str]:
-        endpoints_to_remove = set()
-
+        endpoint_to_features: dict[str, set[TemplateFeature]] = {}
         for feature, endpoint in self.FEATURE_ENDPOINTS.items():
-            if feature not in selected_features:
+            if endpoint not in endpoint_to_features:
+                endpoint_to_features[endpoint] = set()
+            endpoint_to_features[endpoint].add(feature)
+
+        endpoints_to_remove = set()
+        for endpoint, features in endpoint_to_features.items():
+            if not any(feature in selected_features for feature in features):
                 endpoints_to_remove.add(endpoint)
 
         log.debug(

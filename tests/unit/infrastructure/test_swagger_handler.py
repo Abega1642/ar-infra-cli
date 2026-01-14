@@ -30,12 +30,37 @@ class TestSwaggerHandler:
     def api_file_path(self, temp_template_dir: Path) -> Path:
         return temp_template_dir / "doc" / "api.yml"
 
-    def test_update_swagger_all_features_selected(
+    def test_update_swagger_all_features_with_postgresql(
         self, api_file_path: Path, sample_swagger_data: dict[str, Any]
     ) -> None:
         handler = SwaggerHandler(api_file_path)
         all_features = {
             TemplateFeature.POSTGRESQL,
+            TemplateFeature.RABBITMQ,
+            TemplateFeature.S3_BUCKET,
+            TemplateFeature.EMAIL,
+        }
+
+        handler.update_swagger(all_features)
+
+        with api_file_path.open("r", encoding="utf-8") as f:
+            result = yaml.safe_load(f)
+
+        assert "/health/db" in result["paths"]
+        assert "/health/message" in result["paths"]
+        assert "/health/bucket" in result["paths"]
+        assert "/health/email" in result["paths"]
+        assert "/" in result["paths"]
+        assert "/ping" in result["paths"]
+
+        assert result["components"] == sample_swagger_data["components"]
+
+    def test_update_swagger_all_features_with_mysql(
+        self, api_file_path: Path, sample_swagger_data: dict[str, Any]
+    ) -> None:
+        handler = SwaggerHandler(api_file_path)
+        all_features = {
+            TemplateFeature.MYSQL,
             TemplateFeature.RABBITMQ,
             TemplateFeature.S3_BUCKET,
             TemplateFeature.EMAIL,
@@ -92,6 +117,23 @@ class TestSwaggerHandler:
         assert "/" in result["paths"]
         assert "/ping" in result["paths"]
 
+    def test_update_swagger_only_mysql(self, api_file_path: Path) -> None:
+        handler = SwaggerHandler(api_file_path)
+        features = {TemplateFeature.MYSQL}
+
+        handler.update_swagger(features)
+
+        with api_file_path.open("r", encoding="utf-8") as f:
+            result = yaml.safe_load(f)
+
+        assert "/health/db" in result["paths"]
+        assert "/health/message" not in result["paths"]
+        assert "/health/bucket" not in result["paths"]
+        assert "/health/email" not in result["paths"]
+
+        assert "/" in result["paths"]
+        assert "/ping" in result["paths"]
+
     def test_update_swagger_only_rabbitmq(self, api_file_path: Path) -> None:
         handler = SwaggerHandler(api_file_path)
         features = {TemplateFeature.RABBITMQ}
@@ -134,7 +176,7 @@ class TestSwaggerHandler:
         assert "/health/message" not in result["paths"]
         assert "/health/bucket" not in result["paths"]
 
-    def test_update_swagger_multiple_features(self, api_file_path: Path) -> None:
+    def test_update_swagger_postgresql_with_email(self, api_file_path: Path) -> None:
         handler = SwaggerHandler(api_file_path)
         features = {TemplateFeature.POSTGRESQL, TemplateFeature.EMAIL}
 
@@ -148,6 +190,21 @@ class TestSwaggerHandler:
 
         assert "/health/message" not in result["paths"]
         assert "/health/bucket" not in result["paths"]
+
+    def test_update_swagger_mysql_with_rabbitmq(self, api_file_path: Path) -> None:
+        handler = SwaggerHandler(api_file_path)
+        features = {TemplateFeature.MYSQL, TemplateFeature.RABBITMQ}
+
+        handler.update_swagger(features)
+
+        with api_file_path.open("r", encoding="utf-8") as f:
+            result = yaml.safe_load(f)
+
+        assert "/health/db" in result["paths"]
+        assert "/health/message" in result["paths"]
+
+        assert "/health/bucket" not in result["paths"]
+        assert "/health/email" not in result["paths"]
 
     def test_update_swagger_file_not_exists(self, tmp_path: Path) -> None:
         non_existent_file = tmp_path / "doc" / "does_not_exist.yml"
@@ -203,10 +260,23 @@ class TestSwaggerHandler:
         assert "UUID" in result["components"]["schemas"]
         assert "Dummy" in result["components"]["schemas"]
 
-    def test_get_endpoints_to_remove_all_features(self) -> None:
+    def test_get_endpoints_to_remove_all_features_postgresql(self) -> None:
         handler = SwaggerHandler(Path("dummy.yml"))
         all_features = {
             TemplateFeature.POSTGRESQL,
+            TemplateFeature.RABBITMQ,
+            TemplateFeature.S3_BUCKET,
+            TemplateFeature.EMAIL,
+        }
+
+        endpoints = handler._get_endpoints_to_remove(all_features)
+
+        assert len(endpoints) == 0
+
+    def test_get_endpoints_to_remove_all_features_mysql(self) -> None:
+        handler = SwaggerHandler(Path("dummy.yml"))
+        all_features = {
+            TemplateFeature.MYSQL,
             TemplateFeature.RABBITMQ,
             TemplateFeature.S3_BUCKET,
             TemplateFeature.EMAIL,
@@ -229,7 +299,23 @@ class TestSwaggerHandler:
             "/health/email",
         }
 
-    def test_get_endpoints_to_remove_partial_features(self) -> None:
+    def test_get_endpoints_to_remove_only_postgresql(self) -> None:
+        handler = SwaggerHandler(Path("dummy.yml"))
+        features = {TemplateFeature.POSTGRESQL}
+
+        endpoints = handler._get_endpoints_to_remove(features)
+
+        assert endpoints == {"/health/message", "/health/bucket", "/health/email"}
+
+    def test_get_endpoints_to_remove_only_mysql(self) -> None:
+        handler = SwaggerHandler(Path("dummy.yml"))
+        features = {TemplateFeature.MYSQL}
+
+        endpoints = handler._get_endpoints_to_remove(features)
+
+        assert endpoints == {"/health/message", "/health/bucket", "/health/email"}
+
+    def test_get_endpoints_to_remove_postgresql_and_email(self) -> None:
         handler = SwaggerHandler(Path("dummy.yml"))
         features = {TemplateFeature.POSTGRESQL, TemplateFeature.EMAIL}
 
@@ -237,13 +323,28 @@ class TestSwaggerHandler:
 
         assert endpoints == {"/health/message", "/health/bucket"}
 
-    def test_forward_compatibility_mysql_feature(self, api_file_path: Path) -> None:
-        handler = SwaggerHandler(api_file_path)
-        features = {TemplateFeature.POSTGRESQL}
+    def test_get_endpoints_to_remove_mysql_and_rabbitmq(self) -> None:
+        handler = SwaggerHandler(Path("dummy.yml"))
+        features = {TemplateFeature.MYSQL, TemplateFeature.RABBITMQ}
 
-        handler.update_swagger(features)
+        endpoints = handler._get_endpoints_to_remove(features)
 
-        with api_file_path.open("r", encoding="utf-8") as f:
-            result = yaml.safe_load(f)
+        assert endpoints == {"/health/bucket", "/health/email"}
 
-        assert "/health/db" in result["paths"]
+    def test_database_endpoint_shared_by_postgresql_and_mysql(self) -> None:
+        """Test that /health/db endpoint is kept when either PostgreSQL or MySQL is selected."""
+        handler = SwaggerHandler(Path("dummy.yml"))
+
+        endpoints_pg = handler._get_endpoints_to_remove({TemplateFeature.POSTGRESQL})
+        assert "/health/db" not in endpoints_pg
+
+        endpoints_mysql = handler._get_endpoints_to_remove({TemplateFeature.MYSQL})
+        assert "/health/db" not in endpoints_mysql
+
+        endpoints_both = handler._get_endpoints_to_remove(
+            {TemplateFeature.POSTGRESQL, TemplateFeature.MYSQL}
+        )
+        assert "/health/db" not in endpoints_both
+
+        endpoints_none = handler._get_endpoints_to_remove({TemplateFeature.RABBITMQ})
+        assert "/health/db" in endpoints_none

@@ -16,8 +16,8 @@ readonly VERSION="0.0.1"
 
 declare -a FEATURE_COMBINATIONS=(
   "no-db:n:::"
-  "postgresql:y:postgresql:postgresql:postgresql"
-  "mysql:y:mysql:mysql:mysql"
+  "postgresql:y:postgresql::postgresql"
+  "mysql:y:mysql::mysql"
   "postgresql-rabbitmq:y:postgresql:rabbitmq:postgresql rabbitmq"
   "postgresql-s3:y:postgresql:s3_bucket:postgresql s3_bucket"
   "postgresql-email:y:postgresql:email:postgresql email"
@@ -74,6 +74,29 @@ if IS_WINDOWS:
 else:
     import pexpect
 
+def send_down_arrow(child, count=1):
+    for _ in range(count):
+        # Try different escape sequences for better compatibility
+        try:
+            child.send('\x1b[B')  # Standard ANSI down arrow
+        except:
+            try:
+                child.send('\x1bOB')  # Alternative down arrow
+            except:
+                child.send('j')  # Fallback: some terminals use j for down
+        time.sleep(0.3)  # Longer delay for CI environments
+
+def send_up_arrow(child, count=1):
+    for _ in range(count):
+        try:
+            child.send('\x1b[A')  # Standard ANSI up arrow
+        except:
+            try:
+                child.send('\x1bOA')  # Alternative up arrow
+            except:
+                child.send('k')  # Fallback: some terminals use k for up
+        time.sleep(0.3)  # Longer delay for CI environments
+
 def main():
     group = sys.argv[1]
     artifact = sys.argv[2]
@@ -81,9 +104,16 @@ def main():
     dest_path = sys.argv[4]
     add_database = sys.argv[5] if len(sys.argv) > 5 else "n"
     database_choice = sys.argv[6] if len(sys.argv) > 6 else ""
-    other_features = sys.argv[7] if len(sys.argv) > 7 else ""
+    other_features = " ".join(sys.argv[7:]) if len(sys.argv) > 7 else ""
 
-    # Use popen_spawn on Windows, regular spawn on Unix
+    print(f"DEBUG: Arguments received:", file=sys.stderr)
+    print(f"  group={group}", file=sys.stderr)
+    print(f"  artifact={artifact}", file=sys.stderr)
+    print(f"  version={version}", file=sys.stderr)
+    print(f"  add_database={add_database}", file=sys.stderr)
+    print(f"  database_choice={database_choice}", file=sys.stderr)
+    print(f"  other_features='{other_features}'", file=sys.stderr)
+
     if IS_WINDOWS:
         child = pexpect_spawn.PopenSpawn(
             f'python -m src.ar_infra.cli.main init --skip-github-app',
@@ -101,80 +131,74 @@ def main():
     child.logfile = sys.stdout
 
     try:
-        # Wait for initial prompt and press Enter
         child.expect('Press Enter to continue', timeout=30)
         child.sendline('')
         time.sleep(0.5)
 
-        # Group ID - Clear default "com.example" (11 chars)
         child.expect('Group ID:', timeout=30)
-        time.sleep(0.3)
-        for _ in range(20):  # Send enough backspaces to clear any default
-            child.send('\x7f')  # Backspace
-            time.sleep(0.05)
+        time.sleep(0.5)
+        child.send('\x15')  # Ctrl+U to clear line
+        time.sleep(0.2)
         child.sendline(group)
         time.sleep(0.5)
 
-        # Artifact ID - Clear default "my-app" (6 chars)
         child.expect('Artifact ID', timeout=30)
-        time.sleep(0.3)
-        for _ in range(20):  # Send enough backspaces to clear any default
-            child.send('\x7f')  # Backspace
-            time.sleep(0.05)
+        time.sleep(0.5)
+        child.send('\x15')  # Ctrl+U to clear line
+        time.sleep(0.2)
         child.sendline(artifact)
         time.sleep(0.5)
 
-        # Version - Clear default "1.0.0" (5 chars)
         child.expect('Version:', timeout=30)
-        time.sleep(0.3)
-        for _ in range(20):  # Send enough backspaces to clear any default
-            child.send('\x7f')  # Backspace
-            time.sleep(0.05)
+        time.sleep(0.5)
+        child.send('\x15')  # Ctrl+U to clear line
+        time.sleep(0.2)
         child.sendline(version)
         time.sleep(0.5)
 
         child.expect('Destination Directory', timeout=30)
-        time.sleep(0.3)
-        for _ in range(20):  # Send enough backspaces to clear any default
-            child.send('\x7f')  # Backspace
-            time.sleep(0.05)
+        time.sleep(0.5)
+        child.send('\x15')  # Ctrl+U to clear line
+        time.sleep(0.2)
         child.sendline(dest_path)
         time.sleep(0.5)
 
         child.expect('Project Directory Name', timeout=30)
-        time.sleep(0.3)
-        for _ in range(20):  # Send enough backspaces to clear any default
-            child.send('\x7f')  # Backspace
-            time.sleep(0.05)
+        time.sleep(0.5)
+        child.send('\x15')  # Ctrl+U to clear line
+        time.sleep(0.2)
         child.sendline(artifact)
         time.sleep(0.5)
 
-        # NEW: Database prompt
         child.expect('Would you like to add a database', timeout=30)
-        time.sleep(0.3)
+        time.sleep(0.5)
         child.sendline(add_database)
         time.sleep(0.5)
 
-        if add_database.lower() in ['y', 'yes', '']:
+        if add_database.lower() not in ['n', 'no']:
             child.expect('Select database:', timeout=30)
-            time.sleep(0.5)
+            time.sleep(0.8)  # Extra wait for menu to render
 
-            if database_choice.lower() == 'mysql':
-                child.send('\x1b[B')
-                time.sleep(0.3)
+            print(f"DEBUG: Selecting database: {database_choice}", file=sys.stderr)
 
+            if database_choice and database_choice.lower() == 'mysql':
+                print(f"DEBUG: Navigating to MySQL (down 1)", file=sys.stderr)
+                send_down_arrow(child, 1)
+                time.sleep(0.5)
+
+            print(f"DEBUG: Confirming database selection", file=sys.stderr)
             child.sendline('')
-            time.sleep(0.5)
+            time.sleep(1.0)  # Extra wait for menu to clear
 
-        # Other features prompt
         child.expect('Select other features to Include:', timeout=30)
-        time.sleep(0.5)
+        time.sleep(0.8)  # Extra wait for menu to render
 
-        if other_features:
-            # Parse features: "rabbitmq s3_bucket" -> ["rabbitmq", "s3_bucket"]
+        print(f"DEBUG: Processing features: '{other_features}'", file=sys.stderr)
+
+        if other_features and other_features.strip():
             feature_list = other_features.strip().split()
+            print(f"DEBUG: Feature list: {feature_list}", file=sys.stderr)
 
-            # Map features to their checkbox positions (0-indexed)
             feature_map = {
                 'rabbitmq': 0,
                 's3_bucket': 1,
@@ -184,35 +208,37 @@ def main():
             for feature in feature_list:
                 if feature in feature_map:
                     pos = feature_map[feature]
+                    print(f"DEBUG: Selecting {feature} at position {pos}", file=sys.stderr)
 
-                    # Navigate to the feature position
-                    for _ in range(pos):
-                        child.send('\x1b[B')  # Down arrow key
-                        time.sleep(0.2)
-
-                    # Select with space
-                    child.send(' ')
+                    send_down_arrow(child, pos)
                     time.sleep(0.3)
 
-                    # Go back to top for next feature
-                    for _ in range(pos):
-                        child.send('\x1b[A')  # Up arrow key
-                        time.sleep(0.2)
+                    print(f"DEBUG: Pressing space to select {feature}", file=sys.stderr)
+                    child.send(' ')
+                    time.sleep(0.5)
 
-        time.sleep(0.3)
+                    send_up_arrow(child, pos)
+                    time.sleep(0.3)
+
+
+            print(f"DEBUG: Navigating to 'done' (down 3)", file=sys.stderr)
+            send_down_arrow(child, 3)
+            time.sleep(0.5)
+
+        print(f"DEBUG: Confirming feature selection", file=sys.stderr)
         child.sendline('')
-        time.sleep(0.5)
+        time.sleep(1.0)
 
         child.expect('Use cached template', timeout=30)
-        time.sleep(0.3)
-        child.sendline('n')
         time.sleep(0.5)
+        child.sendline('y')
+        time.sleep(1.5)  # Extra wait for summary to render
 
         child.expect('Would you like to proceed', timeout=30)
-        time.sleep(0.3)
+        time.sleep(0.5)
         child.sendline('y')
+        time.sleep(0.5)
 
-        # Wait for completion
         if IS_WINDOWS:
             time.sleep(10)
             child.close()

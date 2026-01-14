@@ -28,14 +28,15 @@ path_exists() {
 }
 
 
-build_postgresql_files() {
+build_database_files() {
   local p="$1"
-  POSTGRESQL_FILES=(
+  # PostgreSQL and MySQL share the same files/directories
+  DATABASE_FILES=(
     "directory:src/main/java/$p/repository"
     "directory:src/main/resources/db"
+    "directory:src/test/java/$p/conf/db"
     "file:src/main/java/$p/endpoint/rest/controller/health/HealthRepositoryController.java"
     "file:src/main/java/$p/service/health/HealthRepositoryService.java"
-    "file:src/test/java/$p/conf/PostgresConf.java"
     "file:src/test/java/$p/endpoint/rest/controller/health/HealthRepositoryControllerIT.java"
   )
 }
@@ -46,9 +47,12 @@ build_rabbitmq_files() {
     "directory:src/main/java/$p/event"
     "directory:src/main/java/$p/datastructure"
     "file:src/main/java/$p/config/RabbitConfig.java"
+    "file:src/main/java/$p/datastructure/ListGrouper.java"
     "file:src/main/java/$p/service/health/HealthEventService.java"
     "file:src/main/java/$p/endpoint/rest/controller/health/HealthEventController.java"
     "file:src/test/java/$p/conf/RabbitMQConf.java"
+    "file:src/test/java/$p/service/health/HealthEventServiceIT.java"
+    "file:src/test/java/$p/endpoint/rest/controller/health/HealthEventControllerIT.java"
   )
 }
 
@@ -58,7 +62,12 @@ build_s3_bucket_files() {
     "directory:src/main/java/$p/exception/bucket"
     "file:src/main/java/$p/config/BucketConf.java"
     "file:src/main/java/$p/file/BucketComponent.java"
+    "file:src/main/java/$p/endpoint/rest/controller/health/HealthBucketController.java"
     "file:src/main/java/$p/service/health/HealthBucketService.java"
+    "file:src/test/java/$p/conf/BucketConf.java"
+    "file:src/test/java/$p/file/BucketComponentIT.java"
+    "file:src/test/java/$p/service/health/HealthBucketServiceIT.java"
+    "file:src/test/java/$p/endpoint/rest/controller/health/HealthBucketControllerIT.java"
   )
 }
 
@@ -66,8 +75,15 @@ build_email_files() {
   local p="$1"
   EMAIL_FILES=(
     "directory:src/main/java/$p/mail"
+    "directory:src/test/java/$p/mail"
     "file:src/main/java/$p/config/EmailConf.java"
     "file:src/main/java/$p/service/health/HealthEmailService.java"
+    "file:src/main/java/$p/exception/EmailSendException.java"
+    "file:src/main/java/$p/exception/health/EmailHealthCheckException.java"
+    "file:src/main/java/$p/endpoint/rest/controller/health/HealthEmailController.java"
+    "file:src/test/java/$p/conf/EmailConf.java"
+    "file:src/test/java/$p/service/health/HealthEmailServiceIT.java"
+    "file:src/test/java/$p/endpoint/rest/controller/health/HealthEmailControllerIT.java"
   )
 }
 
@@ -113,6 +129,19 @@ validate_absent() {
   echo "$errors"
 }
 
+has_database_feature() {
+  if [ $# -eq 0 ]; then
+    return 1
+  fi
+
+  for e in "$@"; do
+    if [ "$e" = "postgresql" ] || [ "$e" = "mysql" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 validate_features() {
   local project="$1" group="$2" artifact="$3"
   shift 3
@@ -122,37 +151,63 @@ validate_features() {
   local pkg
   pkg="$(package_to_path "$group" "$artifact")"
 
-  build_postgresql_files "$pkg"
+  build_database_files "$pkg"
   build_rabbitmq_files "$pkg"
   build_s3_bucket_files "$pkg"
   build_email_files "$pkg"
 
-  for feature in postgresql rabbitmq s3_bucket email; do
+  # Check database features (PostgreSQL and MySQL share the same files)
+  local database_enabled=false
+  if [ "${#enabled[@]}" -gt 0 ] && has_database_feature "${enabled[@]}"; then
+    database_enabled=true
+  fi
+
+  local err
+  if [ "$database_enabled" = true ]; then
+    err="$(validate_present "$project" "Database" "${DATABASE_FILES[@]}")"
+  else
+    err="$(validate_absent "$project" "Database" "${DATABASE_FILES[@]}")"
+  fi
+  err="${err:-0}"
+  total_errors=$((total_errors + err))
+
+  for feature in rabbitmq s3_bucket email; do
     local on=false
-    for e in "${enabled[@]}"; do
-      [ "$e" = "$feature" ] && on=true
-    done
 
-    local err=0
-    case "$feature" in
-      postgresql)
-        err="$($on && validate_present "$project" PostgreSQL "${POSTGRESQL_FILES[@]}" \
-                 || validate_absent "$project" PostgreSQL "${POSTGRESQL_FILES[@]}")"
-        ;;
-      rabbitmq)
-        err="$($on && validate_present "$project" RabbitMQ "${RABBITMQ_FILES[@]}" \
-                 || validate_absent "$project" RabbitMQ "${RABBITMQ_FILES[@]}")"
-        ;;
-      s3_bucket)
-        err="$($on && validate_present "$project" S3_BUCKET "${S3_BUCKET_FILES[@]}" \
-                 || validate_absent "$project" S3_BUCKET "${S3_BUCKET_FILES[@]}")"
-        ;;
-      email)
-        err="$($on && validate_present "$project" EMAIL "${EMAIL_FILES[@]}" \
-                 || validate_absent "$project" EMAIL "${EMAIL_FILES[@]}")"
-        ;;
-    esac
+    if [ "${#enabled[@]}" -gt 0 ]; then
+      for e in "${enabled[@]}"; do
+        [ "$e" = "$feature" ] && on=true
+      done
+    fi
 
+    local err
+    if [ "$on" = true ]; then
+      case "$feature" in
+        rabbitmq)
+          err="$(validate_present "$project" RabbitMQ "${RABBITMQ_FILES[@]}")"
+          ;;
+        s3_bucket)
+          err="$(validate_present "$project" S3_BUCKET "${S3_BUCKET_FILES[@]}")"
+          ;;
+        email)
+          err="$(validate_present "$project" EMAIL "${EMAIL_FILES[@]}")"
+          ;;
+      esac
+    else
+      case "$feature" in
+        rabbitmq)
+          err="$(validate_absent "$project" RabbitMQ "${RABBITMQ_FILES[@]}")"
+          ;;
+        s3_bucket)
+          err="$(validate_absent "$project" S3_BUCKET "${S3_BUCKET_FILES[@]}")"
+          ;;
+        email)
+          err="$(validate_absent "$project" EMAIL "${EMAIL_FILES[@]}")"
+          ;;
+      esac
+    fi
+
+    err="${err:-0}"
     total_errors=$((total_errors + err))
   done
 
