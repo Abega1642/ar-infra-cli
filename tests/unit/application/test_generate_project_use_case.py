@@ -12,6 +12,7 @@ from src.ar_infra.domain.value_objects.artifact_id import ArtifactId
 from src.ar_infra.domain.value_objects.group_id import GroupId
 from src.ar_infra.domain.value_objects.package_name import PackageName
 from src.ar_infra.domain.value_objects.version import Version
+from src.ar_infra.properties import AR_INFRA_TEMPLATE
 
 
 @pytest.fixture(autouse=True)
@@ -128,7 +129,7 @@ class TestGenerateProjectUseCase:
             version=Version("1.0.0"),
             destination=tmp_path / "my-project",
             enabled_features={TemplateFeature.POSTGRESQL, TemplateFeature.S3_BUCKET},
-            template_url="https://github.com/Abega1642/ar-infra-template.git",
+            template_url=AR_INFRA_TEMPLATE,
             use_template_cache=False,
         )
 
@@ -214,7 +215,7 @@ class TestGenerateProjectUseCase:
             version=Version("1.0.0"),
             destination=tmp_path / "my-project",
             enabled_features={TemplateFeature.POSTGRESQL},  # Only PostgreSQL
-            template_url="https://github.com/Abega1642/ar-infra-template.git",
+            template_url=AR_INFRA_TEMPLATE,
             use_template_cache=False,
         )
 
@@ -431,7 +432,7 @@ class TestArtifactCleanerIntegration:
             version=Version("1.0.0"),
             destination=tmp_path / "my-project",
             enabled_features=set(),
-            template_url="https://github.com/Abega1642/ar-infra-template.git",
+            template_url=AR_INFRA_TEMPLATE,
             use_template_cache=False,
         )
 
@@ -493,7 +494,7 @@ class TestArtifactCleanerIntegration:
             version=Version("1.0.0"),
             destination=tmp_path / "my-project",
             enabled_features=set(),
-            template_url="https://github.com/Abega1642/ar-infra-template.git",
+            template_url=AR_INFRA_TEMPLATE,
             use_template_cache=False,
         )
 
@@ -535,7 +536,7 @@ class TestArtifactCleanerIntegration:
             version=Version("1.0.0"),
             destination=tmp_path / "my-project",
             enabled_features=set(),
-            template_url="https://github.com/Abega1642/ar-infra-template.git",
+            template_url=AR_INFRA_TEMPLATE,
             use_template_cache=False,
         )
 

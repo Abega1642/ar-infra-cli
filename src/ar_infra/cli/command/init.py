@@ -34,6 +34,7 @@ from src.ar_infra.infrastructure.template import FeatureManager, GitHubTemplateF
 from src.ar_infra.infrastructure.template.project_signature import (
     InfraGeneratedAnnotationWriter,
 )
+from src.ar_infra.properties import AR_INFRA_TEMPLATE
 
 
 @dataclass(frozen=True)
@@ -50,8 +51,6 @@ class InitCommandArgs:
 
 
 class InitCommand:
-    DEFAULT_TEMPLATE_URL = "https://github.com/Abega1642/ar-infra-template.git"
-
     def __init__(self) -> None:
         self.use_case = self._create_use_case()
         self.interactive_prompt = InteractivePrompt()
@@ -88,7 +87,7 @@ class InitCommand:
                 destination=str(inputs["destination"]),
                 project_dir_name=inputs["project_dir_name"],
                 enabled_features=set(inputs["enabled_features"] or []),
-                template_url=self.DEFAULT_TEMPLATE_URL,
+                template_url=AR_INFRA_TEMPLATE,
                 use_template_cache=inputs["use_template_cache"],
             )
 
@@ -146,7 +145,7 @@ class InitCommand:
                 destination=args.path or ".",
                 project_dir_name=args.project_dir,
                 enabled_features=enabled_features,
-                template_url=self.DEFAULT_TEMPLATE_URL,
+                template_url=AR_INFRA_TEMPLATE,
                 use_template_cache=not args.no_cache,
             )
 

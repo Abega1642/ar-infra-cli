@@ -94,3 +94,29 @@ Useful when the template has been updated.
 Example:
   --no-cache
 """
+
+ADD_DEPENDENCY_PROJECT_PATH_HELP = """
+Path to the project directory containing build.gradle.
+
+If not specified, uses the current directory.
+
+Example:
+  --project-path=/home/user/my-project
+"""
+
+ADD_DEPENDENCY_COMMAND_DESCRIPTION = """
+Add dependencies to build.gradle.
+
+\b
+Examples:
+  ar-infra add-dependency "implementation 'io.jsonwebtoken:jjwt-api:0.13.0'"
+  ar-infra add-dependency "implementation 'io.jsonwebtoken:jjwt-api:0.13.0'" \\
+                          "runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0'"
+  ar-infra add-dependency --project-path /path/to/project \\
+                          "implementation 'org.springframework.boot:spring-boot-starter-data-jpa'"
+
+\b
+Supported configurations:
+  implementation, testImplementation, runtimeOnly, compileOnly,
+  annotationProcessor, testRuntimeOnly
+"""
