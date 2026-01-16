@@ -46,6 +46,7 @@ class InitCommandArgs:
     project_dir: str | None
     features: str | None
     no_features: str | None
+    no_feature: bool
     no_cache: bool
     skip_github_app: bool
 
@@ -71,14 +72,20 @@ class InitCommand:
         )
 
         if is_interactive:
-            self._execute_interactive(skip_github_app=args.skip_github_app)
+            self._execute_interactive(
+                skip_github_app=args.skip_github_app, skip_features=args.no_feature
+            )
         else:
             self._execute_cli(args)
 
-    def _execute_interactive(self, *, skip_github_app: bool = False) -> None:
+    def _execute_interactive(
+        self, *, skip_github_app: bool = False, skip_features: bool = False
+    ) -> None:
         Banner.show(wait_for_enter=True)
         try:
-            inputs = self.interactive_prompt.collect_inputs(skip_github_app=skip_github_app)
+            inputs = self.interactive_prompt.collect_inputs(
+                skip_github_app=skip_github_app, skip_features=skip_features
+            )
 
             self._execute_common(
                 group_id=inputs["group_id"],
@@ -86,7 +93,7 @@ class InitCommand:
                 version=inputs["version"],
                 destination=str(inputs["destination"]),
                 project_dir_name=inputs["project_dir_name"],
-                enabled_features=set(inputs["enabled_features"] or []),
+                enabled_features=set(inputs.get("enabled_features") or []),
                 template_url=AR_INFRA_TEMPLATE,
                 use_template_cache=inputs["use_template_cache"],
             )
@@ -125,7 +132,19 @@ class InitCommand:
         assert args.project_dir is not None
 
         try:
-            enabled_features = self._parse_features(args.features, args.no_features)
+            enabled_features = self._parse_features(
+                args.features, args.no_features, no_feature=args.no_feature
+            )
+
+            database_features = {"postgresql", "mysql"}
+            selected_databases = enabled_features & database_features
+
+            if len(selected_databases) > 1:
+                self._abort(
+                    "Only one database can be selected. "
+                    f"You have selected: {', '.join(sorted(selected_databases))}. "
+                    "Please choose either 'postgresql' or 'mysql', not both."
+                )
 
             destination_path = Path(args.path or ".").resolve()
             project_path = destination_path / args.project_dir
@@ -252,7 +271,12 @@ class InitCommand:
     def _parse_features(
         features: str | None,
         no_features: str | None,
+        *,
+        no_feature: bool,
     ) -> set[str]:
+        if no_feature:
+            return set()
+
         all_features = {"postgresql", "mysql", "rabbitmq", "s3_bucket", "email"}
 
         if features is not None:

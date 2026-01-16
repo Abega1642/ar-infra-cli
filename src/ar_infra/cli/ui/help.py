@@ -5,6 +5,18 @@ from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
 
+from src.ar_infra.cli.resources.documentation import (
+    ADD_DEPENDENCY_PROJECT_PATH_HELP,
+    ARTIFACT_OPTION_HELP,
+    FEATURES_OPTION_HELP,
+    GROUP_OPTION_HELP,
+    NO_CACHE_OPTION_HELP,
+    NO_FEATURES_OPTION_HELP,
+    PATH_OPTION_HELP,
+    PROJECT_DIR_OPTION_HELP,
+    SKIP_COMMAND,
+    VERSION_OPTION_HELP,
+)
 from src.ar_infra.properties import AR_INFRA_TEMPLATE
 
 
@@ -151,12 +163,50 @@ def show_init_command_body(console: Console) -> None:
     console.print("[bold yellow]COMMAND LINE MODE:[/bold yellow]")
     console.print(
         Syntax(
-            "ar-infra init --group=com.example --artifact=myapp --project-version=1.0.0",
+            "ar-infra init --group=com.example --artifact=myapp --no-feature",
             "bash",
             theme="monokai",
             background_color="default",
         )
     )
+    console.print()
+
+
+def show_init_options(console: Console) -> None:
+    console.print("[bold yellow]INIT OPTIONS:[/bold yellow]")
+    options_table = Table(show_header=False, box=None, padding=(0, 2))
+    options_table.add_column(style="cyan bold", width=20)
+    options_table.add_column()
+
+    options_table.add_row("--group", GROUP_OPTION_HELP.strip())
+    options_table.add_row("--artifact", ARTIFACT_OPTION_HELP.strip())
+    options_table.add_row("--project-version", VERSION_OPTION_HELP.strip())
+    options_table.add_row("--path", PATH_OPTION_HELP.strip())
+    options_table.add_row("--project-dir", PROJECT_DIR_OPTION_HELP.strip())
+    options_table.add_row("--features", FEATURES_OPTION_HELP.strip())
+    options_table.add_row("--disable-features", NO_FEATURES_OPTION_HELP.strip())
+    options_table.add_row("--no-feature", "Generate project without any features")
+    options_table.add_row("--no-cache", NO_CACHE_OPTION_HELP.strip())
+    options_table.add_row("--skip-github-app", SKIP_COMMAND.strip())
+
+    console.print(options_table)
+    console.print()
+
+
+def show_add_deps_options(console: Console) -> None:
+    console.print("[bold yellow]ADD-DEPENDENCY OPTIONS:[/bold yellow]")
+    options_table = Table(show_header=False, box=None, padding=(0, 2))
+    options_table.add_column(style="cyan bold", width=20)
+    options_table.add_column()
+
+    options_table.add_row(
+        "DEPENDENCIES...", "One or more Gradle dependency strings to add (required)."
+    )
+
+    options_table.add_row("--project-path", ADD_DEPENDENCY_PROJECT_PATH_HELP.strip())
+    options_table.add_row("--help, -h", "Show this message and exit.")
+
+    console.print(options_table)
     console.print()
 
 
@@ -173,7 +223,9 @@ def show_help() -> None:
     console.print("    ar-infra init [OPTIONS]")
 
     show_add_deps_header(console)
+    show_add_deps_options(console)
     show_init_command_body(console)
+    show_init_options(console)
     show_init_command_example(console)
     show_add_deps_body(console)
     show_feature_list(console)

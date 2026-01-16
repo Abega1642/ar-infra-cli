@@ -28,9 +28,11 @@ class InteractivePrompt:
         self.security_validator = PathSecurityValidator()
         self.github_app_handler = GitHubAppHandler()
 
-    def collect_inputs(self, *, skip_github_app: bool = False) -> dict[str, Any]:
+    def collect_inputs(
+        self, *, skip_github_app: bool = False, skip_features: bool = False
+    ) -> dict[str, Any]:
         while True:
-            inputs = self._collect_all_prompts()
+            inputs = self._collect_all_prompts(skip_features=skip_features)
 
             if self._confirm_and_proceed(inputs):
                 if not skip_github_app:
@@ -55,7 +57,7 @@ class InteractivePrompt:
 
             print("\n")
 
-    def _collect_all_prompts(self) -> dict[str, Any]:
+    def _collect_all_prompts(self, *, skip_features: bool = False) -> dict[str, Any]:
         group_id = self._prompt_group_id()
         artifact_id = self._prompt_artifact_id()
         version = self._prompt_version()
@@ -77,7 +79,8 @@ class InteractivePrompt:
             print("\nOperation cancelled.\n")
             raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
 
-        features = self._prompt_features()
+        features = [] if skip_features else self._prompt_features()
+
         use_cache = self._prompt_use_cache()
 
         return {
