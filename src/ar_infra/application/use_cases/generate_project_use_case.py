@@ -135,16 +135,18 @@ class GenerateProjectUseCase:
         if progress:
             progress.update_step("Removing dependencies...")
 
+        enabled_deps = set(
+            self._feature_manager.get_all_feature_dependencies(input_dto.enabled_features)
+        )
+
         all_features = set(TemplateFeature)
-        features_to_remove = all_features - input_dto.enabled_features
+        all_possible_deps = set(self._feature_manager.get_all_feature_dependencies(all_features))
 
-        dependencies_to_remove = []
-        for feature in features_to_remove:
-            dependencies_to_remove.extend(self._feature_manager.get_feature_dependencies(feature))
+        deps_to_remove = all_possible_deps - enabled_deps
 
-        if dependencies_to_remove:
+        if deps_to_remove:
             build_gradle = input_dto.destination / "build.gradle"
-            self._gradle_writer.remove_dependencies(build_gradle, dependencies_to_remove)
+            self._gradle_writer.remove_dependencies(build_gradle, sorted(deps_to_remove))
 
         if progress:
             progress.update_step("Removing dependencies...", completed=True)

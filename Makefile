@@ -26,7 +26,7 @@ install-dev: setup-banner ## Install development dependencies
 
 setup-banner: ## Install Node.js deps and generate banner
 	@echo "$(BLUE)Setting up banner generation...$(NC)"
-	@if bash scripts/setup-banner.sh; then \
+	@if bash .shell/setup-banner.sh; then \
 		echo "$(GREEN)Banner setup complete$(NC)"; \
 	else \
 		echo "$(YELLOW)Warning: Banner setup failed. Using fallback banner.$(NC)"; \
@@ -144,7 +144,7 @@ version: ## Show current version
 
 verify-banner: ## Verify banner generation
 	@echo "$(BLUE)Verifying banner...$(NC)"
-	@bash scripts/verify-banner.sh
+	@bash .shell/verify-banner.sh
 
 test-banner: setup-banner verify-banner ## Generate and verify banner
 	@echo "$(GREEN)Banner tests complete$(NC)"

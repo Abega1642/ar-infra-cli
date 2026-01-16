@@ -125,19 +125,57 @@ class InteractivePrompt:
 
     @staticmethod
     def _prompt_features() -> list[str]:
-        result = checkbox(
-            "Select Features to Include:",
+        all_features: list[str] = []
+
+        wants_database = confirm(
+            "Would you like to add a database?",
+            default=True,
+            style=PROMPT_STYLE,
+        ).ask()
+
+        if wants_database is None:
+            raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
+
+        if cast("bool", wants_database):
+            database_choices = checkbox(
+                "Select database (select ONE only):",
+                choices=[
+                    {"name": "PostgreSQL", "value": "postgresql"},
+                    {"name": "MySQL", "value": "mysql"},
+                ],
+                style=PROMPT_STYLE,
+            ).ask()
+
+            if database_choices is None:
+                raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
+
+            selected_databases = cast("list[str]", database_choices)
+
+            if len(selected_databases) == 0:
+                print("\nError: You must select exactly one database.\n")
+                return InteractivePrompt._prompt_features()  # Retry
+            if len(selected_databases) > 1:
+                print("\nError: You can only select one database. Please try again.\n")
+                return InteractivePrompt._prompt_features()  # Retry
+
+            all_features.extend(selected_databases)
+
+        other_features = checkbox(
+            "Select other features to Include:",
             choices=[
-                {"name": "PostgreSQL Database", "value": "postgresql"},
                 {"name": "RabbitMQ Message Broker", "value": "rabbitmq"},
-                {"name": "AWS S3 Storage", "value": "s3_bucket"},
+                {"name": "AWS S3-compatible Storage (BackBlaze)", "value": "s3_bucket"},
                 {"name": "Email Support", "value": "email"},
             ],
             style=PROMPT_STYLE,
         ).ask()
-        if result is None:
+
+        if other_features is None:
             raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
-        return cast("list[str]", result)
+
+        all_features.extend(cast("list[str]", other_features))
+
+        return all_features
 
     @staticmethod
     def _prompt_use_cache() -> bool:

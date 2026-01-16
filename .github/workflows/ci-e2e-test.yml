@@ -36,15 +36,15 @@ jobs:
       - name: Run basic project generation test (Unix)
         if: runner.os != 'Windows'
         run: |
-          chmod +x scripts/project-generation.sh
-          bash scripts/project-generation.sh
+          chmod +x .shell/project-generation.sh
+          bash .shell/project-generation.sh
 
       - name: Run basic project generation test (Windows)
         if: runner.os == 'Windows'
         shell: bash
         env:
           PYTHONIOENCODING: utf-8
-        run: bash scripts/project-generation.sh
+        run: bash .shell/project-generation.sh
 
       - name: Verify generated project structure (Unix)
         if: runner.os != 'Windows' && always()
@@ -150,15 +150,15 @@ jobs:
       - name: Run feature combination tests (Unix)
         if: runner.os != 'Windows'
         run: |
-          chmod +x scripts/test-feature-combinations.sh
-          bash scripts/test-feature-combinations.sh
+          chmod +x .shell/test-feature-combinations.sh
+          bash .shell/test-feature-combinations.sh
 
       - name: Run feature combination tests (Windows)
         if: runner.os == 'Windows'
         shell: bash
         env:
           PYTHONIOENCODING: utf-8
-        run: bash scripts/test-feature-combinations.sh
+        run: bash .shell/test-feature-combinations.sh
 
       - name: Upload feature test results
         if: failure()

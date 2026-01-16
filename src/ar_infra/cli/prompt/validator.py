@@ -40,7 +40,7 @@ class Validators:
 
     @staticmethod
     def features(value: str) -> str | None:
-        valid_features = {"postgresql", "rabbitmq", "s3_bucket", "email"}
+        valid_features = {"postgresql", "mysql", "rabbitmq", "s3_bucket", "email"}
 
         features = [f.strip().lower() for f in value.split(",") if f.strip()]
         invalid = [f for f in features if f not in valid_features]
