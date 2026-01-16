@@ -52,7 +52,6 @@ declare -a FEATURE_COMBINATIONS=(
   "rabbitmq_s3_bucket_email:--features=rabbitmq,s3_bucket,email:rabbitmq s3_bucket email"
 )
 
-
 cleanup() {
   if [ -d "$BASE_TEST_DIR" ]; then
     print_info "Cleaning up test directory..."
@@ -107,11 +106,10 @@ run_single_test() {
     wait_for_git_unlock "$project_dir" || true
   fi
 
-
   cd "$PROJECT_ROOT" || return 1
 
   local feature_array=()
-  read -ra feature_array <<< "$enabled_features"
+  read -ra feature_array <<<"$enabled_features"
 
   local validation_errors
   if [ "${#feature_array[@]}" -eq 0 ]; then
@@ -145,7 +143,7 @@ main() {
   mkdir -p "$BASE_TEST_DIR"
 
   for combination in "${FEATURE_COMBINATIONS[@]}"; do
-    IFS=':' read -r test_name feature_flag enabled_features <<< "$combination"
+    IFS=':' read -r test_name feature_flag enabled_features <<<"$combination"
 
     if run_single_test "$test_name" "$feature_flag" "$enabled_features"; then
       passed_tests=$((passed_tests + 1))

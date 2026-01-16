@@ -2,16 +2,13 @@
 
 set -euo pipefail
 
-
 GREEN="\033[0;32m"
 RED="\033[0;31m"
 BLUE="\033[0;34m"
 RESET="\033[0m"
 
-
 PASSED=0
 FAILED=0
-
 
 log_test() {
   echo -e "${BLUE}[TEST]${RESET} $1"
@@ -24,7 +21,6 @@ log_pass() {
 log_fail() {
   echo -e "${RED}  FAILED${RESET}"
 }
-
 
 run_check() {
   local name="$1"
@@ -43,12 +39,10 @@ run_check() {
   fi
 }
 
-
 echo "××××××××××××××××××××××××××××××××××××××"
 echo "  AR-INFRA Banner Verification"
 echo "××××××××××××××××××××××××××××××××××××××"
 echo
-
 
 run_check "Banner file exists" \
   "[ -f src/ar_infra/cli/resources/banner.txt ]"
@@ -65,7 +59,6 @@ run_check "Banner contains block characters" \
 run_check "Banner file size is within expected range (500–2000 bytes)" \
   "bash -c 'SIZE=\$(wc -c < src/ar_infra/cli/resources/banner.txt); [ \"\$SIZE\" -gt 500 ] && [ \"\$SIZE\" -lt 2000 ]'"
 
-
 run_check "Python can import Banner class" \
   "python3 -c 'from src.ar_infra.cli.ui.banner import Banner'"
 
@@ -75,7 +68,6 @@ run_check "Banner loads successfully in Python" \
 run_check "Banner retains ANSI codes in Python" \
   "python3 -c 'from src.ar_infra.cli.ui.banner import Banner; data = Banner._load_banner(); assert \"\\x1b[\" in data'"
 
-
 echo
 echo "××××××××××××××××××××××××××××××××××××××"
 echo "  Results"
@@ -83,7 +75,6 @@ echo "×××××××××××××××××××××××××××××××××××××
 echo -e "${GREEN}Passed: ${PASSED}${RESET}"
 echo -e "${RED}Failed: ${FAILED}${RESET}"
 echo
-
 
 if [ "$FAILED" -eq 0 ]; then
   echo -e "${GREEN}All banner verification tests passed!${RESET}"

@@ -9,11 +9,9 @@ if [ -z "${_COMMON_SH_LOADED:-}" ]; then
   source "$SCRIPT_DIR/common.sh"
 fi
 
-
 package_to_path() {
   echo "${1//.//}/${2//-/_}"
 }
-
 
 path_exists() {
   local project="$1"
@@ -21,12 +19,11 @@ path_exists() {
   local path="$3"
 
   case "$type" in
-    file) [ -f "$project/$path" ] ;;
-    directory) [ -d "$project/$path" ] ;;
-    *) return 1 ;;
+  file) [ -f "$project/$path" ] ;;
+  directory) [ -d "$project/$path" ] ;;
+  *) return 1 ;;
   esac
 }
-
 
 build_database_files() {
   local p="$1"
@@ -86,7 +83,6 @@ build_email_files() {
     "file:src/test/java/$p/endpoint/rest/controller/health/HealthEmailControllerIT.java"
   )
 }
-
 
 validate_present() {
   local project="$1" label="$2"
@@ -183,27 +179,27 @@ validate_features() {
     local err
     if [ "$on" = true ]; then
       case "$feature" in
-        rabbitmq)
-          err="$(validate_present "$project" RabbitMQ "${RABBITMQ_FILES[@]}")"
-          ;;
-        s3_bucket)
-          err="$(validate_present "$project" S3_BUCKET "${S3_BUCKET_FILES[@]}")"
-          ;;
-        email)
-          err="$(validate_present "$project" EMAIL "${EMAIL_FILES[@]}")"
-          ;;
+      rabbitmq)
+        err="$(validate_present "$project" RabbitMQ "${RABBITMQ_FILES[@]}")"
+        ;;
+      s3_bucket)
+        err="$(validate_present "$project" S3_BUCKET "${S3_BUCKET_FILES[@]}")"
+        ;;
+      email)
+        err="$(validate_present "$project" EMAIL "${EMAIL_FILES[@]}")"
+        ;;
       esac
     else
       case "$feature" in
-        rabbitmq)
-          err="$(validate_absent "$project" RabbitMQ "${RABBITMQ_FILES[@]}")"
-          ;;
-        s3_bucket)
-          err="$(validate_absent "$project" S3_BUCKET "${S3_BUCKET_FILES[@]}")"
-          ;;
-        email)
-          err="$(validate_absent "$project" EMAIL "${EMAIL_FILES[@]}")"
-          ;;
+      rabbitmq)
+        err="$(validate_absent "$project" RabbitMQ "${RABBITMQ_FILES[@]}")"
+        ;;
+      s3_bucket)
+        err="$(validate_absent "$project" S3_BUCKET "${S3_BUCKET_FILES[@]}")"
+        ;;
+      email)
+        err="$(validate_absent "$project" EMAIL "${EMAIL_FILES[@]}")"
+        ;;
       esac
     fi
 

@@ -1,5 +1,6 @@
 """Tests for AddDependencyCommand."""
 
+import re
 from pathlib import Path
 from unittest.mock import patch
 
@@ -11,6 +12,10 @@ from src.ar_infra.application.use_cases.add_dependency_use_case import (
 from src.ar_infra.cli.command.add_dependency import (
     AddDependencyCommand,
     AddDependencyCommandArgs,
+)
+from src.ar_infra.domain.entities.gradle_dependency import (
+    GradleConfiguration,
+    GradleDependency,
 )
 
 
@@ -236,7 +241,7 @@ class TestAddDependencyCommand:
         command: AddDependencyCommand,
         tmp_path: Path,
     ) -> None:
-        with pytest.raises(FileNotFoundError, match="build.gradle not found"):
+        with pytest.raises(FileNotFoundError, match=re.escape("build.gradle not found")):
             command._validate_project_structure(tmp_path)
 
     def test_display_summary_shows_project_and_dependencies(
@@ -244,11 +249,6 @@ class TestAddDependencyCommand:
         command: AddDependencyCommand,
         tmp_path: Path,
     ) -> None:
-        from src.ar_infra.domain.entities.gradle_dependency import (
-            GradleConfiguration,
-            GradleDependency,
-        )
-
         dependencies = [
             GradleDependency(
                 group="io.jsonwebtoken",
