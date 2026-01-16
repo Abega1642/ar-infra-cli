@@ -16,13 +16,13 @@
   <a href="https://github.com/Abega1642/ar-infra-cli/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/Abega1642/ar-infra-cli?style=for-the-badge" />
   </a>
-  <img src="https://img.shields.io/badge/version-0.1.3-blue?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/version-0.2.0-blue?style=for-the-badge" />
   <img src="https://img.shields.io/badge/python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white" />
   <img src="https://img.shields.io/badge/CLI-Typer-000000?style=for-the-badge" />
 </p>
 
 <p align="center">
-  <img src="https://skillicons.dev/icons?i=python,java,spring,gradle,docker,postgres,rabbitmq,github&theme=light" />
+  <img src="https://skillicons.dev/icons?i=python,java,spring,gradle,docker,postgres,mysql,rabbitmq,github&theme=light" />
 </p>
 
 <p align="center">
@@ -40,7 +40,7 @@
 ## Table of Contents
 
 - [Introduction](#introduction)
-- [What's New in v0.1.3](#whats-new-in-v013)
+- [What's New in v0.2.0](#whats-new-in-v020)
 - [What is ar-infra?](#what-is-ar-infra)
 - [What is ar-infra-template?](#what-is-ar-infra-template)
 - [What is ar-infra-cli?](#what-is-ar-infra-cli)
@@ -48,6 +48,7 @@
 - [Usage](#usage)
   - [Interactive Mode](#interactive-mode)
   - [Command Line Mode](#command-line-mode)
+  - [Adding Dependencies](#adding-dependencies)
   - [Available Options](#available-options)
   - [Feature Flags](#feature-flags)
 - [Examples](#examples)
@@ -65,25 +66,37 @@ This CLI automates the creation of new backend services, eliminating the repetit
 
 ---
 
-## What's New in v0.1.3
+## What's New in v0.2.0
 
-### GitHub App Integration
+### MySQL Database Support
 
-- **Automated repository setup**: The ar-infra-bot GitHub App now handles repository authorization during project generation
-- **Working CI/CD out-of-the-box**: CodeQL and Semgrep workflows are automatically configured with proper permissions
-- **Secure authorization flow**: GitHub App provides secure, scoped access without requiring personal access tokens
-- **Optional integration**: Use `--skip-github-app` flag if you want to set up GitHub manually or don't need CI/CD
+- **Multiple database options**: Choose between PostgreSQL and MySQL during project initialization
+- **Dedicated database selection workflow**: Database choice is now a separate step with clear prompts
+- **Full MySQL integration**: Connection pooling, migrations, and entity management configured automatically
 
-### Enhanced User Experience
+### New `add-dependency` Command
 
-- **Improved CLI messaging**: Clearer, more informative messages throughout the project generation process
-- **Intuitive workflow**: Smoother project setup experience with contextual prompts
+- **Gradle dependency management**: Add dependencies to existing projects without manual file editing
+- **Single or batch additions**: Add one dependency or multiple in a single command
+- **Project path flexibility**: Specify custom project paths or use current directory
 
-### Bug Fixes
+### Enhanced OpenAPI Documentation Handling
 
-- **Fixed formatting with no features**: Project formatting now works correctly even when no infrastructure features are selected
-- **Resolved CI authorization issues**: CodeQL and Semgrep workflows no longer fail due to permission problems
-- **Improved error handling**: Better error messages when GitHub authorization is needed
+- **Dynamic specification cleanup**: OpenAPI documentation (doc/api.yml) now updates based on selected features
+- **SwaggerHandler integration**: Automatically removes unused API endpoints for non-selected features
+- **Accurate documentation**: Generated API specifications reflect only the enabled infrastructure components
+
+### Template Version Compatibility
+
+- **Tag-based cloning**: CLI now clones specific template repository versions using Git tags
+- **Backward compatibility**: Older CLI versions continue to work with their corresponding template versions
+- **Forward compatibility**: New template updates won't break existing CLI installations
+
+### Streamlined Feature Selection
+
+- **Two-step selection process**: Database choice separated from other infrastructure features
+- **Zero-feature option**: New `--no-feature` flag generates minimal Spring Boot projects
+- **Better workflow**: More intuitive feature selection aligned with project needs
 
 ---
 
@@ -93,7 +106,7 @@ This CLI automates the creation of new backend services, eliminating the repetit
 
 - Messaging (RabbitMQ)
 - Storage (S3-compatible bucket)
-- Database (PostgreSQL with Flyway migrations)
+- Database (PostgreSQL or MySQL with Flyway migrations)
 - Email service
 - Security configuration
 - Health check endpoints
@@ -122,9 +135,11 @@ The **ar-infra-cli** is the tool that generates new Spring Boot projects based o
 
 - **groupId** and **artifactId**
 - **Project version**
+- **Database selection** (PostgreSQL or MySQL)
 - **Feature selection** (add or remove components as needed)
 - **Target location** customization
 - **GitHub App integration** for automated CI/CD setup
+- **Dependency management** for existing projects
 
 By running a single command, developers can bootstrap a fully configured Spring Boot application based on the ar-infra architecture without manual setup.
 
@@ -137,8 +152,8 @@ By running a single command, developers can bootstrap a fully configured Spring 
 #### Linux (x64)
 
 ```bash
-curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.1.3/ar-infra-linux-amd64
-curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.1.3/ar-infra-linux-amd64.sha256
+curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.2.0/ar-infra-linux-amd64
+curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.2.0/ar-infra-linux-amd64.sha256
 shasum -a 256 -c ar-infra-linux-amd64.sha256
 chmod +x ar-infra-linux-amd64
 sudo mv ar-infra-linux-amd64 /usr/local/bin/ar-infra
@@ -147,8 +162,8 @@ sudo mv ar-infra-linux-amd64 /usr/local/bin/ar-infra
 #### macOS (Intel)
 
 ```bash
-curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.1.3/ar-infra-macos-amd64
-curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.1.3/ar-infra-macos-amd64.sha256
+curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.2.0/ar-infra-macos-amd64
+curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.2.0/ar-infra-macos-amd64.sha256
 shasum -a 256 -c ar-infra-macos-amd64.sha256
 chmod +x ar-infra-macos-amd64
 sudo mv ar-infra-macos-amd64 /usr/local/bin/ar-infra
@@ -157,8 +172,8 @@ sudo mv ar-infra-macos-amd64 /usr/local/bin/ar-infra
 #### macOS (Apple Silicon)
 
 ```bash
-curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.1.3/ar-infra-macos-arm64
-curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.1.3/ar-infra-macos-arm64.sha256
+curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.2.0/ar-infra-macos-arm64
+curl -LO https://github.com/Abega1642/ar-infra-cli/releases/download/v0.2.0/ar-infra-macos-arm64.sha256
 shasum -a 256 -c ar-infra-macos-arm64.sha256
 chmod +x ar-infra-macos-arm64
 sudo mv ar-infra-macos-arm64 /usr/local/bin/ar-infra
@@ -167,8 +182,8 @@ sudo mv ar-infra-macos-arm64 /usr/local/bin/ar-infra
 #### Windows (PowerShell as Administrator)
 
 ```powershell
-Invoke-WebRequest -Uri "https://github.com/Abega1642/ar-infra-cli/releases/download/v0.1.3/ar-infra-windows-amd64.exe" -OutFile "ar-infra.exe"
-Invoke-WebRequest -Uri "https://github.com/Abega1642/ar-infra-cli/releases/download/v0.1.3/ar-infra-windows-amd64.exe.sha256" -OutFile "ar-infra.exe.sha256"
+Invoke-WebRequest -Uri "https://github.com/Abega1642/ar-infra-cli/releases/download/v0.2.0/ar-infra-windows-amd64.exe" -OutFile "ar-infra.exe"
+Invoke-WebRequest -Uri "https://github.com/Abega1642/ar-infra-cli/releases/download/v0.2.0/ar-infra-windows-amd64.exe.sha256" -OutFile "ar-infra.exe.sha256"
 certutil -hashfile ar-infra.exe SHA256
 Move-Item ar-infra.exe C:\Windows\System32\ar-infra.exe
 ```
@@ -191,7 +206,7 @@ pip install ar-infra-cli
 
 ## Usage
 
-The **ar-infra-cli** provides a single command: `ar-infra init`. This command can be used in two modes: interactive or command-line.
+The **ar-infra-cli** provides two main commands: `ar-infra init` for project generation and `ar-infra add-dependency` for dependency management.
 
 ### Interactive Mode
 
@@ -207,7 +222,8 @@ The CLI will ask you to provide:
 - Artifact ID (e.g., `myapp`)
 - Project version (e.g., `1.0.0`)
 - Output path
-- Features to include or exclude
+- Database choice (PostgreSQL, MySQL, or none)
+- Additional features to include or exclude
 - GitHub repository setup (optional)
 
 When you choose to push your project to a repository, the CLI will guide you through automated authorization via the ar-infra-bot GitHub App, ensuring your CI/CD workflows work immediately.
@@ -220,6 +236,24 @@ For automation or quick generation, all options can be provided directly via com
 ar-infra init --group=com.example --artifact=myapp --project-version=1.0.0
 ```
 
+Generate a project with MySQL and specific features:
+
+```bash
+ar-infra init \
+  --group=com.example \
+  --artifact=backend-api \
+  --features=mysql,rabbitmq,s3_bucket
+```
+
+Generate a minimal project with no infrastructure features:
+
+```bash
+ar-infra init \
+  --group=com.example \
+  --artifact=minimal-app \
+  --no-feature
+```
+
 Skip GitHub App integration if you don't need CI/CD setup:
 
 ```bash
@@ -229,32 +263,77 @@ ar-infra init \
   --skip-github-app
 ```
 
+### Adding Dependencies
+
+The `add-dependency` command allows you to add Gradle dependencies to existing projects.
+
+#### Add a single dependency
+
+```bash
+ar-infra add-dependency "implementation 'io.jsonwebtoken:jjwt-api:0.13.0'"
+```
+
+#### Add multiple dependencies
+
+```bash
+ar-infra add-dependency \
+  "implementation 'io.jsonwebtoken:jjwt-api:0.13.0'" \
+  "runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0'" \
+  "runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0'"
+```
+
+#### Add dependency to specific project
+
+```bash
+ar-infra add-dependency \
+  --project-path /path/to/project \
+  "implementation 'org.springframework.boot:spring-boot-starter-data-jpa'"
+```
+
 ### Available Options
 
-| Option               | Description                                 | Example                |
-| -------------------- | ------------------------------------------- | ---------------------- |
-| `--group`            | Maven group ID for the project              | `com.example`          |
-| `--artifact`         | Maven artifact ID for the project           | `backend-api`          |
-| `--project-version`  | Version of the generated project            | `1.0.0`                |
-| `--path`             | Directory where the project will be created | `/home/user/projects`  |
-| `--project-dir`      | Name of the project directory               | `my-project`           |
-| `--features`         | Comma-separated list of features to include | `postgresql,s3_bucket` |
-| `--disable-features` | Comma-separated list of features to exclude | `rabbitmq,email`       |
-| `--no-cache`         | Skip template caching and fetch fresh       | N/A                    |
-| `--skip-github-app`  | Skip GitHub App integration                 | N/A                    |
+#### `init` Command Options
+
+| Option               | Description                                 | Example               |
+| -------------------- | ------------------------------------------- | --------------------- |
+| `--group`            | Maven group ID for the project              | `com.example`         |
+| `--artifact`         | Maven artifact ID for the project           | `backend-api`         |
+| `--project-version`  | Version of the generated project            | `1.0.0`               |
+| `--path`             | Directory where the project will be created | `/home/user/projects` |
+| `--project-dir`      | Name of the project directory               | `my-project`          |
+| `--features`         | Comma-separated list of features to include | `mysql,rabbitmq`      |
+| `--disable-features` | Comma-separated list of features to exclude | `rabbitmq,email`      |
+| `--no-feature`       | Generate project without any features       | N/A                   |
+| `--no-cache`         | Skip template caching and fetch fresh       | N/A                   |
+| `--skip-github-app`  | Skip GitHub App integration                 | N/A                   |
+
+#### `add-dependency` Command Options
+
+| Option           | Description                           | Example            |
+| ---------------- | ------------------------------------- | ------------------ |
+| `--project-path` | Path to the project root              | `/path/to/project` |
+| Dependencies     | One or more Gradle dependency strings | See examples above |
 
 ### Feature Flags
 
 The following features can be enabled or disabled during project generation:
 
+#### Database Options (Choose One or None)
+
 | Feature      | Description                                        |
 | ------------ | -------------------------------------------------- |
 | `postgresql` | PostgreSQL database support with Flyway migrations |
-| `rabbitmq`   | RabbitMQ message broker integration                |
-| `s3_bucket`  | AWS S3-compatible storage integration (BackBlaze)  |
-| `email`      | Email sending capabilities                         |
+| `mysql`      | MySQL database support with Flyway migrations      |
 
-By default, all features are enabled. Use `--disable-features` to exclude specific components.
+#### Additional Infrastructure Features
+
+| Feature     | Description                                       |
+| ----------- | ------------------------------------------------- |
+| `rabbitmq`  | RabbitMQ message broker integration               |
+| `s3_bucket` | AWS S3-compatible storage integration (BackBlaze) |
+| `email`     | Email sending capabilities                        |
+
+By default, all features are enabled. Use `--disable-features` to exclude specific components, or use `--no-feature` to generate a minimal Spring Boot application.
 
 ---
 
@@ -268,12 +347,12 @@ Generate a project with default settings in interactive mode:
 ar-infra init
 ```
 
-### Quick Start
+### Quick Start with MySQL
 
-Generate a project with minimal configuration:
+Generate a project with MySQL database:
 
 ```bash
-ar-infra init --group=com.mycompany --artifact=backend-api
+ar-infra init --group=com.mycompany --artifact=backend-api --features=mysql
 ```
 
 ### Full Customization
@@ -287,18 +366,18 @@ ar-infra init \
     --project-version=2.0.0 \
     --path=/home/user/projects \
     --project-dir=cool-project \
-    --features=postgresql,s3_bucket
+    --features=postgresql,s3_bucket,rabbitmq
 ```
 
 ### Minimal Configuration
 
-Generate a project without messaging and email features:
+Generate a minimal Spring Boot project without any infrastructure:
 
 ```bash
 ar-infra init \
     --group=com.example \
     --artifact=minimal-api \
-    --disable-features=rabbitmq,email
+    --no-feature
 ```
 
 ### Fresh Template Fetch
@@ -310,6 +389,17 @@ ar-infra init \
     --group=com.example \
     --artifact=myapp \
     --no-cache
+```
+
+### Add JWT Dependencies
+
+Add JWT authentication dependencies to an existing project:
+
+```bash
+ar-infra add-dependency \
+  "implementation 'io.jsonwebtoken:jjwt-api:0.13.0'" \
+  "runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0'" \
+  "runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0'"
 ```
 
 ---
@@ -324,12 +414,12 @@ Projects generated by **ar-infra-cli** include:
 - CI/CD workflows (GitHub Actions)
 - Integration tests with Testcontainers
 - Health check endpoints
-- OpenAPI documentation
+- OpenAPI documentation (dynamically configured)
 - Security configuration
 - Database migration scripts (Flyway)
-- Message broker configuration
-- S3 storage integration
-- Email service configuration
+- Message broker configuration (optional)
+- S3 storage integration (optional)
+- Email service configuration (optional)
 
 ---
 
@@ -357,7 +447,7 @@ Projects generated by **ar-infra-cli** include:
 
 The **ar-infra-cli** is the entry point for teams adopting the ar-infra architecture. By combining the solid foundation of **ar-infra-template** with the automation of a CLI tool, it enables developers to start new backend projects quickly, consistently, and securely.
 
-With v0.1.3, GitHub App integration ensures your CI/CD pipelines work immediately after your first push, eliminating the friction of manual repository setup.
+With v0.2.0, MySQL support provides database flexibility, the new `add-dependency` command simplifies dependency management, and tag-based template versioning ensures long-term compatibility across CLI versions.
 
 This tool is maintained by **Abegà Razafindratelo**. For questions, issues, or contributions, please refer to the project repository or contact directly at [a.razafindratelo@gmail.com](mailto:a.razafindratelo@gmail.com).
 
@@ -378,7 +468,8 @@ For more information, visit the [ar-infra-template repository](https://github.co
 
 - Binary integrity verification via SHA256 checksums is strongly recommended
 - All binaries are built via GitHub Actions with full transparency
-- Secrets are now injected at build time rather than bundled, improving security
+- Secrets are injected at build time rather than bundled, improving security
 - The ar-infra-bot GitHub App uses minimal, scoped permissions
 - No code signing is provided; users should verify checksums before execution
 - Source code is available for audit
+- Template version tags ensure predictable and auditable project generation
