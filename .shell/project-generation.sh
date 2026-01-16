@@ -140,6 +140,7 @@ run_project_generation() {
     --project-version="$VERSION"
     --path=./
     --project-dir="$PROJECT_DIR"
+    --no-feature
     --no-cache
     --skip-github-app
   )
