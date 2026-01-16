@@ -46,11 +46,20 @@ class TestFeatureManager:
     def template_with_all_features(self, tmp_path: Path) -> Path:
         template = tmp_path / "template"
 
+        # Create shared database directories
+        (template / "src/main/java/com/example/arinfra/repository").mkdir(parents=True)
+        (template / "src/main/resources/db").mkdir(parents=True)
+
+        # Create specific database test conf directory
+        (template / "src/test/java/com/example/arinfra/conf/db").mkdir(parents=True)
+
+        # Create other feature directories
         (template / "src/main/java/com/example/arinfra/event").mkdir(parents=True)
         (template / "src/main/java/com/example/arinfra/mail").mkdir(parents=True)
-        (template / "src/main/java/com/example/arinfra/repository").mkdir(parents=True)
+        (template / "src/main/java/com/example/arinfra/exception/bucket").mkdir(parents=True)
         (template / "src/main/java/com/example/arinfra/config").mkdir(parents=True)
 
+        # Create feature-specific files
         (template / "src/main/java/com/example/arinfra/config/RabbitConfig.java").write_text(
             "rabbit", encoding="utf-8"
         )
@@ -61,48 +70,142 @@ class TestFeatureManager:
             "bucket", encoding="utf-8"
         )
 
+        # Create database-specific config files
+        (template / "src/test/java/com/example/arinfra/conf/db/PostgresConf.java").write_text(
+            "postgres", encoding="utf-8"
+        )
+        (template / "src/test/java/com/example/arinfra/conf/db/MysqlConf.java").write_text(
+            "mysql", encoding="utf-8"
+        )
+
         env_file = template / ".env.template"
         env_file.write_text(SAMPLE_ENV_CONTENT, encoding="utf-8")
 
         return template
 
-    def test_remove_rabbitmq_feature(
+    def test_remove_rabbitmq_feature_only_removes_specific_resources(
         self, manager: FeatureManager, template_with_all_features: Path
     ) -> None:
-        manager.remove_feature(template_with_all_features, TemplateFeature.RABBITMQ)
+        enabled = {TemplateFeature.POSTGRESQL, TemplateFeature.EMAIL, TemplateFeature.S3_BUCKET}
+        manager.apply_feature_selection(template_with_all_features, enabled)
 
+        # RabbitMQ specific resources should be removed
         assert not (template_with_all_features / "src/main/java/com/example/arinfra/event").exists()
         assert not (
             template_with_all_features
             / "src/main/java/com/example/arinfra/config/RabbitConfig.java"
         ).exists()
 
-    def test_remove_email_feature(
+        # Other features should remain
+        assert (template_with_all_features / "src/main/java/com/example/arinfra/mail").exists()
+        assert (
+            template_with_all_features / "src/main/java/com/example/arinfra/repository"
+        ).exists()
+
+    def test_remove_email_feature_only_removes_specific_resources(
         self, manager: FeatureManager, template_with_all_features: Path
     ) -> None:
-        manager.remove_feature(template_with_all_features, TemplateFeature.EMAIL)
+        enabled = {TemplateFeature.POSTGRESQL, TemplateFeature.RABBITMQ, TemplateFeature.S3_BUCKET}
+        manager.apply_feature_selection(template_with_all_features, enabled)
 
+        # Email specific resources should be removed
         assert not (template_with_all_features / "src/main/java/com/example/arinfra/mail").exists()
         assert not (
             template_with_all_features / "src/main/java/com/example/arinfra/config/EmailConf.java"
         ).exists()
 
-    def test_remove_postgresql_feature(
-        self, manager: FeatureManager, template_with_all_features: Path
-    ) -> None:
-        manager.remove_feature(template_with_all_features, TemplateFeature.POSTGRESQL)
-
-        assert not (
+        # Other features should remain
+        assert (template_with_all_features / "src/main/java/com/example/arinfra/event").exists()
+        assert (
             template_with_all_features / "src/main/java/com/example/arinfra/repository"
         ).exists()
 
-    def test_remove_mysql_feature(
+    def test_keep_only_postgresql_removes_mysql_specific_but_keeps_shared(
         self, manager: FeatureManager, template_with_all_features: Path
     ) -> None:
-        manager.remove_feature(template_with_all_features, TemplateFeature.MYSQL)
+        enabled = {TemplateFeature.POSTGRESQL}
+        manager.apply_feature_selection(template_with_all_features, enabled)
 
+        # Shared database resources should remain
+        assert (
+            template_with_all_features / "src/main/java/com/example/arinfra/repository"
+        ).exists()
+        assert (template_with_all_features / "src/main/resources/db").exists()
+
+        # PostgreSQL specific should remain
+        assert (
+            template_with_all_features
+            / "src/test/java/com/example/arinfra/conf/db/PostgresConf.java"
+        ).exists()
+
+        # MySQL specific should be removed
+        assert not (
+            template_with_all_features / "src/test/java/com/example/arinfra/conf/db/MysqlConf.java"
+        ).exists()
+
+    def test_keep_only_mysql_removes_postgresql_specific_but_keeps_shared(
+        self, manager: FeatureManager, template_with_all_features: Path
+    ) -> None:
+        enabled = {TemplateFeature.MYSQL}
+        manager.apply_feature_selection(template_with_all_features, enabled)
+
+        # Shared database resources should remain
+        assert (
+            template_with_all_features / "src/main/java/com/example/arinfra/repository"
+        ).exists()
+        assert (template_with_all_features / "src/main/resources/db").exists()
+
+        # MySQL specific should remain
+        assert (
+            template_with_all_features / "src/test/java/com/example/arinfra/conf/db/MysqlConf.java"
+        ).exists()
+
+        # PostgreSQL specific should be removed
+        assert not (
+            template_with_all_features
+            / "src/test/java/com/example/arinfra/conf/db/PostgresConf.java"
+        ).exists()
+
+    def test_keep_both_databases_keeps_all_database_resources(
+        self, manager: FeatureManager, template_with_all_features: Path
+    ) -> None:
+        enabled = {TemplateFeature.POSTGRESQL, TemplateFeature.MYSQL}
+        manager.apply_feature_selection(template_with_all_features, enabled)
+
+        # Shared database resources should remain
+        assert (
+            template_with_all_features / "src/main/java/com/example/arinfra/repository"
+        ).exists()
+        assert (template_with_all_features / "src/main/resources/db").exists()
+
+        # Both specific configs should remain
+        assert (
+            template_with_all_features
+            / "src/test/java/com/example/arinfra/conf/db/PostgresConf.java"
+        ).exists()
+        assert (
+            template_with_all_features / "src/test/java/com/example/arinfra/conf/db/MysqlConf.java"
+        ).exists()
+
+    def test_remove_all_databases_removes_shared_resources(
+        self, manager: FeatureManager, template_with_all_features: Path
+    ) -> None:
+        enabled = {TemplateFeature.RABBITMQ, TemplateFeature.EMAIL}
+        manager.apply_feature_selection(template_with_all_features, enabled)
+
+        # Shared database resources should be removed
         assert not (
             template_with_all_features / "src/main/java/com/example/arinfra/repository"
+        ).exists()
+        assert not (template_with_all_features / "src/main/resources/db").exists()
+
+        # Both specific configs should be removed
+        assert not (
+            template_with_all_features
+            / "src/test/java/com/example/arinfra/conf/db/PostgresConf.java"
+        ).exists()
+        assert not (
+            template_with_all_features / "src/test/java/com/example/arinfra/conf/db/MysqlConf.java"
         ).exists()
 
     def test_keep_selected_features_postgresql(
@@ -119,6 +222,9 @@ class TestFeatureManager:
 
         assert (
             template_with_all_features / "src/main/java/com/example/arinfra/config/BucketConf.java"
+        ).exists()
+        assert (
+            template_with_all_features / "src/main/java/com/example/arinfra/repository"
         ).exists()
 
         assert not (template_with_all_features / "src/main/java/com/example/arinfra/event").exists()
@@ -146,6 +252,9 @@ class TestFeatureManager:
         manager.apply_feature_selection(template_with_all_features, enabled)
 
         assert (template_with_all_features / "src/main/java/com/example/arinfra/mail").exists()
+        assert (
+            template_with_all_features / "src/main/java/com/example/arinfra/repository"
+        ).exists()
 
         assert not (template_with_all_features / "src/main/java/com/example/arinfra/event").exists()
         assert not (
@@ -206,10 +315,14 @@ class TestFeatureManager:
         assert "SPRING_DATASOURCE_PASSWORD" in env_vars
 
     def test_handle_missing_files_gracefully(self, manager: FeatureManager, tmp_path: Path) -> None:
+        """Test that the manager handles missing directories/files gracefully."""
         template = tmp_path / "template"
         template.mkdir()
+        (template / ".env.template").write_text("", encoding="utf-8")
 
-        manager.remove_feature(template, TemplateFeature.RABBITMQ)
+        # Should not raise any errors even with missing files
+        enabled = {TemplateFeature.POSTGRESQL}
+        manager.apply_feature_selection(template, enabled)
 
     def test_apply_feature_selection_removes_env_variables_postgresql(
         self,

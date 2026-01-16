@@ -4,9 +4,19 @@ from pathlib import Path
 from src.ar_infra.domain.enums.template_feature import TemplateFeature
 from src.ar_infra.infrastructure.template.env_handler import EnvHandler
 from src.ar_infra.infrastructure.template.facadeit_handler import FacadeITHandler
-from src.ar_infra.infrastructure.template.feature_config import FEATURE_MAPPINGS
-from src.ar_infra.infrastructure.template.rest_exception_manager import RestExceptionHandlerManager
+from src.ar_infra.infrastructure.template.feature_config import (
+    FEATURE_DEPENDENCIES,
+    FEATURE_FILES,
+    get_all_dependencies_for_features,
+)
+from src.ar_infra.infrastructure.template.rest_exception_manager import (
+    RestExceptionHandlerManager,
+)
 from src.ar_infra.infrastructure.template.swagger_handler import SwaggerHandler
+from src.ar_infra.logger import get_logger
+
+
+log = get_logger(use_rich=True)
 
 
 class FeatureManager:
@@ -32,12 +42,12 @@ class FeatureManager:
         all_features = set(TemplateFeature)
         features_to_remove = all_features - enabled_features
 
-        safe_features_to_remove = self._get_safe_features_to_remove(
-            enabled_features, features_to_remove
-        )
+        # Remove specific files/directories for disabled features
+        for feature in features_to_remove:
+            self._remove_specific_feature_resources(template_dir, feature)
 
-        for feature in safe_features_to_remove:
-            self.remove_feature(template_dir, feature)
+        # Remove shared resources only if no related features are enabled
+        self._remove_shared_resources(template_dir, enabled_features, features_to_remove)
 
         self._facadeit_handler.apply_feature_selection(
             template_dir,
@@ -47,56 +57,121 @@ class FeatureManager:
         self._remove_env_variables_for_disabled_features(template_dir, features_to_remove)
         self._update_swagger_documentation(template_dir, enabled_features)
 
-    def _get_safe_features_to_remove(
+    def _remove_specific_feature_resources(
         self,
-        enabled_features: set[TemplateFeature],
-        features_to_remove: set[TemplateFeature],
-    ) -> set[TemplateFeature]:
-        """
-        Determine which features can safely be removed without affecting enabled features.
-
-        For features that share resources (e.g., PostgreSQL and MySQL share database files),
-        we should only remove the shared resources if NONE of the sharing features are enabled.
-        """
-        safe_to_remove = set()
-
-        for feature in features_to_remove:
-            if feature in self.DATABASE_FEATURES:
-                if not any(db_feature in enabled_features for db_feature in self.DATABASE_FEATURES):
-                    safe_to_remove.add(feature)
-            else:
-                safe_to_remove.add(feature)
-
-        return safe_to_remove
-
-    @staticmethod
-    def remove_feature(
         template_dir: Path,
         feature: TemplateFeature,
     ) -> None:
-        feature_files = FEATURE_MAPPINGS.get(feature)
+        feature_files = FEATURE_FILES.get(feature)
         if not feature_files:
             return
 
-        for directory in feature_files.directories:
+        self._remove_directories(template_dir, feature_files.specific_directories)
+        self._remove_files(template_dir, feature_files.specific_files)
+
+    def _remove_shared_resources(
+        self,
+        template_dir: Path,
+        enabled_features: set[TemplateFeature],
+        features_to_remove: set[TemplateFeature],
+    ) -> None:
+        shared_dirs_to_check: dict[str, set[TemplateFeature]] = {}
+        shared_files_to_check: dict[str, set[TemplateFeature]] = {}
+
+        self._collect_shared_resources(
+            features_to_remove, shared_dirs_to_check, shared_files_to_check
+        )
+        self._remove_unused_shared_directories(template_dir, enabled_features, shared_dirs_to_check)
+        self._remove_unused_shared_files(template_dir, enabled_features, shared_files_to_check)
+
+    @staticmethod
+    def _collect_shared_resources(
+        features_to_remove: set[TemplateFeature],
+        shared_dirs_to_check: dict[str, set[TemplateFeature]],
+        shared_files_to_check: dict[str, set[TemplateFeature]],
+    ) -> None:
+        for feature in features_to_remove:
+            feature_files = FEATURE_FILES.get(feature)
+            if not feature_files:
+                continue
+
+            for directory in feature_files.shared_directories:
+                if directory not in shared_dirs_to_check:
+                    shared_dirs_to_check[directory] = set()
+                shared_dirs_to_check[directory].add(feature)
+
+            for file in feature_files.shared_files:
+                if file not in shared_files_to_check:
+                    shared_files_to_check[file] = set()
+                shared_files_to_check[file].add(feature)
+
+    def _remove_unused_shared_directories(
+        self,
+        template_dir: Path,
+        enabled_features: set[TemplateFeature],
+        shared_dirs_to_check: dict[str, set[TemplateFeature]],
+    ) -> None:
+        dirs_to_remove = [
+            directory
+            for directory, sharing_features in shared_dirs_to_check.items()
+            if self._should_remove_shared_resource(sharing_features, enabled_features)
+        ]
+        self._remove_directories(template_dir, dirs_to_remove)
+
+    def _remove_unused_shared_files(
+        self,
+        template_dir: Path,
+        enabled_features: set[TemplateFeature],
+        shared_files_to_check: dict[str, set[TemplateFeature]],
+    ) -> None:
+        files_to_remove = [
+            file
+            for file, sharing_features in shared_files_to_check.items()
+            if self._should_remove_shared_resource(sharing_features, enabled_features)
+        ]
+        self._remove_files(template_dir, files_to_remove)
+
+    def _should_remove_shared_resource(
+        self,
+        sharing_features: set[TemplateFeature],
+        enabled_features: set[TemplateFeature],
+    ) -> bool:
+        if sharing_features.issubset(self.DATABASE_FEATURES):
+            return not any(db_feature in enabled_features for db_feature in self.DATABASE_FEATURES)
+
+        return not any(feature in enabled_features for feature in sharing_features)
+
+    @staticmethod
+    def _remove_directories(template_dir: Path, directories: list[str]) -> None:
+        for directory in directories:
             dir_path = template_dir / directory
             if dir_path.exists():
                 shutil.rmtree(dir_path)
 
-        for file in feature_files.files:
+    @staticmethod
+    def _remove_files(template_dir: Path, files: list[str]) -> None:
+        for file in files:
             file_path = template_dir / file
             if file_path.exists():
                 file_path.unlink()
 
     @staticmethod
+    def get_all_feature_dependencies(enabled_features: set[TemplateFeature]) -> list[str]:
+        return get_all_dependencies_for_features(enabled_features)
+
+    @staticmethod
     def get_feature_dependencies(feature: TemplateFeature) -> list[str]:
-        feature_files = FEATURE_MAPPINGS.get(feature)
-        return feature_files.dependencies if feature_files else []
+        feature_deps = FEATURE_DEPENDENCIES.get(feature)
+        if not feature_deps:
+            return []
+        return [*feature_deps.shared, *feature_deps.specific]
 
     @staticmethod
     def get_feature_env_variables(feature: TemplateFeature) -> list[str]:
-        feature_files = FEATURE_MAPPINGS.get(feature)
-        return feature_files.env_variables if feature_files else []
+        feature_files = FEATURE_FILES.get(feature)
+        if not feature_files:
+            return []
+        return [*feature_files.shared_env_variables, *feature_files.specific_env_variables]
 
     def _remove_env_variables_for_disabled_features(
         self,

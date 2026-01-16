@@ -64,20 +64,52 @@ class TestGenerateProjectUseCase:
     def feature_manager(self) -> Mock:
         manager = Mock()
 
-        def get_deps_for_feature(feature):
-            feature_deps = {
-                TemplateFeature.RABBITMQ: [
-                    "org.springframework.boot:spring-boot-starter-amqp",
-                    "org.testcontainers:rabbitmq",
-                ],
-                TemplateFeature.EMAIL: [
-                    "org.springframework.boot:spring-boot-starter-mail",
-                    "com.icegreen:greenmail",
-                ],
-            }
-            return feature_deps.get(feature, [])
+        def get_all_deps_for_features(features):
+            """Return dependencies for the given set of features."""
+            all_deps = set()
+            for feature in features:
+                if feature == TemplateFeature.POSTGRESQL:
+                    all_deps.update(
+                        [
+                            "org.springframework.boot:spring-boot-starter-data-jpa",
+                            "org.flywaydb:flyway-core",
+                            "org.postgresql:postgresql",
+                            "org.testcontainers:postgresql",
+                        ]
+                    )
+                elif feature == TemplateFeature.MYSQL:
+                    all_deps.update(
+                        [
+                            "org.springframework.boot:spring-boot-starter-data-jpa",
+                            "org.flywaydb:flyway-core",
+                            "com.mysql:mysql-connector-j",
+                            "org.testcontainers:mysql",
+                        ]
+                    )
+                elif feature == TemplateFeature.RABBITMQ:
+                    all_deps.update(
+                        [
+                            "org.springframework.boot:spring-boot-starter-amqp",
+                            "org.testcontainers:rabbitmq",
+                        ]
+                    )
+                elif feature == TemplateFeature.EMAIL:
+                    all_deps.update(
+                        [
+                            "org.springframework.boot:spring-boot-starter-mail",
+                            "com.icegreen:greenmail",
+                        ]
+                    )
+                elif feature == TemplateFeature.S3_BUCKET:
+                    all_deps.update(
+                        [
+                            "software.amazon.awssdk:s3",
+                            "org.testcontainers:localstack",
+                        ]
+                    )
+            return sorted(all_deps)
 
-        manager.get_feature_dependencies.side_effect = get_deps_for_feature
+        manager.get_all_feature_dependencies.side_effect = get_all_deps_for_features
         return manager
 
     @pytest.fixture
@@ -147,15 +179,56 @@ class TestGenerateProjectUseCase:
         gradle_writer: Mock,
     ) -> None:
         use_case.execute(valid_input)
-        all_features = set(TemplateFeature)
-        disabled_features = all_features - valid_input.enabled_features
+        assert feature_manager.get_all_feature_dependencies.call_count == 2
 
-        assert feature_manager.get_feature_dependencies.call_count == len(disabled_features)
+        calls = feature_manager.get_all_feature_dependencies.call_args_list
+        enabled_call = calls[0][0][0]
+        all_features_call = calls[1][0][0]
+
+        assert enabled_call == valid_input.enabled_features
+        assert all_features_call == set(TemplateFeature)
 
         gradle_writer.remove_dependencies.assert_called_once()
         call_args = gradle_writer.remove_dependencies.call_args
         assert call_args[0][0] == valid_input.destination / "build.gradle"
-        assert isinstance(call_args[0][1], list)
+
+        deps_to_remove = call_args[0][1]
+        assert isinstance(deps_to_remove, list)
+
+        assert "org.postgresql:postgresql" not in deps_to_remove
+        assert "software.amazon.awssdk:s3" not in deps_to_remove
+
+        assert "org.springframework.boot:spring-boot-starter-amqp" in deps_to_remove  # RabbitMQ
+        assert "org.springframework.boot:spring-boot-starter-mail" in deps_to_remove  # Email
+
+    def test_remove_unwanted_dependencies_keeps_shared_dependencies(
+        self,
+        use_case: GenerateProjectUseCase,
+        feature_manager: Mock,
+        gradle_writer: Mock,
+        tmp_path: Path,
+    ) -> None:
+        input_with_postgres = GenerateProjectInput(
+            group_id=GroupId("dev.razafindratelo"),
+            artifact_id=ArtifactId("backend-api"),
+            version=Version("1.0.0"),
+            destination=tmp_path / "my-project",
+            enabled_features={TemplateFeature.POSTGRESQL},  # Only PostgreSQL
+            template_url="https://github.com/Abega1642/ar-infra-template.git",
+            use_template_cache=False,
+        )
+
+        use_case.execute(input_with_postgres)
+
+        gradle_writer.remove_dependencies.assert_called_once()
+        deps_to_remove = gradle_writer.remove_dependencies.call_args[0][1]
+
+        assert "org.springframework.boot:spring-boot-starter-data-jpa" not in deps_to_remove
+        assert "org.flywaydb:flyway-core" not in deps_to_remove
+
+        assert "org.postgresql:postgresql" not in deps_to_remove
+
+        assert "com.mysql:mysql-connector-j" in deps_to_remove
 
     def test_update_build_gradle(
         self,
@@ -320,7 +393,7 @@ class TestArtifactCleanerIntegration:
     @pytest.fixture
     def feature_manager_simple(self) -> Mock:
         manager = Mock()
-        manager.get_feature_dependencies.return_value = []
+        manager.get_all_feature_dependencies.return_value = []
         return manager
 
     @pytest.fixture

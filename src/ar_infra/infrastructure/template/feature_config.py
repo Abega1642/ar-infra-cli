@@ -10,63 +10,68 @@ TEST_PACKAGE = "src/test/java/com/example/arinfra/"
 
 @dataclass(frozen=True)
 class FeatureFiles:
-    """Files, dependencies, and environment variables associated with a feature."""
+    shared_directories: list[str]
+    specific_directories: list[str]
+    shared_files: list[str]
+    specific_files: list[str]
+    shared_env_variables: list[str]
+    specific_env_variables: list[str]
 
-    directories: list[str]
-    files: list[str]
-    dependencies: list[str]
-    env_variables: list[str]
+
+@dataclass(frozen=True)
+class FeatureDependencies:
+    shared: list[str]
+    specific: list[str]
 
 
-DATABASE_DIR: list[str] = [
+# Database shared resources (common to all database features)
+DATABASE_SHARED_DIRECTORIES: list[str] = [
     SRC_PACKAGE + "repository",
     "src/main/resources/db",
-    TEST_PACKAGE + "conf/db",
 ]
 
-DATABASE_FILES: list[str] = [
+DATABASE_SHARED_FILES: list[str] = [
     SRC_PACKAGE + "endpoint/rest/controller/health/HealthRepositoryController.java",
     SRC_PACKAGE + "service/health/HealthRepositoryService.java",
     TEST_PACKAGE + "endpoint/rest/controller/health/HealthRepositoryControllerIT.java",
 ]
 
-DATABASE_ENV_VARIABLES: list[str] = [
+DATABASE_SHARED_ENV_VARIABLES: list[str] = [
     "SPRING_DATASOURCE_URL",
     "SPRING_DATASOURCE_USERNAME",
     "SPRING_DATASOURCE_PASSWORD",
 ]
 
-FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
+DATABASE_SHARED_DEPENDENCIES: list[str] = [
+    "org.springframework.boot:spring-boot-starter-data-jpa",
+    "org.flywaydb:flyway-core",
+]
+
+FEATURE_FILES: Final[dict[TemplateFeature, FeatureFiles]] = {
     TemplateFeature.POSTGRESQL: FeatureFiles(
-        directories=DATABASE_DIR,
-        files=DATABASE_FILES,
-        dependencies=[
-            "org.springframework.boot:spring-boot-starter-data-jpa",
-            "org.postgresql:postgresql",
-            "org.flywaydb:flyway-core",
-            "org.flywaydb:flyway-database-postgresql",
-            "org.testcontainers:postgresql",
-        ],
-        env_variables=DATABASE_ENV_VARIABLES,
+        shared_directories=[*DATABASE_SHARED_DIRECTORIES, TEST_PACKAGE + "conf/db"],
+        specific_directories=[],
+        shared_files=DATABASE_SHARED_FILES,
+        specific_files=[TEST_PACKAGE + "conf/db/PostgresConf.java"],
+        shared_env_variables=DATABASE_SHARED_ENV_VARIABLES,
+        specific_env_variables=[],
     ),
     TemplateFeature.MYSQL: FeatureFiles(
-        directories=DATABASE_DIR,
-        files=DATABASE_FILES,
-        dependencies=[
-            "org.springframework.boot:spring-boot-starter-data-jpa",
-            "com.mysql:mysql-connector-j",
-            "org.flywaydb:flyway-core",
-            "org.flywaydb:flyway-mysql",
-            "org.testcontainers:mysql",
-        ],
-        env_variables=DATABASE_ENV_VARIABLES,
+        shared_directories=[*DATABASE_SHARED_DIRECTORIES, TEST_PACKAGE + "conf/db"],
+        specific_directories=[],
+        shared_files=DATABASE_SHARED_FILES,
+        specific_files=[TEST_PACKAGE + "conf/db/MysqlConf.java"],
+        shared_env_variables=DATABASE_SHARED_ENV_VARIABLES,
+        specific_env_variables=[],
     ),
     TemplateFeature.RABBITMQ: FeatureFiles(
-        directories=[
+        shared_directories=[],
+        specific_directories=[
             SRC_PACKAGE + "event",
             SRC_PACKAGE + "datastructure",
         ],
-        files=[
+        shared_files=[],
+        specific_files=[
             SRC_PACKAGE + "config/RabbitConfig.java",
             SRC_PACKAGE + "datastructure/ListGrouper.java",
             SRC_PACKAGE + "service/health/HealthEventService.java",
@@ -75,12 +80,8 @@ FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
             TEST_PACKAGE + "service/health/HealthEventServiceIT.java",
             TEST_PACKAGE + "endpoint/rest/controller/health/HealthEventControllerIT.java",
         ],
-        dependencies=[
-            "org.springframework.boot:spring-boot-starter-amqp",
-            "org.springframework.amqp:spring-rabbit-test",
-            "org.testcontainers:rabbitmq",
-        ],
-        env_variables=[
+        shared_env_variables=[],
+        specific_env_variables=[
             "SPRING_RABBITMQ_HOST",
             "SPRING_RABBITMQ_USERNAME",
             "SPRING_RABBITMQ_PASSWORD",
@@ -93,10 +94,12 @@ FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
         ],
     ),
     TemplateFeature.S3_BUCKET: FeatureFiles(
-        directories=[
+        shared_directories=[],
+        specific_directories=[
             SRC_PACKAGE + "exception/bucket",
         ],
-        files=[
+        shared_files=[],
+        specific_files=[
             SRC_PACKAGE + "config/BucketConf.java",
             SRC_PACKAGE + "file/BucketComponent.java",
             SRC_PACKAGE + "endpoint/rest/controller/health/HealthBucketController.java",
@@ -106,12 +109,8 @@ FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
             TEST_PACKAGE + "service/health/HealthBucketServiceIT.java",
             TEST_PACKAGE + "endpoint/rest/controller/health/HealthBucketControllerIT.java",
         ],
-        dependencies=[
-            "software.amazon.awssdk:s3",
-            "software.amazon.awssdk:s3-transfer-manager",
-            "org.testcontainers:localstack",
-        ],
-        env_variables=[
+        shared_env_variables=[],
+        specific_env_variables=[
             "CLOUD_STORAGE_KEY_ID",
             "CLOUD_STORAGE_APPLICATION_KEY",
             "CLOUD_STORAGE_BUCKET_NAME",
@@ -120,11 +119,13 @@ FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
         ],
     ),
     TemplateFeature.EMAIL: FeatureFiles(
-        directories=[
+        shared_directories=[],
+        specific_directories=[
             SRC_PACKAGE + "mail",
             TEST_PACKAGE + "mail",
         ],
-        files=[
+        shared_files=[],
+        specific_files=[
             SRC_PACKAGE + "config/EmailConf.java",
             SRC_PACKAGE + "service/health/HealthEmailService.java",
             SRC_PACKAGE + "exception/EmailSendException.java",
@@ -134,12 +135,8 @@ FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
             TEST_PACKAGE + "service/health/HealthEmailServiceIT.java",
             TEST_PACKAGE + "endpoint/rest/controller/health/HealthEmailControllerIT.java",
         ],
-        dependencies=[
-            "org.springframework.boot:spring-boot-starter-mail",
-            "com.icegreen:greenmail",
-            "com.icegreen:greenmail-junit5",
-        ],
-        env_variables=[
+        shared_env_variables=[],
+        specific_env_variables=[
             "SPRING_MAIL_HOST",
             "SPRING_MAIL_USERNAME",
             "SPRING_MAIL_PASSWORD",
@@ -148,3 +145,58 @@ FEATURE_MAPPINGS: Final[dict[TemplateFeature, FeatureFiles]] = {
         ],
     ),
 }
+
+FEATURE_DEPENDENCIES: Final[dict[TemplateFeature, FeatureDependencies]] = {
+    TemplateFeature.POSTGRESQL: FeatureDependencies(
+        shared=DATABASE_SHARED_DEPENDENCIES,
+        specific=[
+            "org.postgresql:postgresql",
+            "org.flywaydb:flyway-database-postgresql",
+            "org.testcontainers:postgresql",
+        ],
+    ),
+    TemplateFeature.MYSQL: FeatureDependencies(
+        shared=DATABASE_SHARED_DEPENDENCIES,
+        specific=[
+            "com.mysql:mysql-connector-j",
+            "org.flywaydb:flyway-mysql",
+            "org.testcontainers:mysql",
+        ],
+    ),
+    TemplateFeature.RABBITMQ: FeatureDependencies(
+        shared=[],
+        specific=[
+            "org.springframework.boot:spring-boot-starter-amqp",
+            "org.springframework.amqp:spring-rabbit-test",
+            "org.testcontainers:rabbitmq",
+        ],
+    ),
+    TemplateFeature.S3_BUCKET: FeatureDependencies(
+        shared=[],
+        specific=[
+            "software.amazon.awssdk:s3",
+            "software.amazon.awssdk:s3-transfer-manager",
+            "org.testcontainers:localstack",
+        ],
+    ),
+    TemplateFeature.EMAIL: FeatureDependencies(
+        shared=[],
+        specific=[
+            "org.springframework.boot:spring-boot-starter-mail",
+            "com.icegreen:greenmail",
+            "com.icegreen:greenmail-junit5",
+        ],
+    ),
+}
+
+
+def get_all_dependencies_for_features(enabled_features: set[TemplateFeature]) -> list[str]:
+    all_deps = set()
+
+    for feature in enabled_features:
+        feature_deps = FEATURE_DEPENDENCIES.get(feature)
+        if feature_deps:
+            all_deps.update(feature_deps.shared)
+            all_deps.update(feature_deps.specific)
+
+    return sorted(all_deps)
