@@ -21,6 +21,7 @@ from src.ar_infra.infrastructure.template.exception import (
     TemplateFetchError,
 )
 from src.ar_infra.logger import get_logger
+from src.ar_infra.properties import TEMPLATE_VERSION
 
 
 log = get_logger()
@@ -65,7 +66,7 @@ class GitHubTemplateFetcher:
             temp_dir = self._create_temp_directory()
             log.info("Cloning to temporary directory: %s", temp_dir)
 
-            self._clone_repository(url, temp_dir)
+            self._clone_repository(url, temp_dir, TEMPLATE_VERSION)
             self._process_template(temp_dir)
 
             log.info("Template validated, moving to destination...")
@@ -116,12 +117,23 @@ class GitHubTemplateFetcher:
             )
             raise TemplateFetchError(f"Failed to move template to destination: {e}") from e
 
-    def _clone_repository(self, url: str, destination: Path) -> None:
+    def _clone_repository(self, url: str, destination: Path, tag: str | None = None) -> None:
         log.info("Starting git clone (this may take a moment)...")
 
         try:
-            git.Repo.clone_from(url, str(destination), depth=1)
+            if tag and self._tag_exists_in_remote(url, tag):
+                log.info("Fetching ar-infra-template version = %s", tag)
+                git.Repo.clone_from(url, str(destination), branch=tag, depth=1)
+            else:
+                if tag:
+                    log.warning(
+                        "Tag '%s' not found in remote repository, cloning default branch instead",
+                        tag,
+                    )
+                git.Repo.clone_from(url, str(destination), depth=1)
+
             log.info("Clone completed successfully")
+
             self._wait_for_git_locks()
 
         except git.exc.GitCommandError as e:
@@ -129,6 +141,26 @@ class GitHubTemplateFetcher:
 
         except (OSError, RuntimeError) as e:
             self._handle_unexpected_error(url, e)
+
+    @staticmethod
+    def _tag_exists_in_remote(url: str, tag: str) -> bool:
+        try:
+            log.info("Checking if tag '%s' exists in remote repository...", tag)
+
+            result = git.cmd.Git().ls_remote("--tags", url, tag)
+            exists = bool(result.strip())
+
+            if exists:
+                log.info("Tag '%s' found in remote repository", tag)
+            else:
+                log.info("Tag '%s' not found in remote repository", tag)
+
+        except git.exc.GitCommandError as e:
+            log.warning("Failed to check remote tags: %s", e)
+            # If we can't check, assume tag doesn't exist and fall back to default branch
+            return False
+
+        return exists
 
     @staticmethod
     def _wait_for_git_locks() -> None:
