@@ -164,7 +164,7 @@ class InteractivePrompt:
             "Select other features to Include:",
             choices=[
                 {"name": "RabbitMQ Message Broker", "value": "rabbitmq"},
-                {"name": "AWS S3 Storage", "value": "s3_bucket"},
+                {"name": "AWS S3-compatible Storage (BackBlaze)", "value": "s3_bucket"},
                 {"name": "Email Support", "value": "email"},
             ],
             style=PROMPT_STYLE,

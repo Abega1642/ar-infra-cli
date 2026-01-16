@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# common.sh - Common utilities for test scripts
+# common.sh - Common utilities for test .shell
 # Provides cross-platform functionality for colors, validation, and error handling
 
 # Prevent re-sourcing
@@ -80,9 +80,9 @@ validate_path() {
 
 get_project_root() {
     local script_dir
-    # Get directory where common.sh is located (scripts/lib/)
+    # Get directory where common.sh is located (.shell/lib/)
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    # Go up two levels: scripts/lib/ -> scripts/ -> project_root/
+    # Go up two levels: .shell/lib/ -> .shell/ -> project_root/
     local project_root
     project_root="$(cd "$script_dir/../.." && pwd)"
 

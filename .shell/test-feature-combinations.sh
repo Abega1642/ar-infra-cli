@@ -4,9 +4,9 @@ set -u
 set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/lib/common.sh
+# shellcheck source=.shell/lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
-# shellcheck source=scripts/lib/feature-validator.sh
+# shellcheck source=.shell/lib/feature-validator.sh
 source "$SCRIPT_DIR/lib/feature-validator.sh"
 
 readonly BASE_TEST_DIR="test-feature-combinations"

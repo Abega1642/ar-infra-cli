@@ -5,7 +5,7 @@ set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ -z "${_COMMON_SH_LOADED:-}" ]; then
-  # shellcheck source=scripts/lib/common.sh
+  # shellcheck source=.shell/lib/common.sh
   source "$SCRIPT_DIR/common.sh"
 fi
 
