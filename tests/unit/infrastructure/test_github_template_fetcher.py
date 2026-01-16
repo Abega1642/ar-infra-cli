@@ -15,6 +15,7 @@ from src.ar_infra.infrastructure.template.exception import (
 from src.ar_infra.infrastructure.template.github_template_fetcher import (
     GitHubTemplateFetcher,
 )
+from src.ar_infra.properties import TEMPLATE_VERSION
 
 
 @pytest.fixture
@@ -38,12 +39,16 @@ def valid_template_structure(tmp_path: Path) -> Path:
 
 
 class TestFetchTemplate:
+    @patch(
+        "src.ar_infra.infrastructure.template.github_template_fetcher.GitHubTemplateFetcher._tag_exists_in_remote"
+    )
     @patch("git.Repo.clone_from")
     @patch("tempfile.mkdtemp")
-    def test_fetch_template_from_github(
+    def test_fetch_template_from_github_with_tag(
         self,
         mock_mkdtemp: Mock,
         mock_clone: Mock,
+        mock_tag_exists: Mock,
         fetcher: GitHubTemplateFetcher,
         tmp_path: Path,
         valid_template_structure: Path,
@@ -53,6 +58,42 @@ class TestFetchTemplate:
         temp_dir = tmp_path / "temp_clone"
 
         mock_mkdtemp.return_value = str(temp_dir)
+        mock_tag_exists.return_value = True
+
+        def mock_clone_side_effect(url: str, dest: str, branch: str, depth: int) -> None:
+            shutil.copytree(valid_template_structure, dest)
+
+        mock_clone.side_effect = mock_clone_side_effect
+
+        result = fetcher.fetch(url, destination)
+
+        assert result == "com.example.arinfra"
+        assert destination.exists()
+        assert (destination / "build.gradle").exists()
+        mock_tag_exists.assert_called_once_with(url, TEMPLATE_VERSION)
+        mock_clone.assert_called_once_with(url, str(temp_dir), branch=TEMPLATE_VERSION, depth=1)
+
+    @patch(
+        "src.ar_infra.infrastructure.template.github_template_fetcher.GitHubTemplateFetcher._tag_exists_in_remote"
+    )
+    @patch("git.Repo.clone_from")
+    @patch("tempfile.mkdtemp")
+    def test_fetch_template_falls_back_when_tag_not_found(
+        self,
+        mock_mkdtemp: Mock,
+        mock_clone: Mock,
+        mock_tag_exists: Mock,
+        fetcher: GitHubTemplateFetcher,
+        tmp_path: Path,
+        valid_template_structure: Path,
+    ) -> None:
+        """Should fall back to default branch when tag doesn't exist."""
+        url = "https://github.com/user/ar-infra.git"
+        destination = tmp_path / "template"
+        temp_dir = tmp_path / "temp_clone"
+
+        mock_mkdtemp.return_value = str(temp_dir)
+        mock_tag_exists.return_value = False
 
         def mock_clone_side_effect(url: str, dest: str, depth: int) -> None:
             shutil.copytree(valid_template_structure, dest)
@@ -63,7 +104,8 @@ class TestFetchTemplate:
 
         assert result == "com.example.arinfra"
         assert destination.exists()
-        assert (destination / "build.gradle").exists()
+        mock_tag_exists.assert_called_once_with(url, TEMPLATE_VERSION)
+        # Should clone without branch parameter when tag doesn't exist
         mock_clone.assert_called_once_with(url, str(temp_dir), depth=1)
 
     @patch("git.Repo.clone_from")
@@ -83,12 +125,16 @@ class TestFetchTemplate:
         assert result == "com.example.arinfra"
         mock_clone.assert_not_called()
 
+    @patch(
+        "src.ar_infra.infrastructure.template.github_template_fetcher.GitHubTemplateFetcher._tag_exists_in_remote"
+    )
     @patch("git.Repo.clone_from")
     @patch("tempfile.mkdtemp")
     def test_force_refetch_ignores_cache(
         self,
         mock_mkdtemp: Mock,
         mock_clone: Mock,
+        mock_tag_exists: Mock,
         fetcher: GitHubTemplateFetcher,
         tmp_path: Path,
         valid_template_structure: Path,
@@ -101,8 +147,9 @@ class TestFetchTemplate:
         shutil.copytree(valid_template_structure, destination)
 
         mock_mkdtemp.return_value = str(temp_dir)
+        mock_tag_exists.return_value = True
 
-        def mock_clone_side_effect(url: str, dest: str, depth: int) -> None:
+        def mock_clone_side_effect(url: str, dest: str, branch: str, depth: int) -> None:
             shutil.copytree(valid_template_structure, dest)
 
         mock_clone.side_effect = mock_clone_side_effect
@@ -112,12 +159,16 @@ class TestFetchTemplate:
         assert result == "com.example.arinfra"
         mock_clone.assert_called_once()
 
+    @patch(
+        "src.ar_infra.infrastructure.template.github_template_fetcher.GitHubTemplateFetcher._tag_exists_in_remote"
+    )
     @patch("git.Repo.clone_from")
     @patch("tempfile.mkdtemp")
     def test_cleanup_temp_dir_on_clone_error(
         self,
         mock_mkdtemp: Mock,
         mock_clone: Mock,
+        mock_tag_exists: Mock,
         fetcher: GitHubTemplateFetcher,
         tmp_path: Path,
     ) -> None:
@@ -128,6 +179,7 @@ class TestFetchTemplate:
         temp_dir.mkdir()
 
         mock_mkdtemp.return_value = str(temp_dir)
+        mock_tag_exists.return_value = True
         mock_clone.side_effect = OSError("Clone failed")
 
         with pytest.raises(TemplateFetchError):
@@ -136,12 +188,16 @@ class TestFetchTemplate:
         assert not temp_dir.exists()
         assert not destination.exists()
 
+    @patch(
+        "src.ar_infra.infrastructure.template.github_template_fetcher.GitHubTemplateFetcher._tag_exists_in_remote"
+    )
     @patch("git.Repo.clone_from")
     @patch("tempfile.mkdtemp")
     def test_cleanup_temp_dir_on_validation_error(
         self,
         mock_mkdtemp: Mock,
         mock_clone: Mock,
+        mock_tag_exists: Mock,
         fetcher: GitHubTemplateFetcher,
         tmp_path: Path,
     ) -> None:
@@ -150,9 +206,9 @@ class TestFetchTemplate:
         temp_dir = tmp_path / "temp_clone"
 
         mock_mkdtemp.return_value = str(temp_dir)
+        mock_tag_exists.return_value = True
 
-        def mock_clone_invalid(url: str, dest: str, depth: int) -> None:
-            # Create invalid template (missing build.gradle)
+        def mock_clone_invalid(url: str, dest: str, branch: str, depth: int) -> None:
             Path(dest).mkdir(parents=True, exist_ok=True)
             (Path(dest) / "src" / "main" / "java").mkdir(parents=True)
 
@@ -163,6 +219,47 @@ class TestFetchTemplate:
 
         assert not temp_dir.exists()
         assert not destination.exists()
+
+
+class TestTagExistsCheck:
+    @patch("git.cmd.Git")
+    def test_tag_exists_in_remote_returns_true_when_tag_found(
+        self, mock_git_class: Mock, fetcher: GitHubTemplateFetcher
+    ) -> None:
+        mock_git_instance = Mock()
+        mock_git_class.return_value = mock_git_instance
+        mock_git_instance.ls_remote.return_value = "abc123\trefs/tags/v0.1.0"
+
+        result = fetcher._tag_exists_in_remote("https://github.com/user/repo.git", "v0.1.0")
+
+        assert result is True
+        mock_git_instance.ls_remote.assert_called_once_with(
+            "--tags", "https://github.com/user/repo.git", "v0.1.0"
+        )
+
+    @patch("git.cmd.Git")
+    def test_tag_exists_in_remote_returns_false_when_tag_not_found(
+        self, mock_git_class: Mock, fetcher: GitHubTemplateFetcher
+    ) -> None:
+        mock_git_instance = Mock()
+        mock_git_class.return_value = mock_git_instance
+        mock_git_instance.ls_remote.return_value = ""
+
+        result = fetcher._tag_exists_in_remote("https://github.com/user/repo.git", "v0.1.0")
+
+        assert result is False
+
+    @patch("git.cmd.Git")
+    def test_tag_exists_in_remote_returns_false_on_git_error(
+        self, mock_git_class: Mock, fetcher: GitHubTemplateFetcher
+    ) -> None:
+        mock_git_instance = Mock()
+        mock_git_class.return_value = mock_git_instance
+        mock_git_instance.ls_remote.side_effect = git.exc.GitCommandError("ls-remote", 128)
+
+        result = fetcher._tag_exists_in_remote("https://github.com/user/repo.git", "v0.1.0")
+
+        assert result is False
 
 
 class TestURLValidation:
@@ -264,12 +361,16 @@ class TestPackageDetection:
 
 
 class TestErrorHandling:
+    @patch(
+        "src.ar_infra.infrastructure.template.github_template_fetcher.GitHubTemplateFetcher._tag_exists_in_remote"
+    )
     @patch("git.Repo.clone_from")
     @patch("tempfile.mkdtemp")
     def test_provide_helpful_error_for_network_issues(
         self,
         mock_mkdtemp: Mock,
         mock_clone: Mock,
+        mock_tag_exists: Mock,
         fetcher: GitHubTemplateFetcher,
         tmp_path: Path,
     ) -> None:
@@ -278,6 +379,7 @@ class TestErrorHandling:
         temp_dir = tmp_path / "temp_clone"
 
         mock_mkdtemp.return_value = str(temp_dir)
+        mock_tag_exists.return_value = True
 
         error = git.exc.GitCommandError("clone", 128)
         error.stderr = "fatal: could not resolve host github.com"
@@ -286,12 +388,16 @@ class TestErrorHandling:
         with pytest.raises(TemplateFetchError, match="Network/DNS issue"):
             fetcher.fetch(url, destination)
 
+    @patch(
+        "src.ar_infra.infrastructure.template.github_template_fetcher.GitHubTemplateFetcher._tag_exists_in_remote"
+    )
     @patch("git.Repo.clone_from")
     @patch("tempfile.mkdtemp")
     def test_provide_helpful_error_for_permission_issues(
         self,
         mock_mkdtemp: Mock,
         mock_clone: Mock,
+        mock_tag_exists: Mock,
         fetcher: GitHubTemplateFetcher,
         tmp_path: Path,
     ) -> None:
@@ -300,6 +406,7 @@ class TestErrorHandling:
         temp_dir = tmp_path / "temp_clone"
 
         mock_mkdtemp.return_value = str(temp_dir)
+        mock_tag_exists.return_value = True
 
         error = git.exc.GitCommandError("clone", 128)
         error.stderr = "fatal: permission denied"

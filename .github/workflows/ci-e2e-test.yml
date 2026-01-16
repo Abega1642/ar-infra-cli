@@ -36,15 +36,15 @@ jobs:
       - name: Run basic project generation test (Unix)
         if: runner.os != 'Windows'
         run: |
-          chmod +x scripts/project-generation.sh
-          bash scripts/project-generation.sh
+          chmod +x .shell/project-generation.sh
+          bash .shell/project-generation.sh
 
       - name: Run basic project generation test (Windows)
         if: runner.os == 'Windows'
         shell: bash
         env:
           PYTHONIOENCODING: utf-8
-        run: bash scripts/project-generation.sh
+        run: bash .shell/project-generation.sh
 
       - name: Verify generated project structure (Unix)
         if: runner.os != 'Windows' && always()
@@ -124,6 +124,105 @@ jobs:
             echo "Cleaned up test directory"
           fi
 
+  add-dependency-test:
+    name: Add Dependency Test - Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: make install-dev
+
+      - name: Run add-dependency test (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x .shell/test-add-dependency-command.sh
+          bash .shell/test-add-dependency-command.sh
+
+      - name: Run add-dependency test (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          PYTHONIOENCODING: utf-8
+        run: bash .shell/test-add-dependency-command.sh
+
+      - name: Verify dependencies in build.gradle
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "test-add-dependency/demo/build.gradle" ]; then
+            echo "=== build.gradle content ==="
+            cat test-add-dependency/demo/build.gradle
+            echo ""
+            echo "=== Dependency Verification ==="
+
+            # Check for single dependency
+            if grep -q "spring-boot-starter-data-jpa" test-add-dependency/demo/build.gradle; then
+              echo "[PASS] Single dependency (spring-boot-starter-data-jpa) found"
+            else
+              echo "[FAIL] Single dependency (spring-boot-starter-data-jpa) not found"
+              exit 1
+            fi
+
+            # Check for multiple dependencies
+            if grep -q "jjwt-api" test-add-dependency/demo/build.gradle; then
+              echo "[PASS] JWT API dependency found"
+            else
+              echo "[FAIL] JWT API dependency not found"
+              exit 1
+            fi
+
+            if grep -q "jjwt-impl" test-add-dependency/demo/build.gradle; then
+              echo "[PASS] JWT Impl dependency found"
+            else
+              echo "[FAIL] JWT Impl dependency not found"
+              exit 1
+            fi
+
+            if grep -q "jjwt-jackson" test-add-dependency/demo/build.gradle; then
+              echo "[PASS] JWT Jackson dependency found"
+            else
+              echo "[FAIL] JWT Jackson dependency not found"
+              exit 1
+            fi
+
+          else
+            echo "[FAIL] build.gradle not found at test-add-dependency/demo/build.gradle"
+            exit 1
+          fi
+
+      - name: Upload add-dependency test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: add-dependency-test-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: test-add-dependency/
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Clean up test directory
+        if: always()
+        shell: bash
+        run: |
+          if [ -d "test-add-dependency" ]; then
+            rm -rf test-add-dependency
+            echo "Cleaned up test directory"
+          fi
+
   feature-combinations:
     name: Feature Tests - Python ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -150,15 +249,15 @@ jobs:
       - name: Run feature combination tests (Unix)
         if: runner.os != 'Windows'
         run: |
-          chmod +x scripts/test-feature-combinations.sh
-          bash scripts/test-feature-combinations.sh
+          chmod +x .shell/test-feature-combinations.sh
+          bash .shell/test-feature-combinations.sh
 
       - name: Run feature combination tests (Windows)
         if: runner.os == 'Windows'
         shell: bash
         env:
           PYTHONIOENCODING: utf-8
-        run: bash scripts/test-feature-combinations.sh
+        run: bash .shell/test-feature-combinations.sh
 
       - name: Upload feature test results
         if: failure()
@@ -172,7 +271,7 @@ jobs:
   integration-summary:
     name: Integration Test Summary
     runs-on: ubuntu-latest
-    needs: [basic-generation, feature-combinations]
+    needs: [basic-generation, add-dependency-test, feature-combinations]
     if: always()
 
     steps:
@@ -180,9 +279,11 @@ jobs:
         run: |
           echo "=== Integration Test Summary ==="
           echo "Basic Generation: ${{ needs.basic-generation.result }}"
+          echo "Add Dependency Test: ${{ needs.add-dependency-test.result }}"
           echo "Feature Combinations: ${{ needs.feature-combinations.result }}"
 
           if [ "${{ needs.basic-generation.result }}" != "success" ] || \
+             [ "${{ needs.add-dependency-test.result }}" != "success" ] || \
              [ "${{ needs.feature-combinations.result }}" != "success" ]; then
             echo ""
             echo "Some integration tests failed"

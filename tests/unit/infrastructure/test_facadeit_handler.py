@@ -18,7 +18,8 @@ class TestFacadeITHandler:
         facade.write_text(FACADE_CONTENT, encoding="utf-8")
         return facade
 
-    def _read(self, facade_path: Path) -> str:
+    @staticmethod
+    def _read(facade_path: Path) -> str:
         return facade_path.read_text(encoding="utf-8")
 
     def test_single_feature_enabled(self, facade_path: Path) -> None:
@@ -29,7 +30,7 @@ class TestFacadeITHandler:
 
         content = self._read(facade_path)
 
-        assert "POSTGRES_CONF" in content
+        assert "DB_CONF" in content
         assert "RABBITMQ_CONF" not in content
         assert "BUCKET_CONF" not in content
         assert "EMAIL_CONF" not in content
@@ -42,7 +43,7 @@ class TestFacadeITHandler:
 
         content = self._read(facade_path)
 
-        assert "POSTGRES_CONF" in content
+        assert "DB_CONF" in content
         assert "RABBITMQ_CONF" in content
         assert "BUCKET_CONF" not in content
         assert "EMAIL_CONF" not in content
@@ -55,7 +56,7 @@ class TestFacadeITHandler:
 
         content = self._read(facade_path)
 
-        assert "POSTGRES_CONF" in content
+        assert "DB_CONF" in content
         assert "RABBITMQ_CONF" in content
         assert "BUCKET_CONF" in content
         assert "EMAIL_CONF" in content
@@ -79,7 +80,7 @@ class TestFacadeITHandler:
 
         content = self._read(facade_path)
 
-        assert "POSTGRES_CONF" not in content
+        assert "DB_CONF" not in content
         assert "RABBITMQ_CONF" not in content
         assert "BUCKET_CONF" not in content
         assert "EMAIL_CONF" not in content
@@ -97,7 +98,7 @@ class TestFacadeITHandler:
 
         handler.apply_feature_selection(
             template_dir,
-            {TemplateFeature.POSTGRESQL},
+            {TemplateFeature.MYSQL},
         )
         second = self._read(facade_path)
 

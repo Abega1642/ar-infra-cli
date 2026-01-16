@@ -2,8 +2,14 @@
 
 import click
 
+from src.ar_infra.cli.command.add_dependency import (
+    AddDependencyCommand,
+    AddDependencyCommandArgs,
+)
 from src.ar_infra.cli.command.init import InitCommand, InitCommandArgs
 from src.ar_infra.cli.resources.documentation import (
+    ADD_DEPENDENCY_COMMAND_DESCRIPTION,
+    ADD_DEPENDENCY_PROJECT_PATH_HELP,
     ARTIFACT_OPTION_HELP,
     FEATURES_OPTION_HELP,
     GROUP_OPTION_HELP,
@@ -60,6 +66,9 @@ def _show_help_and_exit(
 @click.option("--project-dir", type=str, help=PROJECT_DIR_OPTION_HELP)
 @click.option("--features", type=str, help=FEATURES_OPTION_HELP)
 @click.option("--disable-features", type=str, help=NO_FEATURES_OPTION_HELP)
+@click.option(
+    "--no-feature", "no_feature", is_flag=True, help="Generate project without any features"
+)
 @click.option("--no-cache", "no_cache", is_flag=True, help=NO_CACHE_OPTION_HELP)
 @click.option(
     "--skip-github-app",
@@ -85,6 +94,7 @@ def init(
     features: str | None,
     disable_features: str | None,
     *,
+    no_feature: bool,
     no_cache: bool,
     skip_github_app: bool,
 ) -> None:
@@ -97,8 +107,41 @@ def init(
         project_dir=project_dir,
         features=features,
         no_features=disable_features,
+        no_feature=no_feature,
         no_cache=no_cache,
         skip_github_app=skip_github_app,
+    )
+    command.execute(args)
+
+
+@cli.command(
+    name="add-dependency",
+    context_settings={"max_content_width": 120},
+    help=ADD_DEPENDENCY_COMMAND_DESCRIPTION,
+)
+@click.argument("dependencies", nargs=-1, required=True)
+@click.option(
+    "--project-path",
+    type=str,
+    help=ADD_DEPENDENCY_PROJECT_PATH_HELP,
+)
+@click.option(
+    "--help",
+    "-h",
+    is_flag=True,
+    expose_value=False,
+    is_eager=True,
+    callback=_show_help_and_exit,
+    help="Show this message and exit.",
+)
+def add_dependency(
+    dependencies: tuple[str, ...],
+    project_path: str | None,
+) -> None:
+    command = AddDependencyCommand()
+    args = AddDependencyCommandArgs(
+        dependencies=dependencies,
+        project_path=project_path,
     )
     command.execute(args)
 

@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "generate-banner": "tsx scripts/generate-logo.ts",
+    "generate-banner": "tsx .shell/generate-logo.ts",
     "test": "node --test"
   },
   "dependencies": {

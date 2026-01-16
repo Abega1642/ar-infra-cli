@@ -34,6 +34,7 @@ from src.ar_infra.infrastructure.template import FeatureManager, GitHubTemplateF
 from src.ar_infra.infrastructure.template.project_signature import (
     InfraGeneratedAnnotationWriter,
 )
+from src.ar_infra.properties import AR_INFRA_TEMPLATE
 
 
 @dataclass(frozen=True)
@@ -45,13 +46,12 @@ class InitCommandArgs:
     project_dir: str | None
     features: str | None
     no_features: str | None
+    no_feature: bool
     no_cache: bool
     skip_github_app: bool
 
 
 class InitCommand:
-    DEFAULT_TEMPLATE_URL = "https://github.com/Abega1642/ar-infra-template.git"
-
     def __init__(self) -> None:
         self.use_case = self._create_use_case()
         self.interactive_prompt = InteractivePrompt()
@@ -72,14 +72,20 @@ class InitCommand:
         )
 
         if is_interactive:
-            self._execute_interactive(skip_github_app=args.skip_github_app)
+            self._execute_interactive(
+                skip_github_app=args.skip_github_app, skip_features=args.no_feature
+            )
         else:
             self._execute_cli(args)
 
-    def _execute_interactive(self, *, skip_github_app: bool = False) -> None:
+    def _execute_interactive(
+        self, *, skip_github_app: bool = False, skip_features: bool = False
+    ) -> None:
         Banner.show(wait_for_enter=True)
         try:
-            inputs = self.interactive_prompt.collect_inputs(skip_github_app=skip_github_app)
+            inputs = self.interactive_prompt.collect_inputs(
+                skip_github_app=skip_github_app, skip_features=skip_features
+            )
 
             self._execute_common(
                 group_id=inputs["group_id"],
@@ -87,8 +93,8 @@ class InitCommand:
                 version=inputs["version"],
                 destination=str(inputs["destination"]),
                 project_dir_name=inputs["project_dir_name"],
-                enabled_features=set(inputs["enabled_features"] or []),
-                template_url=self.DEFAULT_TEMPLATE_URL,
+                enabled_features=set(inputs.get("enabled_features") or []),
+                template_url=AR_INFRA_TEMPLATE,
                 use_template_cache=inputs["use_template_cache"],
             )
 
@@ -126,7 +132,19 @@ class InitCommand:
         assert args.project_dir is not None
 
         try:
-            enabled_features = self._parse_features(args.features, args.no_features)
+            enabled_features = self._parse_features(
+                args.features, args.no_features, no_feature=args.no_feature
+            )
+
+            database_features = {"postgresql", "mysql"}
+            selected_databases = enabled_features & database_features
+
+            if len(selected_databases) > 1:
+                self._abort(
+                    "Only one database can be selected. "
+                    f"You have selected: {', '.join(sorted(selected_databases))}. "
+                    "Please choose either 'postgresql' or 'mysql', not both."
+                )
 
             destination_path = Path(args.path or ".").resolve()
             project_path = destination_path / args.project_dir
@@ -146,7 +164,7 @@ class InitCommand:
                 destination=args.path or ".",
                 project_dir_name=args.project_dir,
                 enabled_features=enabled_features,
-                template_url=self.DEFAULT_TEMPLATE_URL,
+                template_url=AR_INFRA_TEMPLATE,
                 use_template_cache=not args.no_cache,
             )
 
@@ -253,8 +271,13 @@ class InitCommand:
     def _parse_features(
         features: str | None,
         no_features: str | None,
+        *,
+        no_feature: bool,
     ) -> set[str]:
-        all_features = {"postgresql", "rabbitmq", "s3_bucket", "email"}
+        if no_feature:
+            return set()
+
+        all_features = {"postgresql", "mysql", "rabbitmq", "s3_bucket", "email"}
 
         if features is not None:
             if features == "":
@@ -271,6 +294,7 @@ class InitCommand:
     def _convert_features(feature_names: set[str]) -> set[TemplateFeature]:
         feature_map = {
             "postgresql": TemplateFeature.POSTGRESQL,
+            "mysql": TemplateFeature.MYSQL,
             "rabbitmq": TemplateFeature.RABBITMQ,
             "s3_bucket": TemplateFeature.S3_BUCKET,
             "email": TemplateFeature.EMAIL,
