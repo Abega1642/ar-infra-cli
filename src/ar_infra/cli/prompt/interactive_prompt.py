@@ -137,8 +137,8 @@ class InteractivePrompt:
             raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
 
         if cast("bool", wants_database):
-            database_choice = select(
-                "Select database:",
+            database_choices = checkbox(
+                "Select database (select ONE only):",
                 choices=[
                     {"name": "PostgreSQL", "value": "postgresql"},
                     {"name": "MySQL", "value": "mysql"},
@@ -146,10 +146,19 @@ class InteractivePrompt:
                 style=PROMPT_STYLE,
             ).ask()
 
-            if database_choice is None:
+            if database_choices is None:
                 raise KeyboardInterrupt(OPERATION_CANCELLED_ERR_MESSAGE) from None
 
-            all_features.append(cast("str", database_choice))
+            selected_databases = cast("list[str]", database_choices)
+
+            if len(selected_databases) == 0:
+                print("\nError: You must select exactly one database.\n")
+                return InteractivePrompt._prompt_features()  # Retry
+            if len(selected_databases) > 1:
+                print("\nError: You can only select one database. Please try again.\n")
+                return InteractivePrompt._prompt_features()  # Retry
+
+            all_features.extend(selected_databases)
 
         other_features = checkbox(
             "Select other features to Include:",
