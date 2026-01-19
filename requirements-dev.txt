@@ -2,7 +2,7 @@
 -r requirements.txt
 
 # Security Analysis
-bandit[toml]==1.9.2
+bandit[toml]==1.9.3
 
 # Code Quality - Formatting
 black==25.12.0
