@@ -45,7 +45,7 @@ pytest-xdist==3.8.0
 # Code Quality - Linting
 ruff==0.14.11
 safety==3.7.0
-setuptools==80.9.0
+setuptools==80.10.2
 
 # Documentation
 sphinx
