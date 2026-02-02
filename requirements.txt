@@ -5,7 +5,7 @@ antlr4-python3-runtime==4.13.2
 # Sec
 bleach==6.3.0
 click==8.3.1
-cryptography==46.0.3
+cryptography==46.0.4
 
 # Git Operations
 gitpython==3.1.46
