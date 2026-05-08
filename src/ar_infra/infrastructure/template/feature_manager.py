@@ -39,8 +39,8 @@ class FeatureManager:
         template_dir: Path,
         enabled_features: set[TemplateFeature],
     ) -> None:
-        all_features = set(TemplateFeature)
-        features_to_remove = all_features - enabled_features
+        all_features: set[TemplateFeature] = set(TemplateFeature)
+        features_to_remove: set[TemplateFeature] = all_features - enabled_features
 
         # Remove specific files/directories for disabled features
         for feature in features_to_remove:
