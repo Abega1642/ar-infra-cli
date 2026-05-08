@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class TemplateFeature(str, Enum):
+class TemplateFeature(StrEnum):
     """Available features in the template."""
 
     POSTGRESQL = "postgresql"

@@ -60,7 +60,7 @@ class TestFeatureManager:
         (template / "src/main/java/com/example/arinfra/config").mkdir(parents=True)
 
         # Create feature-specific files
-        (template / "src/main/java/com/example/arinfra/config/RabbitConfig.java").write_text(
+        (template / "src/main/java/com/example/arinfra/config/RabbitConf.java").write_text(
             "rabbit", encoding="utf-8"
         )
         (template / "src/main/java/com/example/arinfra/config/EmailConf.java").write_text(
@@ -92,8 +92,7 @@ class TestFeatureManager:
         # RabbitMQ specific resources should be removed
         assert not (template_with_all_features / "src/main/java/com/example/arinfra/event").exists()
         assert not (
-            template_with_all_features
-            / "src/main/java/com/example/arinfra/config/RabbitConfig.java"
+            template_with_all_features / "src/main/java/com/example/arinfra/config/RabbitConf.java"
         ).exists()
 
         # Other features should remain

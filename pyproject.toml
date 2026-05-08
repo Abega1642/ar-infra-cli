@@ -45,7 +45,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=9.0.2",
+    "pytest>=9.0.3",
     "pytest-cov>=7.0.0",
     "pytest-asyncio>=1.3.0",
     "pytest-mock>=3.15.1",
@@ -65,14 +65,14 @@ dev = [
     "pip-audit>=2.10.0",
     "coverage[toml]>=7.13.0",
     "pre-commit>=4.5.1",
-    "sphinx>=8.2.3",
+    "sphinx>=9.1.0",
     "sphinx-rtd-theme",
     "sphinx-autodoc-typehints>=3.6.0",
     "build>=1.4.0",
     "setuptools>=80.9.0",
-    "wheel>=0.45.1",
+    "wheel>=0.47.0",
     "twine>=6.2.0",
-    "ipython>=9.9.0",
+    "ipython>=9.10.0",
     "lxml>=5.3.0",
     "typing-extensions>=4.12.0",
     "ipdb>=0.13.13",

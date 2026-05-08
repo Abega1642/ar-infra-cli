@@ -72,7 +72,7 @@ FEATURE_FILES: Final[dict[TemplateFeature, FeatureFiles]] = {
         ],
         shared_files=[],
         specific_files=[
-            SRC_PACKAGE + "config/RabbitConfig.java",
+            SRC_PACKAGE + "config/RabbitConf.java",
             SRC_PACKAGE + "datastructure/ListGrouper.java",
             SRC_PACKAGE + "service/health/HealthEventService.java",
             SRC_PACKAGE + "endpoint/rest/controller/health/HealthEventController.java",

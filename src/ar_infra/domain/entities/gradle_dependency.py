@@ -1,11 +1,11 @@
 """Gradle dependency entity and configuration enum."""
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import final
 
 
-class GradleConfiguration(str, Enum):
+class GradleConfiguration(StrEnum):
     IMPLEMENTATION = "implementation"
     TEST_IMPLEMENTATION = "testImplementation"
     RUNTIME_ONLY = "runtimeOnly"
