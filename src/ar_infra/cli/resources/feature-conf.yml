@@ -1,0 +1,149 @@
+src_package: "src/main/java/com/example/arinfra/"
+test_package: "src/test/java/com/example/arinfra/"
+
+database_shared:
+  directories:
+    - "{src_package}repository"
+    - "src/main/resources/db"
+  files:
+    - "{src_package}endpoint/rest/controller/health/HealthRepositoryController.java"
+    - "{src_package}service/health/HealthRepositoryService.java"
+    - "{test_package}endpoint/rest/controller/health/HealthRepositoryControllerIT.java"
+  env_variables:
+    - SPRING_DATASOURCE_URL
+    - SPRING_DATASOURCE_USERNAME
+    - SPRING_DATASOURCE_PASSWORD
+  dependencies:
+    - "org.springframework.boot:spring-boot-starter-data-jpa"
+    - "org.flywaydb:flyway-core"
+
+features:
+  POSTGRESQL:
+    files:
+      shared_directories:
+        - "{src_package}repository"
+        - "src/main/resources/db"
+        - "{test_package}conf/db"
+      specific_files:
+        - "{test_package}conf/db/PostgresConf.java"
+      shared_files:
+        - "{src_package}endpoint/rest/controller/health/HealthRepositoryController.java"
+        - "{src_package}service/health/HealthRepositoryService.java"
+        - "{test_package}endpoint/rest/controller/health/HealthRepositoryControllerIT.java"
+      shared_env_variables:
+        - SPRING_DATASOURCE_URL
+        - SPRING_DATASOURCE_USERNAME
+        - SPRING_DATASOURCE_PASSWORD
+    dependencies:
+      shared:
+        - "org.springframework.boot:spring-boot-starter-data-jpa"
+        - "org.flywaydb:flyway-core"
+      specific:
+        - "org.postgresql:postgresql"
+        - "org.flywaydb:flyway-database-postgresql"
+        - "org.testcontainers:postgresql"
+
+  MYSQL:
+    files:
+      shared_directories:
+        - "{src_package}repository"
+        - "src/main/resources/db"
+        - "{test_package}conf/db"
+      shared_files:
+        - "{src_package}endpoint/rest/controller/health/HealthRepositoryController.java"
+        - "{src_package}service/health/HealthRepositoryService.java"
+        - "{test_package}endpoint/rest/controller/health/HealthRepositoryControllerIT.java"
+      specific_files:
+        - "{test_package}conf/db/MysqlConf.java"
+      shared_env_variables:
+        - SPRING_DATASOURCE_URL
+        - SPRING_DATASOURCE_USERNAME
+        - SPRING_DATASOURCE_PASSWORD
+    dependencies:
+      shared:
+        - "org.springframework.boot:spring-boot-starter-data-jpa"
+        - "org.flywaydb:flyway-core"
+      specific:
+        - "com.mysql:mysql-connector-j"
+        - "org.flywaydb:flyway-mysql"
+        - "org.testcontainers:mysql"
+
+  RABBITMQ:
+    files:
+      specific_directories:
+        - "{src_package}event"
+        - "{src_package}datastructure"
+      specific_files:
+        - "{src_package}config/RabbitConf.java"
+        - "{src_package}datastructure/ListGrouper.java"
+        - "{src_package}service/health/HealthEventService.java"
+        - "{src_package}endpoint/rest/controller/health/HealthEventController.java"
+        - "{test_package}conf/RabbitMQConf.java"
+        - "{test_package}service/health/HealthEventServiceIT.java"
+        - "{test_package}endpoint/rest/controller/health/HealthEventControllerIT.java"
+      specific_env_variables:
+        - SPRING_RABBITMQ_HOST
+        - SPRING_RABBITMQ_USERNAME
+        - SPRING_RABBITMQ_PASSWORD
+        - SPRING_RABBITMQ_VHOST
+        - SPRING_RABBITMQ_QUEUE
+        - SPRING_RABBITMQ_EXCHANGE
+        - SPRING_RABBITMQ_ROUTING_KEY
+        - SPRING_RABBITMQ_PORT
+        - APP_RABBITMQ_SSL
+    dependencies:
+      specific:
+        - "org.springframework.boot:spring-boot-starter-amqp"
+        - "org.springframework.amqp:spring-rabbit-test"
+        - "org.testcontainers:rabbitmq"
+
+  S3_BUCKET:
+    files:
+      specific_directories:
+        - "{src_package}exception/bucket"
+      specific_files:
+        - "{src_package}config/BucketConf.java"
+        - "{src_package}file/BucketComponent.java"
+        - "{src_package}endpoint/rest/controller/health/HealthBucketController.java"
+        - "{src_package}service/health/HealthBucketService.java"
+        - "{test_package}conf/BucketConf.java"
+        - "{test_package}file/BucketComponentIT.java"
+        - "{test_package}service/health/HealthBucketServiceIT.java"
+        - "{test_package}endpoint/rest/controller/health/HealthBucketControllerIT.java"
+      specific_env_variables:
+        - CLOUD_STORAGE_KEY_ID
+        - CLOUD_STORAGE_APPLICATION_KEY
+        - CLOUD_STORAGE_BUCKET_NAME
+        - CLOUD_STORAGE_FULL_ENDPOINT
+        - CLOUD_STORAGE_REGION
+    dependencies:
+      specific:
+        - "software.amazon.awssdk:s3"
+        - "software.amazon.awssdk:s3-transfer-manager"
+        - "org.testcontainers:localstack"
+
+  EMAIL:
+    files:
+      specific_directories:
+        - "{src_package}mail"
+        - "{test_package}mail"
+      specific_files:
+        - "{src_package}config/EmailConf.java"
+        - "{src_package}service/health/HealthEmailService.java"
+        - "{src_package}exception/EmailSendException.java"
+        - "{src_package}exception/health/EmailHealthCheckException.java"
+        - "{src_package}endpoint/rest/controller/health/HealthEmailController.java"
+        - "{test_package}conf/EmailConf.java"
+        - "{test_package}service/health/HealthEmailServiceIT.java"
+        - "{test_package}endpoint/rest/controller/health/HealthEmailControllerIT.java"
+      specific_env_variables:
+        - SPRING_MAIL_HOST
+        - SPRING_MAIL_USERNAME
+        - SPRING_MAIL_PASSWORD
+        - SPRING_MAIL_FROM_EMAIL
+        - SPRING_MAIL_PORT
+    dependencies:
+      specific:
+        - "org.springframework.boot:spring-boot-starter-mail"
+        - "com.icegreen:greenmail"
+        - "com.icegreen:greenmail-junit5"
