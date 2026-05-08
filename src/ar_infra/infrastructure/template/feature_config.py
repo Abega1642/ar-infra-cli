@@ -29,7 +29,7 @@ class FeatureDependencies:
 
 @cache
 def _load_config() -> FeatureConfigSchema:
-    path = importlib.resources.files("src.ar_infra") / "feature-conf.yml"
+    path = importlib.resources.files("src.ar_infra.cli.resources") / "feature-conf.yml"
     return YamlFileProcessor().load(path, FeatureConfigSchema)
 
 
