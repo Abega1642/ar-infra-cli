@@ -1,6 +1,7 @@
-import importlib.resources
+import sys
 from dataclasses import dataclass
 from functools import cache
+from pathlib import Path
 from typing import Final
 
 from src.ar_infra.domain.enums.template_feature import TemplateFeature
@@ -27,10 +28,17 @@ class FeatureDependencies:
     specific: list[str]
 
 
+_RESOURCES_DIR = Path(__file__).resolve().parents[2] / "cli" / "resources"
+
+
 @cache
 def _load_config() -> FeatureConfigSchema:
-    path = importlib.resources.files("src.ar_infra.cli.resources") / "feature-conf.yml"
-    return YamlFileProcessor().load(path, FeatureConfigSchema)
+    if getattr(sys, "frozen", False):
+        base = Path(sys._MEIPASS)  # type: ignore[attr-defined] # pylint: disable=protected-access
+        conf = base / "ar_infra" / "cli" / "resources" / "feature-conf.yml"
+    else:
+        conf = _RESOURCES_DIR / "feature-conf.yml"
+    return YamlFileProcessor().load(conf, FeatureConfigSchema)
 
 
 def _resolve(template: str, src: str, test: str) -> str:
