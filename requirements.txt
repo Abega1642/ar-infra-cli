@@ -20,7 +20,7 @@ javalang==0.13.0
 # Template Rendering
 jinja2==3.1.6
 MarkupSafe==3.0.3
-pathspec==1.0.3
+pathspec==1.1.1
 pathvalidate==3.3.1
 
 # Configuration & Validation
