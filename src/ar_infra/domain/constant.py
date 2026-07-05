@@ -83,10 +83,10 @@ MALICIOUS_PATTERNS: Final[list[re.Pattern[str]]] = [
     re.compile(r"System\.exit\("),
     re.compile(r"Runtime\.getRuntime\(\)"),
     re.compile(r"ProcessBuilder"),
-    re.compile(r"\.\.\/\.\.\/"),
+    re.compile(r"\.\./\.\./"),
     re.compile(r"exec\("),
     re.compile(r"`[^`]+`"),
-    re.compile(r"\$\([^\)]+\)"),
+    re.compile(r"\$\([^)]+\)"),
 ]
 
 DEPENDENCY_PATTERN: Final[re.Pattern[str]] = re.compile(
