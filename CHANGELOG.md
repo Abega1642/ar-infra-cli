@@ -5,9 +5,20 @@ All notable changes to AR-Infra CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-07-10
+
+### Changed
+
+- Feature-to-file mapping (directories, files, env variables, dependencies per `TemplateFeature`) moved from a hardcoded Python dict (`feature_files.py`) into `feature-conf.yml`, loaded through `FeatureConfigSchema` via `YamlFileProcessor`
+- Config load result cached with `functools.cache` to avoid re-parsing YAML on repeated access
+
+### Fixed
+
+- Template file renames (e.g. `RabbitConfig.java` to `RabbitConf.java`) no longer require a Python source change, only a `feature-conf.yml` edit, before a new binary is built and released
+
 ## [0.2.0] - 2026-01-16
 
-### Added
+### Added in v0.2.0
 
 - MySQL database support as an alternative to PostgreSQL
 - Separate database selection workflow with dedicated prompts
@@ -17,14 +28,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Template repository tag-based cloning for version compatibility
 - Enhanced feature selection with distinct database and infrastructure component steps
 
-### Changed
+### Changed in v0.2.0
 
 - Feature selection workflow now separates database choice from other infrastructure components
 - Template cloning now targets specific version tags to maintain backward and forward compatibility
 - OpenAPI documentation (doc/api.yml) now updates dynamically based on selected features
 - Improved project generation flow with clearer separation of concerns
 
-### Fixed
+### Fixed in v0.2.0
 
 - OpenAPI specification files now properly reflect selected infrastructure features
 - Template compatibility issues between CLI versions resolved through tag-based cloning
@@ -114,6 +125,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release notes structure for version tracking
 - API documentation via command-line help system
 
+[0.2.1]: https://github.com/Abega1642/ar-infra-cli/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Abega1642/ar-infra-cli/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/Abega1642/ar-infra-cli/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/Abega1642/ar-infra-cli/compare/v0.1.1...v0.1.2

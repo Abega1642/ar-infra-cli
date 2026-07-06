@@ -4,43 +4,43 @@ antlr4-python3-runtime==4.13.2
 
 # Sec
 bleach==6.3.0
-click==8.3.1
-cryptography==46.0.3
+click==8.3.3
+cryptography==48.0.0
 
 # Git Operations
-gitpython==3.1.46
+gitpython==3.1.50
 
 
 # HTTP Client
 httpx==0.28.1
-
+importlib_resources; python_version < "3.9"
 # Java
 javalang==0.13.0
 
 # Template Rendering
 jinja2==3.1.6
 MarkupSafe==3.0.3
-pathspec==1.0.3
+pathspec==1.1.1
 pathvalidate==3.3.1
 
 # Configuration & Validation
-pydantic==2.12.5
-pydantic-settings==2.12.0
-PyGithub==2.8.1
+pydantic==2.13.4
+pydantic-settings==2.14.0
+PyGithub==2.9.1
 pytest
 python-dateutil==2.9.0.post0
 
 # Utilities
-python-dotenv== 1.2.1
+python-dotenv== 1.2.2
 
-python-dotenv==1.2.1
+python-dotenv==1.2.2
 python-slugify==8.0.4
 pyyaml==6.0.3
 questionary==2.1.1
-requests==2.32.5
+requests==2.33.1
 
 # Terminal UI
-rich==14.2.0
+rich==15.0.0
 
 # File Operations
 toml==0.10.2

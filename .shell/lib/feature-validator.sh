@@ -43,7 +43,7 @@ build_rabbitmq_files() {
   RABBITMQ_FILES=(
     "directory:src/main/java/$p/event"
     "directory:src/main/java/$p/datastructure"
-    "file:src/main/java/$p/config/RabbitConfig.java"
+    "file:src/main/java/$p/config/RabbitConf.java"
     "file:src/main/java/$p/datastructure/ListGrouper.java"
     "file:src/main/java/$p/service/health/HealthEventService.java"
     "file:src/main/java/$p/endpoint/rest/controller/health/HealthEventController.java"
